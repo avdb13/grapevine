@@ -2,6 +2,7 @@ use std::{
     future::Future,
     io,
     net::SocketAddr,
+    process::ExitCode,
     sync::{atomic, RwLock},
     time::Duration,
 };
@@ -37,7 +38,7 @@ use tower_http::{
     trace::TraceLayer,
     ServiceBuilderExt as _,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub(crate) mod api;
@@ -86,30 +87,32 @@ fn version() -> String {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> ExitCode {
+    let Err(e) = try_main().await else {
+        return ExitCode::SUCCESS;
+    };
+
+    eprintln!("error: {e}");
+
+    ExitCode::FAILURE
+}
+
+/// Fallible entrypoint
+async fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     clap::parse();
 
     // Initialize config
     let raw_config = Figment::new()
         .merge(
-            Toml::file(Env::var("GRAPEVINE_CONFIG").expect(
+            Toml::file(Env::var("GRAPEVINE_CONFIG").ok_or(
                 "The GRAPEVINE_CONFIG env var needs to be set. Example: \
                  /etc/grapevine.toml",
-            ))
+            )?)
             .nested(),
         )
         .merge(Env::prefixed("GRAPEVINE_").global());
 
-    let config = match raw_config.extract::<Config>() {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!(
-                "It looks like your config is invalid. The following error \
-                 occurred: {e}"
-            );
-            std::process::exit(1);
-        }
-    };
+    let config = raw_config.extract::<Config>()?;
 
     config.warn_deprecated();
 
@@ -120,51 +123,32 @@ async fn main() {
         let tracer = opentelemetry_jaeger::new_agent_pipeline()
             .with_auto_split_batch(true)
             .with_service_name("grapevine")
-            .install_batch(opentelemetry::runtime::Tokio)
-            .unwrap();
+            .install_batch(opentelemetry::runtime::Tokio)?;
         let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
-        let filter_layer = match EnvFilter::try_new(&config.log) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!(
-                    "It looks like your log config is invalid. The following \
-                     error occurred: {e}"
-                );
-                EnvFilter::try_new("warn").unwrap()
-            }
-        };
+        let filter_layer = EnvFilter::try_new(&config.log)?;
 
         let subscriber = tracing_subscriber::Registry::default()
             .with(filter_layer)
             .with(telemetry);
-        tracing::subscriber::set_global_default(subscriber).unwrap();
+        tracing::subscriber::set_global_default(subscriber)?;
     } else if config.tracing_flame {
         let registry = tracing_subscriber::Registry::default();
         let (flame_layer, _guard) =
-            tracing_flame::FlameLayer::with_file("./tracing.folded").unwrap();
+            tracing_flame::FlameLayer::with_file("./tracing.folded")?;
         let flame_layer = flame_layer.with_empty_samples(false);
 
         let filter_layer = EnvFilter::new("trace,h2=off");
 
         let subscriber = registry.with(filter_layer).with(flame_layer);
-        tracing::subscriber::set_global_default(subscriber).unwrap();
+        tracing::subscriber::set_global_default(subscriber)?;
     } else {
         let registry = tracing_subscriber::Registry::default();
         let fmt_layer = tracing_subscriber::fmt::Layer::new();
-        let filter_layer = match EnvFilter::try_new(&config.log) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!(
-                    "It looks like your config is invalid. The following \
-                     error occured while parsing it: {e}"
-                );
-                EnvFilter::try_new("warn").unwrap()
-            }
-        };
+        let filter_layer = EnvFilter::try_new(&config.log)?;
 
         let subscriber = registry.with(filter_layer).with(fmt_layer);
-        tracing::subscriber::set_global_default(subscriber).unwrap();
+        tracing::subscriber::set_global_default(subscriber)?;
     }
 
     // This is needed for opening lots of file descriptors, which tends to
@@ -179,19 +163,17 @@ async fn main() {
         .expect("should be able to increase the soft limit to the hard limit");
 
     info!("Loading database");
-    if let Err(error) = KeyValueDatabase::load_or_create(config).await {
-        error!(?error, "The database couldn't be loaded or created");
-
-        std::process::exit(1);
-    };
+    KeyValueDatabase::load_or_create(config).await?;
     let config = &services().globals.config;
 
     info!("Starting server");
-    run_server().await.unwrap();
+    run_server().await?;
 
     if config.allow_jaeger {
         opentelemetry::global::shutdown_tracer_provider();
     }
+
+    Ok(())
 }
 
 async fn run_server() -> io::Result<()> {
