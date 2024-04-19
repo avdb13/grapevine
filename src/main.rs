@@ -105,8 +105,9 @@ async fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     let raw_config = Figment::new()
         .merge(
             Toml::file(Env::var("GRAPEVINE_CONFIG").ok_or(
-                "The GRAPEVINE_CONFIG env var needs to be set. Example: \
-                 /etc/grapevine.toml",
+                "the `GRAPEVINE_CONFIG` environment variable must either be \
+                 set to a configuration file path or set to the empty string \
+                 to force configuration through environment variables",
             )?)
             .nested(),
         )
