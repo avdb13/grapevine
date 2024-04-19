@@ -45,6 +45,7 @@ pub(crate) mod api;
 pub(crate) mod clap;
 mod config;
 mod database;
+mod error;
 mod service;
 mod utils;
 
@@ -92,23 +93,30 @@ async fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     };
 
-    eprintln!("error: {e}");
+    eprintln!(
+        "Error: {}",
+        error::DisplayWithSources {
+            error: &e,
+            infix: "\n    Caused by: "
+        }
+    );
 
     ExitCode::FAILURE
 }
 
 /// Fallible entrypoint
-async fn try_main() -> Result<(), Box<dyn std::error::Error>> {
+async fn try_main() -> Result<(), error::Main> {
+    use error::Main as Error;
+
     clap::parse();
 
     // Initialize config
     let raw_config = Figment::new()
         .merge(
-            Toml::file(Env::var("GRAPEVINE_CONFIG").ok_or(
-                "the `GRAPEVINE_CONFIG` environment variable must either be \
-                 set to a configuration file path or set to the empty string \
-                 to force configuration through environment variables",
-            )?)
+            Toml::file({
+                let name = "GRAPEVINE_CONFIG";
+                Env::var(name).ok_or(Error::ConfigPathUnset(name))?
+            })
             .nested(),
         )
         .merge(Env::prefixed("GRAPEVINE_").global());
@@ -164,11 +172,13 @@ async fn try_main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("should be able to increase the soft limit to the hard limit");
 
     info!("Loading database");
-    KeyValueDatabase::load_or_create(config).await?;
+    KeyValueDatabase::load_or_create(config)
+        .await
+        .map_err(Error::DatabaseError)?;
     let config = &services().globals.config;
 
     info!("Starting server");
-    run_server().await?;
+    run_server().await.map_err(Error::Serve)?;
 
     if config.allow_jaeger {
         opentelemetry::global::shutdown_tracer_provider();
