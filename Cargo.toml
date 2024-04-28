@@ -72,11 +72,10 @@ trust-dns-resolver = "0.22.0"
 nix = { version = "0.28", features = ["resource"] }
 
 [features]
-default = ["backend_rocksdb", "backend_sqlite", "systemd"]
+default = ["rocksdb", "sqlite", "systemd"]
 
 # Keep sorted
-backend_rocksdb = ["dep:rocksdb"]
-backend_sqlite = ["sqlite"]
 jemalloc = ["dep:tikv-jemallocator"]
+rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite", "dep:parking_lot", "tokio/signal"]
 systemd = ["dep:sd-notify"]
