@@ -1,4 +1,10 @@
-use std::{future::Future, io, net::SocketAddr, sync::atomic, time::Duration};
+use std::{
+    future::Future,
+    io,
+    net::SocketAddr,
+    sync::{atomic, RwLock},
+    time::Duration,
+};
 
 use axum::{
     extract::{DefaultBodyLimit, FromRequestParts, MatchedPath},
@@ -7,7 +13,6 @@ use axum::{
     Router,
 };
 use axum_server::{bind, bind_rustls, tls_rustls::RustlsConfig, Handle as ServerHandle};
-use conduit::api::{client_server, server_server};
 use figment::{
     providers::{Env, Format, Toml},
     Figment,
@@ -33,7 +38,19 @@ use tower_http::{
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
-pub use conduit::*; // Re-export everything from the library crate
+pub mod api;
+pub mod clap;
+mod config;
+mod database;
+mod service;
+mod utils;
+
+pub use api::ruma_wrapper::{Ruma, RumaResponse};
+use api::{client_server, server_server};
+pub use config::Config;
+pub use database::KeyValueDatabase;
+pub use service::{pdu::PduEvent, Services};
+pub use utils::error::{Error, Result};
 
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 use tikv_jemallocator::Jemalloc;
@@ -41,6 +58,18 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+pub static SERVICES: RwLock<Option<&'static Services>> = RwLock::new(None);
+
+// Not async due to services() being used in many closures, and async closures are not stable as of writing
+// This is the case for every other occurence of sync Mutex/RwLock, except for database related ones, where
+// the current maintainer (Timo) has asked to not modify those
+pub fn services() -> &'static Services {
+    SERVICES
+        .read()
+        .unwrap()
+        .expect("SERVICES should be initialized when this is called")
+}
 
 #[tokio::main]
 async fn main() {
