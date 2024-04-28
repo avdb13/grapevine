@@ -22,67 +22,61 @@ rust-version = "1.75.0"
 [lints]
 workspace = true
 
+# Keep sorted
 [dependencies]
+async-trait = "0.1.68"
 axum = { version = "0.6.18", default-features = false, features = ["form", "headers", "http1", "http2", "json", "matched-path"] }
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
-tower = { version = "0.4.13", features = ["util"] }
-tower-http = { version = "0.4.1", features = ["add-extension", "cors", "sensitive-headers", "trace", "util"] }
-ruma = { git = "https://github.com/ruma/ruma", rev = "5495b85aa311c2805302edb0a7de40399e22b397", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
-tokio = { version = "1.28.1", features = ["fs", "macros", "signal", "sync"] }
-bytes = "1.4.0"
-http = "0.2.9"
-serde_json = { version = "1.0.96", features = ["raw_value"] }
-serde_yaml = "0.9.21"
-serde = { version = "1.0.163", features = ["rc"] }
-rand = "0.8.5"
-rust-argon2 = "1.0.0"
-hyper = "0.14.26"
-reqwest = { version = "0.11.18", default-features = false, features = ["rustls-tls-native-roots", "socks"] }
-thiserror = "1.0.40"
-image = { version = "0.24.6", default-features = false, features = ["jpeg", "png", "gif"] }
 base64 = "0.21.2"
-ring = "0.17.7"
-trust-dns-resolver = "0.22.0"
-regex = "1.8.1"
+bytes = "1.4.0"
+clap = { version = "4.3.0", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "string"] }
+figment = { version = "0.10.8", features = ["env", "toml"] }
+futures-util = { version = "0.3.28", default-features = false }
+hmac = "0.12.1"
+http = "0.2.9"
+hyper = "0.14.26"
+image = { version = "0.24.6", default-features = false, features = ["jpeg", "png", "gif"] }
 jsonwebtoken = "9.2.0"
-tracing = { version = "0.1.37", features = [] }
-tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-tracing-flame = "0.2.0"
+lru-cache = "0.1.2"
+num_cpus = "1.15.0"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio"] }
 opentelemetry-jaeger = { version = "0.17.0", features = ["rt-tokio"] }
-tracing-opentelemetry = "0.18.0"
-lru-cache = "0.1.2"
-rusqlite = { version = "0.29.0", optional = true, features = ["bundled"] }
 parking_lot = { version = "0.12.1", optional = true }
-num_cpus = "1.15.0"
-serde_html_form = "0.2.0"
-thread_local = "1.1.7"
-hmac = "0.12.1"
-sha-1 = "0.10.1"
-clap = { version = "4.3.0", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "string"] }
-futures-util = { version = "0.3.28", default-features = false }
-figment = { version = "0.10.8", features = ["env", "toml"] }
-tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
-async-trait = "0.1.68"
+rand = "0.8.5"
+regex = "1.8.1"
+reqwest = { version = "0.11.18", default-features = false, features = ["rustls-tls-native-roots", "socks"] }
+ring = "0.17.7"
+rocksdb = { package = "rust-rocksdb", version = "0.24.0", features = ["lz4", "multi-threaded-cf", "zstd"], optional = true }
+ruma = { git = "https://github.com/ruma/ruma", rev = "5495b85aa311c2805302edb0a7de40399e22b397", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
+rusqlite = { version = "0.29.0", optional = true, features = ["bundled"] }
+rust-argon2 = "1.0.0"
 sd-notify = { version = "0.4.1", optional = true }
-
-[dependencies.rocksdb]
-package = "rust-rocksdb"
-version = "0.24.0"
-optional = true
-features = [
-    "multi-threaded-cf",
-    "zstd",
-    "lz4",
-]
+serde = { version = "1.0.163", features = ["rc"] }
+serde_html_form = "0.2.0"
+serde_json = { version = "1.0.96", features = ["raw_value"] }
+serde_yaml = "0.9.21"
+sha-1 = "0.10.1"
+thiserror = "1.0.40"
+thread_local = "1.1.7"
+tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
+tokio = { version = "1.28.1", features = ["fs", "macros", "signal", "sync"] }
+tower = { version = "0.4.13", features = ["util"] }
+tower-http = { version = "0.4.1", features = ["add-extension", "cors", "sensitive-headers", "trace", "util"] }
+tracing = { version = "0.1.37", features = [] }
+tracing-flame = "0.2.0"
+tracing-opentelemetry = "0.18.0"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+trust-dns-resolver = "0.22.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.28", features = ["resource"] }
 
 [features]
-default = ["backend_sqlite", "backend_rocksdb", "systemd"]
-backend_sqlite = ["sqlite"]
+default = ["backend_rocksdb", "backend_sqlite", "systemd"]
+
+# Keep sorted
 backend_rocksdb = ["rocksdb"]
+backend_sqlite = ["sqlite"]
 jemalloc = ["tikv-jemallocator"]
 sqlite = ["rusqlite", "parking_lot", "tokio/signal"]
 systemd = ["sd-notify"]
