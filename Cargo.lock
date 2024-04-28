@@ -392,7 +392,6 @@ dependencies = [
  "hyper",
  "image",
  "jsonwebtoken",
- "lazy_static",
  "lru-cache",
  "nix",
  "num_cpus",
@@ -415,8 +414,6 @@ dependencies = [
  "sha-1",
  "thiserror",
  "thread_local",
- "threadpool",
- "tikv-jemalloc-ctl",
  "tikv-jemallocator",
  "tokio",
  "tower",
@@ -1580,12 +1577,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
-
-[[package]]
 name = "pear"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2606,17 +2597,6 @@ dependencies = [
  "log",
  "ordered-float",
  "threadpool",
-]
-
-[[package]]
-name = "tikv-jemalloc-ctl"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "619bfed27d807b54f7f776b9430d4f8060e66ee138a28632ca898584d462c31c"
-dependencies = [
- "libc",
- "paste",
- "tikv-jemalloc-sys",
 ]
 
 [[package]]
