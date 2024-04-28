@@ -75,8 +75,8 @@ nix = { version = "0.28", features = ["resource"] }
 default = ["backend_rocksdb", "backend_sqlite", "systemd"]
 
 # Keep sorted
-backend_rocksdb = ["rocksdb"]
+backend_rocksdb = ["dep:rocksdb"]
 backend_sqlite = ["sqlite"]
-jemalloc = ["tikv-jemallocator"]
-sqlite = ["rusqlite", "parking_lot", "tokio/signal"]
-systemd = ["sd-notify"]
+jemalloc = ["dep:tikv-jemallocator"]
+sqlite = ["dep:rusqlite", "dep:parking_lot", "tokio/signal"]
+systemd = ["dep:sd-notify"]
