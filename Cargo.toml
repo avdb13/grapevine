@@ -13,68 +13,38 @@ str_to_string = "warn"
 name = "conduit"
 description = "A Matrix homeserver written in Rust"
 license = "Apache-2.0"
-authors = ["timokoesters <timo@koesters.xyz>"]
-homepage = "https://conduit.rs"
-repository = "https://gitlab.com/famedly/conduit"
-readme = "README.md"
 version = "0.7.0"
 edition = "2021"
 
 # See also `rust-toolchain.toml`
 rust-version = "1.75.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lints]
 workspace = true
 
 [dependencies]
-# Web framework
 axum = { version = "0.6.18", default-features = false, features = ["form", "headers", "http1", "http2", "json", "matched-path"] }
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
 tower = { version = "0.4.13", features = ["util"] }
 tower-http = { version = "0.4.1", features = ["add-extension", "cors", "sensitive-headers", "trace", "util"] }
-
-# Used for matrix spec type definitions and helpers
-#ruma = { version = "0.4.0", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-pre-spec", "unstable-exhaustive-types"] }
 ruma = { git = "https://github.com/ruma/ruma", rev = "5495b85aa311c2805302edb0a7de40399e22b397", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
-#ruma = { git = "https://github.com/timokoesters/ruma", rev = "4ec9c69bb7e09391add2382b3ebac97b6e8f4c64", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
-#ruma = { path = "../ruma/crates/ruma", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
-
-# Async runtime and utilities
 tokio = { version = "1.28.1", features = ["fs", "macros", "signal", "sync"] }
-
-# Used for the http request / response body type for Ruma endpoints used with reqwest
 bytes = "1.4.0"
 http = "0.2.9"
-# Used for ruma wrapper
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-# Used for appservice registration files
 serde_yaml = "0.9.21"
-# Used for pdu definition
 serde = { version = "1.0.163", features = ["rc"] }
-# Used for secure identifiers
 rand = "0.8.5"
-# Used to hash passwords
 rust-argon2 = "1.0.0"
-# Used to send requests
 hyper = "0.14.26"
 reqwest = { version = "0.11.18", default-features = false, features = ["rustls-tls-native-roots", "socks"] }
-# Used for conduit::Error type
 thiserror = "1.0.40"
-# Used to generate thumbnails for images
 image = { version = "0.24.6", default-features = false, features = ["jpeg", "png", "gif"] }
-# Used to encode server public key
 base64 = "0.21.2"
-# Used when hashing the state
 ring = "0.17.7"
-# Used when querying the SRV record of other servers
 trust-dns-resolver = "0.22.0"
-# Used to find matching events for appservices
 regex = "1.8.1"
-# jwt jsonwebtokens
 jsonwebtoken = "9.2.0"
-# Performance measurements
 tracing = { version = "0.1.37", features = [] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tracing-flame = "0.2.0"
@@ -84,24 +54,16 @@ tracing-opentelemetry = "0.18.0"
 lru-cache = "0.1.2"
 rusqlite = { version = "0.29.0", optional = true, features = ["bundled"] }
 parking_lot = { version = "0.12.1", optional = true }
-# crossbeam = { version = "0.8.2", optional = true }
 num_cpus = "1.15.0"
-# Used for ruma wrapper
 serde_html_form = "0.2.0"
-
 thread_local = "1.1.7"
-# used for TURN server authentication
 hmac = "0.12.1"
 sha-1 = "0.10.1"
-# used for conduit's CLI and admin room command parsing
 clap = { version = "4.3.0", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "string"] }
 futures-util = { version = "0.3.28", default-features = false }
-# Used for reading the configuration from conduit.toml & environment variables
 figment = { version = "0.10.8", features = ["env", "toml"] }
-
 tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
 async-trait = "0.1.68"
-
 sd-notify = { version = "0.4.1", optional = true }
 
 [dependencies.rocksdb]
@@ -124,42 +86,3 @@ backend_rocksdb = ["rocksdb"]
 jemalloc = ["tikv-jemallocator"]
 sqlite = ["rusqlite", "parking_lot", "tokio/signal"]
 systemd = ["sd-notify"]
-
-[package.metadata.deb]
-name = "matrix-conduit"
-maintainer = "Paul van Tilburg <paul@luon.net>"
-copyright = "2020, Timo Kösters <timo@koesters.xyz>"
-license-file = ["LICENSE", "3"]
-depends = "$auto, ca-certificates"
-extended-description = """\
-A fast Matrix homeserver that is optimized for smaller, personal servers, \
-instead of a server that has high scalability."""
-section = "net"
-priority = "optional"
-assets = [
-  ["debian/README.md", "usr/share/doc/matrix-conduit/README.Debian", "644"],
-  ["README.md", "usr/share/doc/matrix-conduit/", "644"],
-  ["target/release/conduit", "usr/sbin/matrix-conduit", "755"],
-]
-conf-files = [
-  "/etc/matrix-conduit/conduit.toml"
-]
-maintainer-scripts = "debian/"
-systemd-units = { unit-name = "matrix-conduit" }
-
-[profile.dev]
-lto = 'off'
-incremental = true
-
-[profile.release]
-lto = 'thin'
-incremental = true
-codegen-units=32
-# If you want to make flamegraphs, enable debug info:
-# debug = true
-
-# For releases also try to max optimizations for dependencies:
-[profile.release.build-override]
-opt-level = 3
-[profile.release.package."*"]
-opt-level = 3

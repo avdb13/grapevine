@@ -203,35 +203,6 @@
       packages = {
         default = package pkgsHost;
         oci-image = mkOciImage pkgsHost self.packages.${system}.default;
-
-        book =
-        let
-          package = self.packages.${system}.default;
-        in
-        pkgsHost.stdenv.mkDerivation {
-          pname = "${package.pname}-book";
-          version = package.version;
-
-          src = nix-filter {
-            root = ./.;
-            include = [
-              "book.toml"
-              "conduit-example.toml"
-              "README.md"
-              "debian/README.md"
-              "docs"
-            ];
-          };
-
-          nativeBuildInputs = (with pkgsHost; [
-            mdbook
-          ]);
-
-          buildPhase = ''
-            mdbook build
-            mv public $out
-          '';
-        };
       }
       //
       builtins.listToAttrs
@@ -290,22 +261,6 @@
           toolchain
         ] ++ (with pkgsHost; [
           engage
-
-          # Needed for producing Debian packages
-          cargo-deb
-
-          # Needed for Complement
-          go
-          olm
-
-          # Needed for our script for Complement
-          jq
-
-          # Needed for finding broken markdown links
-          lychee
-
-          # Useful for editing the book locally
-          mdbook
         ]);
       };
     });

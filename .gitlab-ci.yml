@@ -1,31 +1,17 @@
 stages:
   - ci
   - artifacts
-  - publish
 
 variables:
   # Makes some things print in color
   TERM: ansi
-
-# Avoid duplicate pipelines
-# See: https://docs.gitlab.com/ee/ci/yaml/workflow.html#switch-between-branch-pipelines-and-merge-request-pipelines
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
-      when: never
-    - if: $CI
 
 before_script:
   # Enable nix-command and flakes
   - if command -v nix > /dev/null; then echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf; fi
 
   # Add our own binary cache
-  - if command -v nix > /dev/null; then echo "extra-substituters = https://nix.computer.surgery/conduit" >> /etc/nix/nix.conf; fi
-  - if command -v nix > /dev/null; then echo "extra-trusted-public-keys = conduit:ZGAf6P6LhNvnoJJ3Me3PRg7tlLSrPxcQ2RiE5LIppjo=" >> /etc/nix/nix.conf; fi
-
-  # Add alternate binary cache
-  - if command -v nix > /dev/null && [ -n "$ATTIC_ENDPOINT" ]; then echo "extra-substituters = $ATTIC_ENDPOINT" >> /etc/nix/nix.conf; fi
+  - if command -v nix > /dev/null && [ -n "$ATTIC_ENDPOINT" ] && [ -n "$ATTIC_CACHE" ]; then echo "extra-substituters = $ATTIC_ENDPOINT/$ATTIC_CACHE" >> /etc/nix/nix.conf; fi
   - if command -v nix > /dev/null && [ -n "$ATTIC_PUBLIC_KEY" ]; then echo "extra-trusted-public-keys = $ATTIC_PUBLIC_KEY" >> /etc/nix/nix.conf; fi
 
   # Add crane binary cache
@@ -54,21 +40,9 @@ ci:
 
     - direnv exec . engage
   cache:
-    key: nix
     paths:
       - target
       - .gitlab-ci.d
-  rules:
-    # CI on upstream runners (only available for maintainers)
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $IS_UPSTREAM_CI == "true"
-    # Manual CI on unprotected branches that are not MRs
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event" && $CI_COMMIT_REF_PROTECTED == "false"
-      when: manual
-    # Manual CI on forks
-    - if: $IS_UPSTREAM_CI != "true"
-      when: manual
-    - if: $CI
-  interruptible: true
 
 artifacts:
   stage: artifacts
@@ -76,11 +50,6 @@ artifacts:
   script:
     - ./bin/nix-build-and-cache .#static-x86_64-unknown-linux-musl
     - cp result/bin/conduit x86_64-unknown-linux-musl
-
-    - mkdir -p target/release
-    - cp result/bin/conduit target/release
-    - direnv exec . cargo deb --no-build
-    - mv target/debian/*.deb x86_64-unknown-linux-musl.deb
 
     # Since the OCI image package is based on the binary package, this has the
     # fun side effect of uploading the normal binary too. Conduit users who are
@@ -98,10 +67,6 @@ artifacts:
 
     - ./bin/nix-build-and-cache .#oci-image-aarch64-unknown-linux-musl
     - cp result oci-image-arm64v8.tar.gz
-
-    - ./bin/nix-build-and-cache .#book
-    # We can't just copy the symlink, we need to dereference it https://gitlab.com/gitlab-org/gitlab/-/issues/19746
-    - cp -r --dereference result public
   artifacts:
     paths:
       - x86_64-unknown-linux-musl
@@ -109,76 +74,3 @@ artifacts:
       - x86_64-unknown-linux-musl.deb
       - oci-image-amd64.tar.gz
       - oci-image-arm64v8.tar.gz
-      - public
-  rules:
-    # CI required for all MRs
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # Optional CI on forks
-    - if: $IS_UPSTREAM_CI != "true"
-      when: manual
-      allow_failure: true
-    - if: $CI
-  interruptible: true
-
-.push-oci-image:
-  stage: publish
-  image: docker:25.0.0
-  services:
-    - docker:25.0.0-dind
-  variables:
-    IMAGE_SUFFIX_AMD64: amd64
-    IMAGE_SUFFIX_ARM64V8: arm64v8
-  script:
-    - docker load -i oci-image-amd64.tar.gz
-    - IMAGE_ID_AMD64=$(docker images -q conduit:next)
-    - docker load -i oci-image-arm64v8.tar.gz
-    - IMAGE_ID_ARM64V8=$(docker images -q conduit:next)
-    # Tag and push the architecture specific images
-    - docker tag $IMAGE_ID_AMD64 $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_AMD64
-    - docker tag $IMAGE_ID_ARM64V8 $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_ARM64V8
-    - docker push $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_AMD64
-    - docker push $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_ARM64V8
-    # Tag the multi-arch image
-    - docker manifest create $IMAGE_NAME:$CI_COMMIT_SHA --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_AMD64 --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_ARM64V8
-    - docker manifest push $IMAGE_NAME:$CI_COMMIT_SHA
-    # Tag and push the git ref
-    - docker manifest create $IMAGE_NAME:$CI_COMMIT_REF_NAME --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_AMD64 --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_ARM64V8
-    - docker manifest push $IMAGE_NAME:$CI_COMMIT_REF_NAME
-    # Tag git tags as 'latest'
-    - |
-      if [[ -n "$CI_COMMIT_TAG" ]]; then
-        docker manifest create $IMAGE_NAME:latest --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_AMD64 --amend $IMAGE_NAME:$CI_COMMIT_SHA-$IMAGE_SUFFIX_ARM64V8
-        docker manifest push $IMAGE_NAME:latest
-      fi
-  dependencies:
-    - artifacts
-  only:
-    - next
-    - master
-    - tags
-
-oci-image:push-gitlab:
-  extends: .push-oci-image
-  variables:
-    IMAGE_NAME: $CI_REGISTRY_IMAGE/matrix-conduit
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-
-oci-image:push-dockerhub:
-  extends: .push-oci-image
-  variables:
-    IMAGE_NAME: matrixconduit/matrix-conduit
-  before_script:
-    - docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD
-
-pages:
-  stage: publish
-  dependencies:
-    - artifacts
-  only:
-    - next
-  script:
-    - "true"
-  artifacts:
-    paths:
-      - public
