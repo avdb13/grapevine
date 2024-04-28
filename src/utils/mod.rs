@@ -18,6 +18,7 @@ pub fn millis_since_unix_epoch() -> u64 {
         .as_millis() as u64
 }
 
+#[cfg(any(feature = "rocksdb", feature = "sqlite"))]
 pub fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
     let number = match old.map(|bytes| bytes.try_into()) {
         Some(Ok(bytes)) => {

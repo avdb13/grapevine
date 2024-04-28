@@ -210,6 +210,10 @@ impl KeyValueDatabase {
     }
 
     /// Load an existing database or create a new one.
+    #[cfg_attr(
+        not(any(feature = "rocksdb", feature = "sqlite")),
+        allow(unreachable_code)
+    )]
     pub async fn load_or_create(config: Config) -> Result<()> {
         Self::check_db_setup(&config)?;
 
@@ -218,19 +222,15 @@ impl KeyValueDatabase {
                 .map_err(|_| Error::BadConfig("Database folder doesn't exists and couldn't be created (e.g. due to missing permissions). Please create the database folder yourself."))?;
         }
 
+        #[cfg_attr(
+            not(any(feature = "rocksdb", feature = "sqlite")),
+            allow(unused_variables)
+        )]
         let builder: Arc<dyn KeyValueDatabaseEngine> = match &*config.database_backend {
-            "sqlite" => {
-                #[cfg(not(feature = "sqlite"))]
-                return Err(Error::BadConfig("Database backend not found."));
-                #[cfg(feature = "sqlite")]
-                Arc::new(Arc::<abstraction::sqlite::Engine>::open(&config)?)
-            }
-            "rocksdb" => {
-                #[cfg(not(feature = "rocksdb"))]
-                return Err(Error::BadConfig("Database backend not found."));
-                #[cfg(feature = "rocksdb")]
-                Arc::new(Arc::<abstraction::rocksdb::Engine>::open(&config)?)
-            }
+            #[cfg(feature = "sqlite")]
+            "sqlite" => Arc::new(Arc::<abstraction::sqlite::Engine>::open(&config)?),
+            #[cfg(feature = "rocksdb")]
+            "rocksdb" => Arc::new(Arc::<abstraction::rocksdb::Engine>::open(&config)?),
             _ => {
                 return Err(Error::BadConfig("Database backend not found."));
             }
