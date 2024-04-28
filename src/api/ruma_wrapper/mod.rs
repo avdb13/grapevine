@@ -5,7 +5,6 @@ use ruma::{
 };
 use std::ops::Deref;
 
-#[cfg(feature = "conduit_bin")]
 mod axum;
 
 /// Extractor for Ruma request structs

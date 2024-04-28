@@ -64,10 +64,8 @@ pub enum Error {
     BadRequest(ErrorKind, &'static str),
     #[error("{0}")]
     Conflict(&'static str), // This is only needed for when a room alias already exists
-    #[cfg(feature = "conduit_bin")]
     #[error("{0}")]
     ExtensionError(#[from] axum::extract::rejection::ExtensionRejection),
-    #[cfg(feature = "conduit_bin")]
     #[error("{0}")]
     PathError(#[from] axum::extract::rejection::PathRejection),
     #[error("{0}")]
@@ -160,7 +158,6 @@ impl From<Infallible> for Error {
     }
 }
 
-#[cfg(feature = "conduit_bin")]
 impl axum::response::IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         self.to_response().into_response()
