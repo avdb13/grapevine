@@ -40,7 +40,7 @@ use super::pdu::PduBuilder;
 
 #[cfg_attr(test, derive(Debug))]
 #[derive(Parser)]
-#[command(name = "@conduit:server.name:", version = env!("CARGO_PKG_VERSION"))]
+#[command(name = "@grapevine:server.name:", version = env!("CARGO_PKG_VERSION"))]
 enum AdminCommand {
     #[command(verbatim_doc_comment)]
     /// Register an appservice using its registration YAML
@@ -128,7 +128,7 @@ enum AdminCommand {
     /// # ```
     ParsePdu,
 
-    /// Retrieve and print a PDU by ID from the Conduit database
+    /// Retrieve and print a PDU by ID from the Grapevine database
     GetPdu {
         /// An event ID (a $ followed by the base64 reference hash)
         event_id: Box<EventId>,
@@ -137,10 +137,10 @@ enum AdminCommand {
     /// Print database memory usage statistics
     MemoryUsage,
 
-    /// Clears all of Conduit's database caches with index smaller than the amount
+    /// Clears all of Grapevine's database caches with index smaller than the amount
     ClearDatabaseCaches { amount: u32 },
 
-    /// Clears all of Conduit's service caches with index smaller than the amount
+    /// Clears all of Grapevine's service caches with index smaller than the amount
     ClearServiceCaches { amount: u32 },
 
     /// Show configuration values
@@ -212,10 +212,11 @@ impl Service {
         // TODO: Use futures when we have long admin commands
         //let mut futures = FuturesUnordered::new();
 
-        let conduit_user = UserId::parse(format!("@conduit:{}", services().globals.server_name()))
-            .expect("@conduit:server_name is valid");
+        let grapevine_user =
+            UserId::parse(format!("@grapevine:{}", services().globals.server_name()))
+                .expect("@grapevine:server_name is valid");
 
-        if let Ok(Some(conduit_room)) = services().admin.get_admin_room() {
+        if let Ok(Some(grapevine_room)) = services().admin.get_admin_room() {
             loop {
                 tokio::select! {
                     Some(event) = receiver.recv() => {
@@ -229,7 +230,7 @@ impl Service {
                                 .roomid_mutex_state
                                 .write()
                                 .await
-                                .entry(conduit_room.to_owned())
+                                .entry(grapevine_room.to_owned())
                                 .or_default(),
                         );
 
@@ -247,8 +248,8 @@ impl Service {
                                     state_key: None,
                                     redacts: None,
                                 },
-                                &conduit_user,
-                                &conduit_room,
+                                &grapevine_user,
+                                &grapevine_room,
                                 &state_lock,
                             )
                             .await.unwrap();
@@ -306,7 +307,7 @@ impl Service {
 
     // Parse chat messages from the admin room into an AdminCommand object
     fn parse_admin_command(&self, command_line: &str) -> std::result::Result<AdminCommand, String> {
-        // Note: argv[0] is `@conduit:servername:`, which is treated as the main command
+        // Note: argv[0] is `@grapevine:servername:`, which is treated as the main command
         let mut argv: Vec<_> = command_line.split_whitespace().collect();
 
         // Replace `help command` with `command --help`
@@ -566,10 +567,10 @@ impl Service {
                 if !services().users.exists(&user_id)?
                     || user_id
                         == UserId::parse_with_server_name(
-                            "conduit",
+                            "grapevine",
                             services().globals.server_name(),
                         )
-                        .expect("conduit user exists")
+                        .expect("grapevine user exists")
                 {
                     return Ok(RoomMessageEventContent::text_plain(
                         "The specified user does not exist!",
@@ -854,13 +855,13 @@ impl Service {
 
     // Utility to turn clap's `--help` text to HTML.
     fn usage_to_html(&self, text: &str, server_name: &ServerName) -> String {
-        // Replace `@conduit:servername:-subcmdname` with `@conduit:servername: subcmdname`
+        // Replace `@grapevine:servername:-subcmdname` with `@grapevine:servername: subcmdname`
         let text = text.replace(
-            &format!("@conduit:{server_name}:-"),
-            &format!("@conduit:{server_name}: "),
+            &format!("@grapevine:{server_name}:-"),
+            &format!("@grapevine:{server_name}: "),
         );
 
-        // For the conduit admin room, subcommands become main commands
+        // For the grapevine admin room, subcommands become main commands
         let text = text.replace("SUBCOMMAND", "COMMAND");
         let text = text.replace("subcommand", "command");
 
@@ -914,7 +915,7 @@ impl Service {
         // Improve the usage section
         let text = if command_body.is_empty() {
             // Wrap the usage line in code tags
-            let re = Regex::new("(?m)^USAGE:\n    (@conduit:.*)$")
+            let re = Regex::new("(?m)^USAGE:\n    (@grapevine:.*)$")
                 .expect("Regex compilation should not fail");
             re.replace_all(&text, "USAGE:\n<code>$1</code>").to_string()
         } else {
@@ -935,7 +936,7 @@ impl Service {
 
     /// Create the admin room.
     ///
-    /// Users in this room are considered admins by conduit, and the room can be
+    /// Users in this room are considered admins by grapevine, and the room can be
     /// used to issue admin commands by talking to the server user inside it.
     pub(crate) async fn create_admin_room(&self) -> Result<()> {
         let room_id = RoomId::new(services().globals.server_name());
@@ -954,11 +955,11 @@ impl Service {
         let state_lock = mutex_state.lock().await;
 
         // Create a user for the server
-        let conduit_user =
-            UserId::parse_with_server_name("conduit", services().globals.server_name())
-                .expect("@conduit:server_name is valid");
+        let grapevine_user =
+            UserId::parse_with_server_name("grapevine", services().globals.server_name())
+                .expect("@grapevine:server_name is valid");
 
-        services().users.create(&conduit_user, None)?;
+        services().users.create(&grapevine_user, None)?;
 
         let room_version = services().globals.default_room_version();
         let mut content = match room_version {
@@ -971,7 +972,7 @@ impl Service {
             | RoomVersionId::V7
             | RoomVersionId::V8
             | RoomVersionId::V9
-            | RoomVersionId::V10 => RoomCreateEventContent::new_v1(conduit_user.clone()),
+            | RoomVersionId::V10 => RoomCreateEventContent::new_v1(grapevine_user.clone()),
             RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
             _ => unreachable!("Validity of room version already checked"),
         };
@@ -991,13 +992,13 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
             .await?;
 
-        // 2. Make conduit bot join
+        // 2. Make grapevine bot join
         services()
             .rooms
             .timeline
@@ -1016,10 +1017,10 @@ impl Service {
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some(conduit_user.to_string()),
+                    state_key: Some(grapevine_user.to_string()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1027,7 +1028,7 @@ impl Service {
 
         // 3. Power levels
         let mut users = BTreeMap::new();
-        users.insert(conduit_user.clone(), 100.into());
+        users.insert(grapevine_user.clone(), 100.into());
 
         services()
             .rooms
@@ -1044,7 +1045,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1063,7 +1064,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1084,7 +1085,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1105,7 +1106,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1125,7 +1126,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1145,7 +1146,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1171,7 +1172,7 @@ impl Service {
                     state_key: Some("".to_owned()),
                     redacts: None,
                 },
-                &conduit_user,
+                &grapevine_user,
                 &room_id,
                 &state_lock,
             )
@@ -1197,9 +1198,9 @@ impl Service {
             .resolve_local_alias(&admin_room_alias)
     }
 
-    /// Invite the user to the conduit admin room.
+    /// Invite the user to the grapevine admin room.
     ///
-    /// In conduit, this is equivalent to granting admin privileges.
+    /// In grapevine, this is equivalent to granting admin privileges.
     pub(crate) async fn make_user_admin(
         &self,
         user_id: &UserId,
@@ -1218,9 +1219,9 @@ impl Service {
             let state_lock = mutex_state.lock().await;
 
             // Use the server user to grant the new admin's power level
-            let conduit_user =
-                UserId::parse_with_server_name("conduit", services().globals.server_name())
-                    .expect("@conduit:server_name is valid");
+            let grapevine_user =
+                UserId::parse_with_server_name("grapevine", services().globals.server_name())
+                    .expect("@grapevine:server_name is valid");
 
             // Invite and join the real user
             services()
@@ -1244,7 +1245,7 @@ impl Service {
                         state_key: Some(user_id.to_string()),
                         redacts: None,
                     },
-                    &conduit_user,
+                    &grapevine_user,
                     &room_id,
                     &state_lock,
                 )
@@ -1278,7 +1279,7 @@ impl Service {
 
             // Set power level
             let mut users = BTreeMap::new();
-            users.insert(conduit_user.to_owned(), 100.into());
+            users.insert(grapevine_user.to_owned(), 100.into());
             users.insert(user_id.to_owned(), 100.into());
 
             services()
@@ -1296,7 +1297,7 @@ impl Service {
                         state_key: Some("".to_owned()),
                         redacts: None,
                     },
-                    &conduit_user,
+                    &grapevine_user,
                     &room_id,
                     &state_lock,
                 )

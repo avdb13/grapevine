@@ -76,15 +76,14 @@ async fn main() {
     clap::parse();
 
     // Initialize config
-    let raw_config =
-        Figment::new()
-            .merge(
-                Toml::file(Env::var("CONDUIT_CONFIG").expect(
-                    "The CONDUIT_CONFIG env var needs to be set. Example: /etc/conduit.toml",
-                ))
-                .nested(),
-            )
-            .merge(Env::prefixed("CONDUIT_").global());
+    let raw_config = Figment::new()
+        .merge(
+            Toml::file(Env::var("GRAPEVINE_CONFIG").expect(
+                "The GRAPEVINE_CONFIG env var needs to be set. Example: /etc/grapevine.toml",
+            ))
+            .nested(),
+        )
+        .merge(Env::prefixed("GRAPEVINE_").global());
 
     let config = match raw_config.extract::<Config>() {
         Ok(s) => s,
@@ -100,7 +99,7 @@ async fn main() {
         opentelemetry::global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
         let tracer = opentelemetry_jaeger::new_agent_pipeline()
             .with_auto_split_batch(true)
-            .with_service_name("conduit")
+            .with_service_name("grapevine")
             .install_batch(opentelemetry::runtime::Tokio)
             .unwrap();
         let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
@@ -515,7 +514,7 @@ async fn initial_sync(_uri: Uri) -> impl IntoResponse {
 }
 
 async fn it_works() -> &'static str {
-    "Hello from Conduit!"
+    "Hello from Grapevine!"
 }
 
 trait RouterExt {

@@ -49,11 +49,11 @@ artifacts:
   image: nixos/nix:2.20.4
   script:
     - ./bin/nix-build-and-cache .#static-x86_64-unknown-linux-musl
-    - cp result/bin/conduit x86_64-unknown-linux-musl
+    - cp result/bin/grapevine x86_64-unknown-linux-musl
 
     # Since the OCI image package is based on the binary package, this has the
-    # fun side effect of uploading the normal binary too. Conduit users who are
     # deploying with Nix can leverage this fact by adding our binary cache to
+    # fun side effect of uploading the normal binary too. Grapevine users who are
     # their systems.
     #
     # Note that although we have an `oci-image-x86_64-unknown-linux-musl`
@@ -63,7 +63,7 @@ artifacts:
     - cp result oci-image-amd64.tar.gz
 
     - ./bin/nix-build-and-cache .#static-aarch64-unknown-linux-musl
-    - cp result/bin/conduit aarch64-unknown-linux-musl
+    - cp result/bin/grapevine aarch64-unknown-linux-musl
 
     - ./bin/nix-build-and-cache .#oci-image-aarch64-unknown-linux-musl
     - cp result oci-image-arm64v8.tar.gz

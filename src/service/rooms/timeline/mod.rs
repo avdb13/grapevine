@@ -98,7 +98,7 @@ pub struct Service {
 impl Service {
     #[tracing::instrument(skip(self))]
     pub fn first_pdu_in_room(&self, room_id: &RoomId) -> Result<Option<Arc<PduEvent>>> {
-        self.all_pdus(user_id!("@doesntmatter:conduit.rs"), room_id)?
+        self.all_pdus(user_id!("@doesntmatter:grapevine"), room_id)?
             .next()
             .map(|o| o.map(|(_, p)| Arc::new(p)))
             .transpose()
@@ -485,20 +485,20 @@ impl Service {
                         .search
                         .index_pdu(shortroomid, &pdu_id, &body)?;
 
-                    let server_user = format!("@conduit:{}", services().globals.server_name());
+                    let server_user = format!("@grapevine:{}", services().globals.server_name());
 
-                    let to_conduit = body.starts_with(&format!("{server_user}: "))
+                    let to_grapevine = body.starts_with(&format!("{server_user}: "))
                         || body.starts_with(&format!("{server_user} "))
                         || body == format!("{server_user}:")
                         || body == server_user;
 
                     // This will evaluate to false if the emergency password is set up so that
-                    // the administrator can execute commands as conduit
-                    let from_conduit = pdu.sender == server_user
+                    // the administrator can execute commands as grapevine
+                    let from_grapevine = pdu.sender == server_user
                         && services().globals.emergency_password().is_none();
 
                     if let Some(admin_room) = services().admin.get_admin_room()? {
-                        if to_conduit && !from_conduit && admin_room == pdu.room_id {
+                        if to_grapevine && !from_grapevine && admin_room == pdu.room_id {
                             services().admin.process_message(body);
                         }
                     }
@@ -838,16 +838,16 @@ impl Service {
                             .filter(|v| v.starts_with('@'))
                             .unwrap_or(sender.as_str());
                         let server_name = services().globals.server_name();
-                        let server_user = format!("@conduit:{}", server_name);
+                        let server_user = format!("@grapevine:{}", server_name);
                         let content = serde_json::from_str::<ExtractMembership>(pdu.content.get())
                             .map_err(|_| Error::bad_database("Invalid content in pdu."))?;
 
                         if content.membership == MembershipState::Leave {
                             if target == server_user {
-                                warn!("Conduit user cannot leave from admins room");
+                                warn!("Grapevine user cannot leave from admins room");
                                 return Err(Error::BadRequest(
                                     ErrorKind::Forbidden,
-                                    "Conduit user cannot leave from admins room.",
+                                    "Grapevine user cannot leave from admins room.",
                                 ));
                             }
 
@@ -870,10 +870,10 @@ impl Service {
 
                         if content.membership == MembershipState::Ban && pdu.state_key().is_some() {
                             if target == server_user {
-                                warn!("Conduit user cannot be banned in admins room");
+                                warn!("Grapevine user cannot be banned in admins room");
                                 return Err(Error::BadRequest(
                                     ErrorKind::Forbidden,
-                                    "Conduit user cannot be banned in admins room.",
+                                    "Grapevine user cannot be banned in admins room.",
                                 ));
                             }
 
@@ -1102,7 +1102,7 @@ impl Service {
     #[tracing::instrument(skip(self, room_id))]
     pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Result<()> {
         let first_pdu = self
-            .all_pdus(user_id!("@doesntmatter:conduit.rs"), room_id)?
+            .all_pdus(user_id!("@doesntmatter:grapevine"), room_id)?
             .next()
             .expect("Room is not empty")?;
 

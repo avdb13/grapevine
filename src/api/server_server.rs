@@ -66,7 +66,7 @@ use tracing::{debug, error, warn};
 ///
 /// # Examples:
 /// ```rust
-/// # use conduit::api::server_server::FedDest;
+/// # use grapevine::api::server_server::FedDest;
 /// # fn main() -> Result<(), std::net::AddrParseError> {
 /// FedDest::Literal("198.51.100.3:8448".parse()?);
 /// FedDest::Literal("[2001:db8::4:5]:443".parse()?);
@@ -529,7 +529,7 @@ pub async fn get_server_version_route(
 ) -> Result<get_server_version::v1::Response> {
     Ok(get_server_version::v1::Response {
         server: Some(get_server_version::v1::Server {
-            name: Some("Conduit".to_owned()),
+            name: Some(env!("CARGO_PKG_NAME").to_owned()),
             version: Some(env!("CARGO_PKG_VERSION").to_owned()),
         }),
     })
@@ -1042,7 +1042,7 @@ pub async fn get_backfill_route(
     let all_events = services()
         .rooms
         .timeline
-        .pdus_until(user_id!("@doesntmatter:conduit.rs"), &body.room_id, until)?
+        .pdus_until(user_id!("@doesntmatter:grapevine"), &body.room_id, until)?
         .take(limit.try_into().unwrap());
 
     let events = all_events
@@ -1379,7 +1379,7 @@ pub async fn create_join_event_template_route(
     );
     let state_lock = mutex_state.lock().await;
 
-    // TODO: Conduit does not implement restricted join rules yet, we always reject
+    // TODO: Grapevine does not implement restricted join rules yet, we always reject
     let join_rules_event = services().rooms.state_accessor.room_state_get(
         &body.room_id,
         &StateEventType::RoomJoinRules,
@@ -1403,7 +1403,7 @@ pub async fn create_join_event_template_route(
         ) {
             return Err(Error::BadRequest(
                 ErrorKind::UnableToAuthorizeJoin,
-                "Conduit does not support restricted rooms yet.",
+                "Grapevine does not support restricted rooms yet.",
             ));
         }
     }
@@ -1470,7 +1470,7 @@ async fn create_join_event(
         .event_handler
         .acl_check(sender_servername, room_id)?;
 
-    // TODO: Conduit does not implement restricted join rules yet, we always reject
+    // TODO: Grapevine does not implement restricted join rules yet, we always reject
     let join_rules_event = services().rooms.state_accessor.room_state_get(
         room_id,
         &StateEventType::RoomJoinRules,
@@ -1494,7 +1494,7 @@ async fn create_join_event(
         ) {
             return Err(Error::BadRequest(
                 ErrorKind::UnableToAuthorizeJoin,
-                "Conduit does not support restricted rooms yet.",
+                "Grapevine does not support restricted rooms yet.",
             ));
         }
     }

@@ -176,7 +176,7 @@ impl KeyValueDatabase {
     fn check_db_setup(config: &Config) -> Result<()> {
         let path = Path::new(&config.database_path);
 
-        let sqlite_exists = path.join("conduit.db").exists();
+        let sqlite_exists = path.join("grapevine.db").exists();
         let rocksdb_exists = path.join("IDENTITY").exists();
 
         let mut count = 0;
@@ -375,14 +375,14 @@ impl KeyValueDatabase {
         // Matrix resource ownership is based on the server name; changing it
         // requires recreating the database from scratch.
         if services().users.count()? > 0 {
-            let conduit_user =
-                UserId::parse_with_server_name("conduit", services().globals.server_name())
-                    .expect("@conduit:server_name is valid");
+            let grapevine_user =
+                UserId::parse_with_server_name("grapevine", services().globals.server_name())
+                    .expect("@grapevine:server_name is valid");
 
-            if !services().users.exists(&conduit_user)? {
+            if !services().users.exists(&grapevine_user)? {
                 error!(
                     "The {} server user does not exist, and the database is not new.",
-                    conduit_user
+                    grapevine_user
                 );
                 return Err(Error::bad_database(
                     "Cannot reuse an existing database after changing the server name, please delete the old one first."
@@ -935,17 +935,17 @@ impl KeyValueDatabase {
 
         services().admin.start_handler();
 
-        // Set emergency access for the conduit user
+        // Set emergency access for the grapevine user
         match set_emergency_access() {
             Ok(pwd_set) => {
                 if pwd_set {
-                    warn!("The Conduit account emergency password is set! Please unset it as soon as you finish admin account recovery!");
-                    services().admin.send_message(RoomMessageEventContent::text_plain("The Conduit account emergency password is set! Please unset it as soon as you finish admin account recovery!"));
+                    warn!("The Grapevine account emergency password is set! Please unset it as soon as you finish admin account recovery!");
+                    services().admin.send_message(RoomMessageEventContent::text_plain("The Grapevine account emergency password is set! Please unset it as soon as you finish admin account recovery!"));
                 }
             }
             Err(e) => {
                 error!(
-                    "Could not set the configured emergency password for the conduit user: {}",
+                    "Could not set the configured emergency password for the grapevine user: {}",
                     e
                 )
             }
@@ -1013,24 +1013,25 @@ impl KeyValueDatabase {
     }
 }
 
-/// Sets the emergency password and push rules for the @conduit account in case emergency password is set
+/// Sets the emergency password and push rules for the @grapevine account in case emergency password is set
 fn set_emergency_access() -> Result<bool> {
-    let conduit_user = UserId::parse_with_server_name("conduit", services().globals.server_name())
-        .expect("@conduit:server_name is a valid UserId");
+    let grapevine_user =
+        UserId::parse_with_server_name("grapevine", services().globals.server_name())
+            .expect("@grapevine:server_name is a valid UserId");
 
     services().users.set_password(
-        &conduit_user,
+        &grapevine_user,
         services().globals.emergency_password().as_deref(),
     )?;
 
     let (ruleset, res) = match services().globals.emergency_password() {
-        Some(_) => (Ruleset::server_default(&conduit_user), Ok(true)),
+        Some(_) => (Ruleset::server_default(&grapevine_user), Ok(true)),
         None => (Ruleset::new(), Ok(false)),
     };
 
     services().account_data.update(
         None,
-        &conduit_user,
+        &grapevine_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
         &serde_json::to_value(&GlobalAccountDataEvent {
             content: PushRulesEventContent { global: ruleset },

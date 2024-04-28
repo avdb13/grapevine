@@ -82,7 +82,7 @@ impl Engine {
 
 impl KeyValueDatabaseEngine for Arc<Engine> {
     fn open(config: &Config) -> Result<Self> {
-        let path = Path::new(&config.database_path).join("conduit.db");
+        let path = Path::new(&config.database_path).join("grapevine.db");
 
         // calculates cache-size per permanent connection
         // 1. convert MB to KiB

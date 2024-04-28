@@ -245,7 +245,7 @@ where
                             if parts.uri.to_string().contains('@') {
                                 warn!(
                                     "Request uri contained '@' character. Make sure your \
-                                         reverse proxy gives Conduit the raw uri (apache: use \
+                                         reverse proxy gives Grapevine the raw uri (apache: use \
                                          nocanon)"
                                 );
                             }
