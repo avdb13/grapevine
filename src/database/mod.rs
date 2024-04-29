@@ -67,7 +67,11 @@ pub struct KeyValueDatabase {
     pub(super) readreceiptid_readreceipt: Arc<dyn KvTree>, // ReadReceiptId = RoomId + Count + UserId
     pub(super) roomuserid_privateread: Arc<dyn KvTree>, // RoomUserId = Room + User, PrivateRead = Count
     pub(super) roomuserid_lastprivatereadupdate: Arc<dyn KvTree>, // LastPrivateReadUpdate = Count
-    pub(super) presenceid_presence: Arc<dyn KvTree>,    // PresenceId = RoomId + Count + UserId
+    // This exists in the database already but is currently unused
+    #[allow(dead_code)]
+    pub(super) presenceid_presence: Arc<dyn KvTree>, // PresenceId = RoomId + Count + UserId
+    // This exists in the database already but is currently unused
+    #[allow(dead_code)]
     pub(super) userid_lastpresenceupdate: Arc<dyn KvTree>, // LastPresenceUpdate = Count
 
     //pub rooms: rooms::Rooms,
@@ -928,9 +932,6 @@ impl KeyValueDatabase {
                 latest_database_version
             );
         }
-
-        // This data is probably outdated
-        db.presenceid_presence.clear()?;
 
         services().admin.start_handler();
 

@@ -286,8 +286,6 @@ fn routes(config: &Config) -> Router {
         .ruma_route(client_server::set_avatar_url_route)
         .ruma_route(client_server::get_avatar_url_route)
         .ruma_route(client_server::get_profile_route)
-        .ruma_route(client_server::set_presence_route)
-        .ruma_route(client_server::get_presence_route)
         .ruma_route(client_server::upload_keys_route)
         .ruma_route(client_server::get_keys_route)
         .ruma_route(client_server::claim_keys_route)

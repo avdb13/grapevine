@@ -21,7 +21,6 @@ use ruma::{
         room::member::{MembershipState, RoomMemberEventContent},
         StateEventType, TimelineEventType,
     },
-    serde::Raw,
     uint, DeviceId, EventId, JsOption, OwnedDeviceId, OwnedUserId, RoomId, UInt, UserId,
 };
 use std::{
@@ -174,9 +173,6 @@ async fn sync_helper(
     body: sync_events::v3::Request,
     // bool = caching allowed
 ) -> Result<(sync_events::v3::Response, bool), Error> {
-    // TODO: match body.set_presence {
-    services().rooms.edus.presence.ping_presence(&sender_user)?;
-
     // Setup watchers, so if there's no response, we can wait for them
     let watcher = services().globals.watch(&sender_user, &sender_device);
 
@@ -211,7 +207,6 @@ async fn sync_helper(
         .unwrap_or(0);
     let sincecount = PduCount::Normal(since);
 
-    let mut presence_updates = HashMap::new();
     let mut left_encrypted_users = HashSet::new(); // Users that have left any encrypted rooms the sender was in
     let mut device_list_updates = HashSet::new();
     let mut device_list_left = HashSet::new();
@@ -249,41 +244,6 @@ async fn sync_helper(
         {
             if !joined_room.is_empty() {
                 joined_rooms.insert(room_id.clone(), joined_room);
-            }
-
-            // Take presence updates from this room
-            for (user_id, presence) in services()
-                .rooms
-                .edus
-                .presence
-                .presence_since(&room_id, since)?
-            {
-                match presence_updates.entry(user_id) {
-                    Entry::Vacant(v) => {
-                        v.insert(presence);
-                    }
-                    Entry::Occupied(mut o) => {
-                        let p = o.get_mut();
-
-                        // Update existing presence event with more info
-                        p.content.presence = presence.content.presence;
-                        if let Some(status_msg) = presence.content.status_msg {
-                            p.content.status_msg = Some(status_msg);
-                        }
-                        if let Some(last_active_ago) = presence.content.last_active_ago {
-                            p.content.last_active_ago = Some(last_active_ago);
-                        }
-                        if let Some(displayname) = presence.content.displayname {
-                            p.content.displayname = Some(displayname);
-                        }
-                        if let Some(avatar_url) = presence.content.avatar_url {
-                            p.content.avatar_url = Some(avatar_url);
-                        }
-                        if let Some(currently_active) = presence.content.currently_active {
-                            p.content.currently_active = Some(currently_active);
-                        }
-                    }
-                }
             }
         }
     }
@@ -540,12 +500,7 @@ async fn sync_helper(
             invite: invited_rooms,
             knock: BTreeMap::new(), // TODO
         },
-        presence: Presence {
-            events: presence_updates
-                .into_values()
-                .map(|v| Raw::new(&v).expect("PresenceEvent always serializes successfully"))
-                .collect(),
-        },
+        presence: Presence::default(),
         account_data: GlobalAccountData {
             events: services()
                 .account_data
