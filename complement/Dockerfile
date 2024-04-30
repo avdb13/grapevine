@@ -33,7 +33,7 @@ ENV SERVER_NAME=localhost
 ENV CONDUIT_CONFIG=/workdir/conduit.toml
 
 RUN sed -i "s/port = 6167/port = 8008/g" conduit.toml
-RUN echo "log = \"warn,_=off,sled=off\"" >> conduit.toml
+RUN echo "log = \"warn,_=off\"" >> conduit.toml
 RUN sed -i "s/address = \"127.0.0.1\"/address = \"0.0.0.0\"/g" conduit.toml
 
 EXPOSE 8008 8448
