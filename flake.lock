@@ -82,6 +82,7 @@
       },
       "original": {
         "owner": "nix-community",
+        "ref": "main",
         "repo": "fenix",
         "type": "github"
       }
@@ -114,6 +115,7 @@
       },
       "original": {
         "owner": "edolstra",
+        "ref": "master",
         "repo": "flake-compat",
         "type": "github"
       }
@@ -147,6 +149,7 @@
       },
       "original": {
         "owner": "numtide",
+        "ref": "main",
         "repo": "flake-utils",
         "type": "github"
       }
@@ -162,6 +165,7 @@
       },
       "original": {
         "owner": "numtide",
+        "ref": "main",
         "repo": "nix-filter",
         "type": "github"
       }

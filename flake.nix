@@ -1,15 +1,15 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    nix-filter.url = "github:numtide/nix-filter";
+    flake-utils.url = "github:numtide/flake-utils?ref=main";
+    nix-filter.url = "github:numtide/nix-filter?ref=main";
     flake-compat = {
-      url = "github:edolstra/flake-compat";
+      url = "github:edolstra/flake-compat?ref=master";
       flake = false;
     };
 
     fenix = {
-      url = "github:nix-community/fenix";
+      url = "github:nix-community/fenix?ref=main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane = {
