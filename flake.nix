@@ -8,6 +8,7 @@
     flake-utils.url = "github:numtide/flake-utils?ref=main";
     nix-filter.url = "github:numtide/nix-filter?ref=main";
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
+    rocksdb = { url = "github:facebook/rocksdb?ref=v9.1.0"; flake = false; };
   };
 
   outputs = inputs:
@@ -23,18 +24,12 @@
 
         oci-image = self.callPackage ./nix/pkgs/oci-image {};
 
-        rocksdb =
-        let
-          version = "9.1.0";
-        in
-        pkgs.rocksdb.overrideAttrs (old: {
-          inherit version;
-          src = pkgs.fetchFromGitHub {
-            owner = "facebook";
-            repo = "rocksdb";
-            rev = "v${version}";
-            hash = "sha256-vRPyrXkXVVhP56n5FVYef8zbIsnnanQSpElmQLZ7mh8=";
-          };
+        rocksdb = pkgs.rocksdb.overrideAttrs (old: {
+          src = inputs.rocksdb;
+          version = pkgs.lib.removePrefix
+            "v"
+            (builtins.fromJSON (builtins.readFile ./flake.lock))
+              .nodes.rocksdb.original.ref;
         });
 
         shell = self.callPackage ./nix/shell.nix {};
