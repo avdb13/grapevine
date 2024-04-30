@@ -23,7 +23,7 @@ before_script:
   - if command -v nix > /dev/null; then echo "extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" >> /etc/nix/nix.conf; fi
 
   # Install direnv and nix-direnv
-  - if command -v nix > /dev/null; then nix-env -iA nixpkgs.direnv nixpkgs.nix-direnv; fi
+  - if command -v nix > /dev/null; then nix profile install --impure --inputs-from . nixpkgs#direnv nixpkgs#nix-direnv; fi
 
   # Allow .envrc
   - if command -v nix > /dev/null; then direnv allow; fi
@@ -35,8 +35,7 @@ ci:
   stage: ci
   image: nixos/nix:2.20.4
   script:
-    # Cache the inputs required for the devShell
-    - ./bin/nix-build-and-cache .#devShells.x86_64-linux.default.inputDerivation
+    - ./bin/nix-build-and-cache ci
 
     - direnv exec . engage
   cache:
@@ -48,29 +47,4 @@ artifacts:
   stage: artifacts
   image: nixos/nix:2.20.4
   script:
-    - ./bin/nix-build-and-cache .#static-x86_64-unknown-linux-musl
-    - cp result/bin/grapevine x86_64-unknown-linux-musl
-
-    # Since the OCI image package is based on the binary package, this has the
-    # deploying with Nix can leverage this fact by adding our binary cache to
-    # fun side effect of uploading the normal binary too. Grapevine users who are
-    # their systems.
-    #
-    # Note that although we have an `oci-image-x86_64-unknown-linux-musl`
-    # output, we don't build it because it would be largely redundant to this
-    # one since it's all containerized anyway.
-    - ./bin/nix-build-and-cache .#oci-image
-    - cp result oci-image-amd64.tar.gz
-
-    - ./bin/nix-build-and-cache .#static-aarch64-unknown-linux-musl
-    - cp result/bin/grapevine aarch64-unknown-linux-musl
-
-    - ./bin/nix-build-and-cache .#oci-image-aarch64-unknown-linux-musl
-    - cp result oci-image-arm64v8.tar.gz
-  artifacts:
-    paths:
-      - x86_64-unknown-linux-musl
-      - aarch64-unknown-linux-musl
-      - x86_64-unknown-linux-musl.deb
-      - oci-image-amd64.tar.gz
-      - oci-image-arm64v8.tar.gz
+    - ./bin/nix-build-and-cache packages

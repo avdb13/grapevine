@@ -2,30 +2,74 @@
 
 set -euo pipefail
 
-# The first argument must be the desired installable
-INSTALLABLE="$1"
+toplevel="$(git rev-parse --show-toplevel)"
 
-# Build the installable and forward any other arguments too. Also, use
-# nix-output-monitor instead if it's available.
-if command -v nom &> /dev/null; then
-    nom build "$@"
-else
-    nix build "$@"
-fi
+# Build and cache the specified arguments
+just() {
+    if command -v nom &> /dev/null; then
+        nom build "$@"
+    else
+        nix build "$@"
+    fi
 
-if [ ! -z ${ATTIC_TOKEN+x} ]; then
-    nix run --inputs-from . attic -- \
+    if [ -z ${ATTIC_TOKEN+x} ]; then
+        echo "\$ATTIC_TOKEN is unset, skipping uploading to the binary cache"
+        return
+    fi
+
+    nix run --inputs-from "$toplevel" attic -- \
         login \
         "$ATTIC_SERVER" \
         "$ATTIC_ENDPOINT" \
         "$ATTIC_TOKEN"
 
-    # Push the target installable and its build dependencies
-    nix run --inputs-from . attic -- \
-        push \
-        "$ATTIC_SERVER:$ATTIC_CACHE" \
-        "$(nix path-info "$INSTALLABLE" --derivation)" \
-        "$(nix path-info "$INSTALLABLE")"
-else
-    echo "\$ATTIC_TOKEN is unset, skipping uploading to the binary cache"
-fi
+    # Find all output paths of the installables and their build dependencies
+    readarray -t derivations < <(nix path-info --derivation "$@")
+    cache=()
+    for derivation in "${derivations[@]}"; do
+        cache+=(
+            "$(nix-store --query --requisites --include-outputs "$derivation")"
+        )
+    done
+
+    # Upload them to Attic
+    #
+    # Use `xargs` and a here-string because something would probably explode if
+    # several thousand arguments got passed to a command at once. Hopefully no
+    # store paths include a newline in them.
+    (
+        IFS=$'\n'
+        nix shell --inputs-from "$toplevel" attic -c xargs \
+            attic push "$ATTIC_SERVER:$ATTIC_CACHE" <<< "${cache[*]}"
+    )
+}
+
+# Build and cache things needed for CI
+ci() {
+    cache=(
+        --inputs-from "$toplevel"
+
+        # Keep sorted
+        "$toplevel#devShells.x86_64-linux.default"
+        attic#default
+        nixpkgs#direnv
+        nixpkgs#jq
+        nixpkgs#nix-direnv
+    )
+
+    just "${cache[@]}"
+}
+
+# Build and cache all the package outputs
+packages() {
+    declare -a cache="($(
+        nix flake show --json 2> /dev/null |
+            nix run --inputs-from "$toplevel" nixpkgs#jq -- \
+            -r \
+            '.packages."x86_64-linux" | keys | map("'"$toplevel"'#" + .) | @sh'
+    ))"
+
+    just "${cache[@]}"
+}
+
+eval "$@"
