@@ -1,0 +1,11 @@
+# Cargo artifacts
+target
+
+# Direnv cache
+/.direnv
+
+# Nix artifacts
+result*
+
+# GitLab CI cache
+/.gitlab-ci.d
