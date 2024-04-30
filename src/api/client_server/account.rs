@@ -206,12 +206,7 @@ pub async fn register_route(body: Ruma<register::v3::Request>) -> Result<registe
     services().users.create(&user_id, password)?;
 
     // Default to pretty displayname
-    let mut displayname = user_id.localpart().to_owned();
-
-    // If enabled append lightning bolt to display name (default true)
-    if services().globals.enable_lightning_bolt() {
-        displayname.push_str(" ⚡️");
-    }
+    let displayname = user_id.localpart().to_owned();
 
     services()
         .users
