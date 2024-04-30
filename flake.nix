@@ -94,5 +94,9 @@
 
         devShells.default = (mkScope pkgs).shell;
       }
-    );
+    )
+    //
+    {
+      nixosModules.default = import ./nix/modules/default inputs;
+    };
 }
