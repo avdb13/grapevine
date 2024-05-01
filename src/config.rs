@@ -216,7 +216,7 @@ fn default_address() -> IpAddr {
 }
 
 fn default_port() -> u16 {
-    8000
+    6167
 }
 
 fn default_db_cache_capacity_mb() -> f64 {
