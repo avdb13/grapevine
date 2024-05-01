@@ -346,19 +346,19 @@ impl KeyValueDatabase {
                     .expect("pdu cache capacity fits into usize"),
             )),
             auth_chain_cache: Mutex::new(LruCache::new(
-                (100_000.0 * config.conduit_cache_capacity_modifier) as usize,
+                (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
             shorteventid_cache: Mutex::new(LruCache::new(
-                (100_000.0 * config.conduit_cache_capacity_modifier) as usize,
+                (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
             eventidshort_cache: Mutex::new(LruCache::new(
-                (100_000.0 * config.conduit_cache_capacity_modifier) as usize,
+                (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
             shortstatekey_cache: Mutex::new(LruCache::new(
-                (100_000.0 * config.conduit_cache_capacity_modifier) as usize,
+                (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
             statekeyshort_cache: Mutex::new(LruCache::new(
-                (100_000.0 * config.conduit_cache_capacity_modifier) as usize,
+                (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
             our_real_users_cache: RwLock::new(HashMap::new()),
             appservice_in_room_cache: RwLock::new(HashMap::new()),

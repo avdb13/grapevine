@@ -85,17 +85,17 @@ impl Services {
                 state_accessor: rooms::state_accessor::Service {
                     db,
                     server_visibility_cache: StdMutex::new(LruCache::new(
-                        (100.0 * config.conduit_cache_capacity_modifier) as usize,
+                        (100.0 * config.cache_capacity_modifier) as usize,
                     )),
                     user_visibility_cache: StdMutex::new(LruCache::new(
-                        (100.0 * config.conduit_cache_capacity_modifier) as usize,
+                        (100.0 * config.cache_capacity_modifier) as usize,
                     )),
                 },
                 state_cache: rooms::state_cache::Service { db },
                 state_compressor: rooms::state_compressor::Service {
                     db,
                     stateinfo_cache: StdMutex::new(LruCache::new(
-                        (100.0 * config.conduit_cache_capacity_modifier) as usize,
+                        (100.0 * config.cache_capacity_modifier) as usize,
                     )),
                 },
                 timeline: rooms::timeline::Service {

@@ -25,8 +25,8 @@ pub struct Config {
     pub database_path: String,
     #[serde(default = "default_db_cache_capacity_mb")]
     pub db_cache_capacity_mb: f64,
-    #[serde(default = "default_conduit_cache_capacity_modifier")]
-    pub conduit_cache_capacity_modifier: f64,
+    #[serde(default = "default_cache_capacity_modifier")]
+    pub cache_capacity_modifier: f64,
     #[serde(default = "default_rocksdb_max_open_files")]
     pub rocksdb_max_open_files: i32,
     #[serde(default = "default_pdu_cache_capacity")]
@@ -120,7 +120,7 @@ impl fmt::Display for Config {
             ),
             (
                 "Cache capacity modifier",
-                &self.conduit_cache_capacity_modifier.to_string(),
+                &self.cache_capacity_modifier.to_string(),
             ),
             #[cfg(feature = "rocksdb")]
             (
@@ -218,7 +218,7 @@ fn default_db_cache_capacity_mb() -> f64 {
     300.0
 }
 
-fn default_conduit_cache_capacity_modifier() -> f64 {
+fn default_cache_capacity_modifier() -> f64 {
     1.0
 }
 
