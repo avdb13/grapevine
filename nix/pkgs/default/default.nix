@@ -14,15 +14,13 @@
 }:
 
 let
-  env =
+  buildDepsOnlyEnv =
     let
       rocksdb' = rocksdb.override {
         enableJemalloc = builtins.elem "jemalloc" features;
       };
     in
     {
-      GRAPEVINE_VERSION_EXTRA =
-        inputs.self.shortRev or inputs.self.dirtyShortRev;
       CARGO_PROFILE = profile;
       ROCKSDB_INCLUDE_DIR = "${rocksdb'}/include";
       ROCKSDB_LIB_DIR = "${rocksdb'}/lib";
@@ -36,26 +34,43 @@ let
         rust
         stdenv;
     });
-in
 
-craneLib.buildPackage rec {
-  inherit
-    (craneLib.crateNameFromCargoToml {
-      cargoToml = "${inputs.self}/Cargo.toml";
-    })
-    pname
-    version;
+  buildPackageEnv = {
+    GRAPEVINE_VERSION_EXTRA = inputs.self.shortRev or inputs.self.dirtyShortRev;
+  } // buildDepsOnlyEnv;
 
-  src = let filter = inputs.nix-filter.lib; in filter {
-    root = inputs.self;
+  commonAttrs = {
+    inherit
+      (craneLib.crateNameFromCargoToml {
+        cargoToml = "${inputs.self}/Cargo.toml";
+      })
+      pname
+      version;
 
-    # Keep sorted
-    include = [
-      "Cargo.lock"
-      "Cargo.toml"
-      "src"
+    src = let filter = inputs.nix-filter.lib; in filter {
+      root = inputs.self;
+
+      # Keep sorted
+      include = [
+        "Cargo.lock"
+        "Cargo.toml"
+        "src"
+      ];
+    };
+
+    nativeBuildInputs = [
+      # bindgen needs the build platform's libclang. Apparently due to "splicing
+      # weirdness", pkgs.rustPlatform.bindgenHook on its own doesn't quite do the
+      # right thing here.
+      pkgsBuildHost.rustPlatform.bindgenHook
     ];
   };
+in
+
+craneLib.buildPackage ( commonAttrs // {
+  cargoArtifacts = craneLib.buildDepsOnly (commonAttrs // {
+    env = buildDepsOnlyEnv;
+  });
 
   cargoExtraArgs = "--locked "
     + lib.optionalString
@@ -68,18 +83,11 @@ craneLib.buildPackage rec {
   # This is redundant with CI
   doCheck = false;
 
-  nativeBuildInputs = [
-    # bindgen needs the build platform's libclang. Apparently due to "splicing
-    # weirdness", pkgs.rustPlatform.bindgenHook on its own doesn't quite do the
-    # right thing here.
-    pkgsBuildHost.rustPlatform.bindgenHook
-  ];
-
-  inherit env;
+  env = buildPackageEnv;
 
   passthru = {
-    inherit env;
+    env = buildPackageEnv;
   };
 
-  meta.mainProgram = pname;
-}
+  meta.mainProgram = commonAttrs.pname;
+})
