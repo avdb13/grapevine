@@ -212,9 +212,16 @@ impl Service {
         // TODO: Use futures when we have long admin commands
         //let mut futures = FuturesUnordered::new();
 
-        let grapevine_user =
-            UserId::parse(format!("@grapevine:{}", services().globals.server_name()))
-                .expect("@grapevine:server_name is valid");
+        let grapevine_user = UserId::parse(format!(
+            "@{}:{}",
+            if services().globals.config.conduit_compat {
+                "conduit"
+            } else {
+                "grapevine"
+            },
+            services().globals.server_name()
+        ))
+        .expect("admin bot username should be valid");
 
         if let Ok(Some(grapevine_room)) = services().admin.get_admin_room() {
             loop {
@@ -568,7 +575,11 @@ impl Service {
                 if !services().users.exists(&user_id)?
                     || user_id
                         == UserId::parse_with_server_name(
-                            "grapevine",
+                            if services().globals.config.conduit_compat {
+                                "conduit"
+                            } else {
+                                "grapevine"
+                            },
                             services().globals.server_name(),
                         )
                         .expect("grapevine user exists")
@@ -866,9 +877,15 @@ impl Service {
     // Utility to turn clap's `--help` text to HTML.
     fn usage_to_html(text: &str, server_name: &ServerName) -> String {
         // Replace `@grapevine:servername:-subcmdname` with `@grapevine:servername: subcmdname`
+        let localpart = if services().globals.config.conduit_compat {
+            "conduit"
+        } else {
+            "grapevine"
+        };
+
         let text = text.replace(
-            &format!("@grapevine:{server_name}:-"),
-            &format!("@grapevine:{server_name}: "),
+            &format!("@{localpart}:{server_name}:-"),
+            &format!("@{localpart}:{server_name}: "),
         );
 
         // For the grapevine admin room, subcommands become main commands
@@ -952,9 +969,16 @@ impl Service {
         let state_lock = mutex_state.lock().await;
 
         // Create a user for the server
-        let grapevine_user =
-            UserId::parse_with_server_name("grapevine", services().globals.server_name())
-                .expect("@grapevine:server_name is valid");
+        let grapevine_user = UserId::parse(format!(
+            "@{}:{}",
+            if services().globals.config.conduit_compat {
+                "conduit"
+            } else {
+                "grapevine"
+            },
+            services().globals.server_name()
+        ))
+        .expect("admin bot username should be valid");
 
         services().users.create(&grapevine_user, None)?;
 
@@ -1218,9 +1242,15 @@ impl Service {
             let state_lock = mutex_state.lock().await;
 
             // Use the server user to grant the new admin's power level
-            let grapevine_user =
-                UserId::parse_with_server_name("grapevine", services().globals.server_name())
-                    .expect("@grapevine:server_name is valid");
+            let grapevine_user = UserId::parse_with_server_name(
+                if services().globals.config.conduit_compat {
+                    "conduit"
+                } else {
+                    "grapevine"
+                },
+                services().globals.server_name(),
+            )
+            .expect("admin bot username should be valid");
 
             // Invite and join the real user
             services()

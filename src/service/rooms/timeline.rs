@@ -483,7 +483,15 @@ impl Service {
                         .search
                         .index_pdu(shortroomid, &pdu_id, &body)?;
 
-                    let server_user = format!("@grapevine:{}", services().globals.server_name());
+                    let server_user = format!(
+                        "@{}:{}",
+                        if services().globals.config.conduit_compat {
+                            "conduit"
+                        } else {
+                            "grapevine"
+                        },
+                        services().globals.server_name()
+                    );
 
                     let to_grapevine = body.starts_with(&format!("{server_user}: "))
                         || body.starts_with(&format!("{server_user} "))
@@ -822,7 +830,14 @@ impl Service {
                             .filter(|v| v.starts_with('@'))
                             .unwrap_or(sender.as_str());
                         let server_name = services().globals.server_name();
-                        let server_user = format!("@grapevine:{server_name}");
+                        let server_user = format!(
+                            "@{}:{server_name}",
+                            if services().globals.config.conduit_compat {
+                                "conduit"
+                            } else {
+                                "grapevine"
+                            },
+                        );
                         let content = serde_json::from_str::<ExtractMembership>(pdu.content.get())
                             .map_err(|_| Error::bad_database("Invalid content in pdu."))?;
 

@@ -45,6 +45,13 @@ in
             '';
             default = "::1";
           };
+          global.conduit_compat = lib.mkOption {
+            type = types.bool;
+            description = ''
+              Whether to operate as a drop-in replacement for Conduit.
+            '';
+            default = false;
+          };
           global.database_path = lib.mkOption {
             type = types.nonEmptyStr;
             readOnly = true;
@@ -54,7 +61,9 @@ in
               Note that this is read-only because this module makes use of
               systemd's `StateDirectory` option.
             '';
-            default = "/var/lib/grapevine";
+            default = if cfg.settings.global.conduit_compat
+              then "/var/lib/matrix-conduit"
+              else "/var/lib/grapevine";
           };
           global.port = lib.mkOption {
             type = types.port;
@@ -104,12 +113,16 @@ in
         RestrictNamespaces = true;
         RestrictRealtime = true;
         StartLimitBurst = 5;
-        StateDirectory = "grapevine";
+        StateDirectory = if cfg.settings.global.conduit_compat
+          then "matrix-conduit"
+          else "grapevine";
         StateDirectoryMode = "0700";
         SystemCallArchitectures = "native";
         SystemCallFilter = [ "@system-service" "~@privileged" ];
         UMask = "077";
-        User = "grapevine";
+        User = if cfg.settings.global.conduit_compat
+          then "conduit"
+          else "grapevine";
       };
     };
   };

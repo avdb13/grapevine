@@ -16,6 +16,8 @@ use self::proxy::ProxyConfig;
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Config {
+    #[serde(default = "false_fn")]
+    pub(crate) conduit_compat: bool,
     #[serde(default = "default_address")]
     pub(crate) address: IpAddr,
     #[serde(default = "default_port")]

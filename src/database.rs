@@ -176,7 +176,16 @@ impl KeyValueDatabase {
     fn check_db_setup(config: &Config) -> Result<()> {
         let path = Path::new(&config.database_path);
 
-        let sqlite_exists = path.join("grapevine.db").exists();
+        let sqlite_exists = path
+            .join(format!(
+                "{}.db",
+                if config.conduit_compat {
+                    "conduit"
+                } else {
+                    "grapevine"
+                }
+            ))
+            .exists();
         let rocksdb_exists = path.join("IDENTITY").exists();
 
         let mut count = 0;
@@ -401,9 +410,15 @@ impl KeyValueDatabase {
         // Matrix resource ownership is based on the server name; changing it
         // requires recreating the database from scratch.
         if services().users.count()? > 0 {
-            let grapevine_user =
-                UserId::parse_with_server_name("grapevine", services().globals.server_name())
-                    .expect("@grapevine:server_name is valid");
+            let grapevine_user = UserId::parse_with_server_name(
+                if services().globals.config.conduit_compat {
+                    "conduit"
+                } else {
+                    "grapevine"
+                },
+                services().globals.server_name(),
+            )
+            .expect("admin bot username should be valid");
 
             if !services().users.exists(&grapevine_user)? {
                 error!(
