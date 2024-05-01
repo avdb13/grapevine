@@ -10,6 +10,7 @@
 # Options (keep sorted)
 , default-features ? true
 , features ? []
+, profile ? "release"
 }:
 
 let
@@ -22,6 +23,7 @@ let
     {
       GRAPEVINE_VERSION_EXTRA =
         inputs.self.shortRev or inputs.self.dirtyShortRev;
+      CARGO_PROFILE = profile;
       ROCKSDB_INCLUDE_DIR = "${rocksdb'}/include";
       ROCKSDB_LIB_DIR = "${rocksdb'}/lib";
     }
