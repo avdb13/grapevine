@@ -71,6 +71,20 @@ pub(crate) fn services() -> &'static Services {
         .expect("SERVICES should be initialized when this is called")
 }
 
+/// Returns the current version of the crate with extra info if supplied
+///
+/// Set the environment variable `GRAPEVINE_VERSION_EXTRA` to any UTF-8 string to
+/// include it in parenthesis after the SemVer version. A common value are git
+/// commit hashes.
+fn version() -> String {
+    let cargo_pkg_version = env!("CARGO_PKG_VERSION");
+
+    match option_env!("GRAPEVINE_VERSION_EXTRA") {
+        Some(x) => format!("{cargo_pkg_version} ({x})"),
+        None => cargo_pkg_version.to_owned(),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     clap::parse();
