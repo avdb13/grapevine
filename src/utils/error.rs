@@ -19,35 +19,35 @@ pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 pub(crate) enum Error {
     #[cfg(feature = "sqlite")]
     #[error("There was a problem with the connection to the sqlite database: {source}")]
-    SqliteError {
+    Sqlite {
         #[from]
         source: rusqlite::Error,
     },
     #[cfg(feature = "rocksdb")]
     #[error("There was a problem with the connection to the rocksdb database: {source}")]
-    RocksDbError {
+    RocksDb {
         #[from]
         source: rocksdb::Error,
     },
     #[error("Could not generate an image.")]
-    ImageError {
+    Image {
         #[from]
         source: image::error::ImageError,
     },
     #[error("Could not connect to server: {source}")]
-    ReqwestError {
+    Reqwest {
         #[from]
         source: reqwest::Error,
     },
     #[error("Could build regular expression: {source}")]
-    RegexError {
+    Regex {
         #[from]
         source: regex::Error,
     },
     #[error("{0}")]
-    FederationError(OwnedServerName, RumaError),
+    Federation(OwnedServerName, RumaError),
     #[error("Could not do this io: {source}")]
-    IoError {
+    Io {
         #[from]
         source: std::io::Error,
     },
@@ -65,13 +65,13 @@ pub(crate) enum Error {
     #[error("{0}")]
     Conflict(&'static str), // This is only needed for when a room alias already exists
     #[error("{0}")]
-    ExtensionError(#[from] axum::extract::rejection::ExtensionRejection),
+    Extension(#[from] axum::extract::rejection::ExtensionRejection),
     #[error("{0}")]
-    PathError(#[from] axum::extract::rejection::PathRejection),
+    Path(#[from] axum::extract::rejection::PathRejection),
     #[error("{0}")]
     AdminCommand(&'static str),
     #[error("from {0}: {1}")]
-    RedactionError(OwnedServerName, ruma::canonical_json::RedactionError),
+    Redaction(OwnedServerName, ruma::canonical_json::RedactionError),
     #[error("{0} in {1}")]
     InconsistentRoomState(&'static str, ruma::OwnedRoomId),
 }
@@ -94,7 +94,7 @@ impl Error {
             return RumaResponse(UiaaResponse::AuthResponse(uiaainfo.clone()));
         }
 
-        if let Self::FederationError(origin, error) = self {
+        if let Self::Federation(origin, error) = self {
             let mut error = error.clone();
             error.body = ErrorBody::Standard {
                 kind: Unknown,
@@ -141,10 +141,10 @@ impl Error {
 
         match self {
             #[cfg(feature = "sqlite")]
-            Self::SqliteError { .. } => db_error,
+            Self::Sqlite { .. } => db_error,
             #[cfg(feature = "rocksdb")]
-            Self::RocksDbError { .. } => db_error,
-            Self::IoError { .. } => db_error,
+            Self::RocksDb { .. } => db_error,
+            Self::Io { .. } => db_error,
             Self::BadConfig { .. } => db_error,
             Self::BadDatabase { .. } => db_error,
             _ => self.to_string(),

@@ -48,9 +48,6 @@ unseparated_literal_suffix = "warn"
 verbose_file_reads = "warn"
 wildcard_dependencies = "warn"
 
-# TODO: Remove these
-enum_variant_names = "allow"
-
 [package]
 name = "grapevine"
 description = "A Matrix homeserver written in Rust"

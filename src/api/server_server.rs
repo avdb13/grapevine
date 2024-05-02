@@ -306,7 +306,7 @@ where
                 })
             } else {
                 debug!("Returning error from {destination}");
-                Err(Error::FederationError(
+                Err(Error::Federation(
                     destination.to_owned(),
                     RumaError::from_http_response(http_response),
                 ))
