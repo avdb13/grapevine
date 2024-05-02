@@ -13,9 +13,6 @@ unused_import_braces = "warn"
 unused_macro_rules = "warn"
 unused_qualifications = "warn"
 
-# TODO: Remove these
-dead_code = "allow"
-
 # Keep alphabetically sorted
 [workspace.lints.clippy]
 assertions_on_result_states = "warn"

@@ -27,6 +27,7 @@ pub(crate) struct Config {
     pub(crate) db_cache_capacity_mb: f64,
     #[serde(default = "default_cache_capacity_modifier")]
     pub(crate) cache_capacity_modifier: f64,
+    #[cfg(feature = "rocksdb")]
     #[serde(default = "default_rocksdb_max_open_files")]
     pub(crate) rocksdb_max_open_files: i32,
     #[serde(default = "default_pdu_cache_capacity")]
@@ -52,7 +53,6 @@ pub(crate) struct Config {
     pub(crate) allow_unstable_room_versions: bool,
     #[serde(default = "default_default_room_version")]
     pub(crate) default_room_version: RoomVersionId,
-    pub(crate) well_known_client: Option<String>,
     #[serde(default = "false_fn")]
     pub(crate) allow_jaeger: bool,
     #[serde(default = "false_fn")]
@@ -222,6 +222,7 @@ fn default_cache_capacity_modifier() -> f64 {
     1.0
 }
 
+#[cfg(feature = "rocksdb")]
 fn default_rocksdb_max_open_files() -> i32 {
     1000
 }

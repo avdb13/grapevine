@@ -8,7 +8,7 @@ use futures_util::Future;
 use regex::RegexSet;
 use ruma::{
     api::appservice::{Namespace, Registration},
-    RoomAliasId, RoomId, UserId,
+    RoomAliasId, UserId,
 };
 use tokio::sync::RwLock;
 
@@ -205,14 +205,6 @@ impl Service {
             .await
             .values()
             .any(|info| info.aliases.is_exclusive_match(alias.as_str()))
-    }
-
-    // Checks if a given room id matches any exclusive appservice regex
-    pub(crate) async fn is_exclusive_room_id(&self, room_id: &RoomId) -> bool {
-        self.read()
-            .await
-            .values()
-            .any(|info| info.rooms.is_exclusive_match(room_id.as_str()))
     }
 
     pub(crate) fn read(

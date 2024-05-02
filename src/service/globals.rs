@@ -399,10 +399,6 @@ impl Service {
         r
     }
 
-    pub(crate) fn well_known_client(&self) -> &Option<String> {
-        &self.config.well_known_client
-    }
-
     pub(crate) fn shutdown(&self) {
         self.shutdown.store(true, atomic::Ordering::Relaxed);
         // On shutdown

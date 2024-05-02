@@ -397,10 +397,6 @@ impl Service {
             .add_one_time_key(user_id, device_id, one_time_key_key, one_time_key_value)
     }
 
-    pub(crate) fn last_one_time_keys_update(&self, user_id: &UserId) -> Result<u64> {
-        self.db.last_one_time_keys_update(user_id)
-    }
-
     pub(crate) fn take_one_time_key(
         &self,
         user_id: &UserId,
