@@ -10,7 +10,7 @@ use ruma::{
 use crate::Result;
 
 #[async_trait]
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn next_count(&self) -> Result<u64>;
     fn current_count(&self) -> Result<u64>;
     async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()>;

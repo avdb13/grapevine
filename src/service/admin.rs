@@ -181,18 +181,18 @@ enum AdminCommand {
 }
 
 #[derive(Debug)]
-pub enum AdminRoomEvent {
+pub(crate) enum AdminRoomEvent {
     ProcessMessage(String),
     SendMessage(RoomMessageEventContent),
 }
 
-pub struct Service {
-    pub sender: mpsc::UnboundedSender<AdminRoomEvent>,
+pub(crate) struct Service {
+    pub(crate) sender: mpsc::UnboundedSender<AdminRoomEvent>,
     receiver: Mutex<mpsc::UnboundedReceiver<AdminRoomEvent>>,
 }
 
 impl Service {
-    pub fn build() -> Arc<Self> {
+    pub(crate) fn build() -> Arc<Self> {
         let (sender, receiver) = mpsc::unbounded_channel();
         Arc::new(Self {
             sender,
@@ -200,7 +200,7 @@ impl Service {
         })
     }
 
-    pub fn start_handler(self: &Arc<Self>) {
+    pub(crate) fn start_handler(self: &Arc<Self>) {
         let self2 = Arc::clone(self);
         tokio::spawn(async move {
             self2.handler().await;
@@ -259,13 +259,13 @@ impl Service {
         }
     }
 
-    pub fn process_message(&self, room_message: String) {
+    pub(crate) fn process_message(&self, room_message: String) {
         self.sender
             .send(AdminRoomEvent::ProcessMessage(room_message))
             .unwrap();
     }
 
-    pub fn send_message(&self, message_content: RoomMessageEventContent) {
+    pub(crate) fn send_message(&self, message_content: RoomMessageEventContent) {
         self.sender
             .send(AdminRoomEvent::SendMessage(message_content))
             .unwrap();

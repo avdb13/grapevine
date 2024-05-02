@@ -1,7 +1,7 @@
 use crate::Result;
 use ruma::{OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     /// Creates or updates the alias to the given room id.
     fn set_alias(&self, alias: &RoomAliasId, room_id: &RoomId) -> Result<()>;
 

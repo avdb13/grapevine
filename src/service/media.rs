@@ -1,7 +1,7 @@
 mod data;
 use std::io::Cursor;
 
-pub use data::Data;
+pub(crate) use data::Data;
 
 use crate::{services, Result};
 use image::imageops::FilterType;
@@ -11,19 +11,19 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
 };
 
-pub struct FileMeta {
-    pub content_disposition: Option<String>,
-    pub content_type: Option<String>,
-    pub file: Vec<u8>,
+pub(crate) struct FileMeta {
+    pub(crate) content_disposition: Option<String>,
+    pub(crate) content_type: Option<String>,
+    pub(crate) file: Vec<u8>,
 }
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
     /// Uploads a file.
-    pub async fn create(
+    pub(crate) async fn create(
         &self,
         mxc: String,
         content_disposition: Option<&str>,
@@ -43,7 +43,7 @@ impl Service {
 
     /// Uploads or replaces a file thumbnail.
     #[allow(clippy::too_many_arguments)]
-    pub async fn upload_thumbnail(
+    pub(crate) async fn upload_thumbnail(
         &self,
         mxc: String,
         content_disposition: Option<&str>,
@@ -64,7 +64,7 @@ impl Service {
     }
 
     /// Downloads a file.
-    pub async fn get(&self, mxc: String) -> Result<Option<FileMeta>> {
+    pub(crate) async fn get(&self, mxc: String) -> Result<Option<FileMeta>> {
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc, 0, 0)
         {
@@ -86,7 +86,7 @@ impl Service {
 
     /// Returns width, height of the thumbnail and whether it should be cropped. Returns None when
     /// the server should send the original file.
-    pub fn thumbnail_properties(&self, width: u32, height: u32) -> Option<(u32, u32, bool)> {
+    pub(crate) fn thumbnail_properties(&self, width: u32, height: u32) -> Option<(u32, u32, bool)> {
         match (width, height) {
             (0..=32, 0..=32) => Some((32, 32, true)),
             (0..=96, 0..=96) => Some((96, 96, true)),
@@ -107,7 +107,7 @@ impl Service {
     /// - Server creates the thumbnail and sends it to the user
     ///
     /// For width,height <= 96 the server uses another thumbnailing algorithm which crops the image afterwards.
-    pub async fn get_thumbnail(
+    pub(crate) async fn get_thumbnail(
         &self,
         mxc: String,
         width: u32,

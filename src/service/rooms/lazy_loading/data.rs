@@ -1,7 +1,7 @@
 use crate::Result;
 use ruma::{DeviceId, RoomId, UserId};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn lazy_load_was_sent_before(
         &self,
         user_id: &UserId,

@@ -1,16 +1,16 @@
 mod data;
 
-pub use data::Data;
+pub(crate) use data::Data;
 
 use crate::Result;
 use ruma::{DeviceId, TransactionId, UserId};
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
-    pub fn add_txnid(
+    pub(crate) fn add_txnid(
         &self,
         user_id: &UserId,
         device_id: Option<&DeviceId>,
@@ -20,7 +20,7 @@ impl Service {
         self.db.add_txnid(user_id, device_id, txn_id, data)
     }
 
-    pub fn existing_txnid(
+    pub(crate) fn existing_txnid(
         &self,
         user_id: &UserId,
         device_id: Option<&DeviceId>,

@@ -44,7 +44,7 @@ use super::get_alias_helper;
 ///
 /// - If the server knowns about this room: creates the join event and does auth rules locally
 /// - If the server does not know about the room: asks other servers over federation
-pub async fn join_room_by_id_route(
+pub(crate) async fn join_room_by_id_route(
     body: Ruma<join_room_by_id::v3::Request>,
 ) -> Result<join_room_by_id::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -87,7 +87,7 @@ pub async fn join_room_by_id_route(
 ///
 /// - If the server knowns about this room: creates the join event and does auth rules locally
 /// - If the server does not know about the room: asks other servers over federation
-pub async fn join_room_by_id_or_alias_route(
+pub(crate) async fn join_room_by_id_or_alias_route(
     body: Ruma<join_room_by_id_or_alias::v3::Request>,
 ) -> Result<join_room_by_id_or_alias::v3::Response> {
     let sender_user = body.sender_user.as_deref().expect("user is authenticated");
@@ -145,7 +145,7 @@ pub async fn join_room_by_id_or_alias_route(
 /// Tries to leave the sender user from a room.
 ///
 /// - This should always work if the user is currently joined.
-pub async fn leave_room_route(
+pub(crate) async fn leave_room_route(
     body: Ruma<leave_room::v3::Request>,
 ) -> Result<leave_room::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -158,7 +158,7 @@ pub async fn leave_room_route(
 /// # `POST /_matrix/client/r0/rooms/{roomId}/invite`
 ///
 /// Tries to send an invite event into the room.
-pub async fn invite_user_route(
+pub(crate) async fn invite_user_route(
     body: Ruma<invite_user::v3::Request>,
 ) -> Result<invite_user::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -181,7 +181,7 @@ pub async fn invite_user_route(
 /// # `POST /_matrix/client/r0/rooms/{roomId}/kick`
 ///
 /// Tries to send a kick event into the room.
-pub async fn kick_user_route(
+pub(crate) async fn kick_user_route(
     body: Ruma<kick_user::v3::Request>,
 ) -> Result<kick_user::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -251,7 +251,9 @@ pub async fn kick_user_route(
 /// # `POST /_matrix/client/r0/rooms/{roomId}/ban`
 ///
 /// Tries to send a ban event into the room.
-pub async fn ban_user_route(body: Ruma<ban_user::v3::Request>) -> Result<ban_user::v3::Response> {
+pub(crate) async fn ban_user_route(
+    body: Ruma<ban_user::v3::Request>,
+) -> Result<ban_user::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Ok(Some(membership_event)) = services()
@@ -330,7 +332,7 @@ pub async fn ban_user_route(body: Ruma<ban_user::v3::Request>) -> Result<ban_use
 /// # `POST /_matrix/client/r0/rooms/{roomId}/unban`
 ///
 /// Tries to send an unban event into the room.
-pub async fn unban_user_route(
+pub(crate) async fn unban_user_route(
     body: Ruma<unban_user::v3::Request>,
 ) -> Result<unban_user::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -407,7 +409,7 @@ pub async fn unban_user_route(
 ///
 /// Note: Other devices of the user have no way of knowing the room was forgotten, so this has to
 /// be called from every device
-pub async fn forget_room_route(
+pub(crate) async fn forget_room_route(
     body: Ruma<forget_room::v3::Request>,
 ) -> Result<forget_room::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -423,7 +425,7 @@ pub async fn forget_room_route(
 /// # `POST /_matrix/client/r0/joined_rooms`
 ///
 /// Lists all rooms the user has joined.
-pub async fn joined_rooms_route(
+pub(crate) async fn joined_rooms_route(
     body: Ruma<joined_rooms::v3::Request>,
 ) -> Result<joined_rooms::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -443,7 +445,7 @@ pub async fn joined_rooms_route(
 /// Lists all joined users in a room (TODO: at a specific point in time, with a specific membership).
 ///
 /// - Only works if the user is currently joined
-pub async fn get_member_events_route(
+pub(crate) async fn get_member_events_route(
     body: Ruma<get_member_events::v3::Request>,
 ) -> Result<get_member_events::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -478,7 +480,7 @@ pub async fn get_member_events_route(
 ///
 /// - The sender user must be in the room
 /// - TODO: An appservice just needs a puppet joined
-pub async fn joined_members_route(
+pub(crate) async fn joined_members_route(
     body: Ruma<joined_members::v3::Request>,
 ) -> Result<joined_members::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -1378,7 +1380,7 @@ pub(crate) async fn invite_helper<'a>(
 }
 
 // Make a user leave all their joined rooms
-pub async fn leave_all_rooms(user_id: &UserId) -> Result<()> {
+pub(crate) async fn leave_all_rooms(user_id: &UserId) -> Result<()> {
     let all_rooms = services()
         .rooms
         .state_cache
@@ -1404,7 +1406,11 @@ pub async fn leave_all_rooms(user_id: &UserId) -> Result<()> {
     Ok(())
 }
 
-pub async fn leave_room(user_id: &UserId, room_id: &RoomId, reason: Option<String>) -> Result<()> {
+pub(crate) async fn leave_room(
+    user_id: &UserId,
+    room_id: &RoomId,
+    reason: Option<String>,
+) -> Result<()> {
     // Ask a remote server if we don't have this room
     if !services()
         .rooms

@@ -6,14 +6,14 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub struct Engine {
+pub(crate) struct Engine {
     rocks: rocksdb::DBWithThreadMode<rocksdb::MultiThreaded>,
     max_open_files: i32,
     cache: rocksdb::Cache,
     old_cfs: Vec<String>,
 }
 
-pub struct RocksDbEngineTree<'a> {
+pub(crate) struct RocksDbEngineTree<'a> {
     db: Arc<Engine>,
     name: &'a str,
     watchers: Watchers,

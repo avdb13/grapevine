@@ -43,7 +43,7 @@ use crate::{service::*, services, Error, PduEvent, Result};
 
 use super::state_compressor::CompressedStateEvent;
 
-pub struct Service;
+pub(crate) struct Service;
 
 impl Service {
     /// When receiving an event one needs to:
@@ -480,7 +480,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, incoming_pdu, val, create_event, pub_key_map))]
-    pub async fn upgrade_outlier_to_timeline_pdu(
+    pub(crate) async fn upgrade_outlier_to_timeline_pdu(
         &self,
         incoming_pdu: Arc<PduEvent>,
         val: BTreeMap<String, CanonicalJsonValue>,
@@ -1636,7 +1636,7 @@ impl Service {
     }
 
     /// Returns Ok if the acl allows the server
-    pub fn acl_check(&self, server_name: &ServerName, room_id: &RoomId) -> Result<()> {
+    pub(crate) fn acl_check(&self, server_name: &ServerName, room_id: &RoomId) -> Result<()> {
         let acl_event = match services().rooms.state_accessor.room_state_get(
             room_id,
             &StateEventType::RoomServerAcl,
@@ -1677,7 +1677,7 @@ impl Service {
     /// Search the DB for the signing keys of the given server, if we don't have them
     /// fetch them from the server and save to our DB.
     #[tracing::instrument(skip_all)]
-    pub async fn fetch_signing_keys(
+    pub(crate) async fn fetch_signing_keys(
         &self,
         origin: &ServerName,
         signature_ids: Vec<String>,

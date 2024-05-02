@@ -7,7 +7,7 @@ use ruma::{
     OwnedRoomId, OwnedServerName, OwnedUserId, RoomId, ServerName, UserId,
 };
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn mark_as_once_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<()>;
     fn mark_as_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<()>;
     fn mark_as_invited(

@@ -31,23 +31,23 @@ use tracing::{debug, error, warn};
 
 use crate::{services, Error, PduEvent, Result};
 
-pub enum CachedJoinRule {
+pub(crate) enum CachedJoinRule {
     //Simplified(SpaceRoomJoinRule),
     Full(JoinRule),
 }
 
-pub struct CachedSpaceChunk {
+pub(crate) struct CachedSpaceChunk {
     chunk: SpaceHierarchyRoomsChunk,
     children: Vec<OwnedRoomId>,
     join_rule: CachedJoinRule,
 }
 
-pub struct Service {
-    pub roomid_spacechunk_cache: Mutex<LruCache<OwnedRoomId, Option<CachedSpaceChunk>>>,
+pub(crate) struct Service {
+    pub(crate) roomid_spacechunk_cache: Mutex<LruCache<OwnedRoomId, Option<CachedSpaceChunk>>>,
 }
 
 impl Service {
-    pub async fn get_hierarchy(
+    pub(crate) async fn get_hierarchy(
         &self,
         sender_user: &UserId,
         room_id: &RoomId,

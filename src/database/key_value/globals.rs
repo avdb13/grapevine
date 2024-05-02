@@ -11,7 +11,7 @@ use ruma::{
 
 use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
 
-pub const COUNTER: &[u8] = b"c";
+pub(crate) const COUNTER: &[u8] = b"c";
 
 #[async_trait]
 impl service::globals::Data for KeyValueDatabase {

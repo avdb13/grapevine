@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{
     api::client::error::ErrorKind,
     events::{
@@ -23,13 +23,13 @@ use crate::{services, utils::calculate_hash, Error, PduEvent, Result};
 
 use super::state_compressor::CompressedStateEvent;
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
     /// Set the room to the given statehash and update caches.
-    pub async fn force_state(
+    pub(crate) async fn force_state(
         &self,
         room_id: &RoomId,
         shortstatehash: u64,
@@ -115,7 +115,7 @@ impl Service {
     /// This adds all current state events (not including the incoming event)
     /// to `stateid_pduid` and adds the incoming event to `eventid_statehash`.
     #[tracing::instrument(skip(self, state_ids_compressed))]
-    pub fn set_event_state(
+    pub(crate) fn set_event_state(
         &self,
         event_id: &EventId,
         room_id: &RoomId,
@@ -187,7 +187,7 @@ impl Service {
     /// This adds all current state events (not including the incoming event)
     /// to `stateid_pduid` and adds the incoming event to `eventid_statehash`.
     #[tracing::instrument(skip(self, new_pdu))]
-    pub fn append_to_state(&self, new_pdu: &PduEvent) -> Result<u64> {
+    pub(crate) fn append_to_state(&self, new_pdu: &PduEvent) -> Result<u64> {
         let shorteventid = services()
             .rooms
             .short
@@ -259,7 +259,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, invite_event))]
-    pub fn calculate_invite_state(
+    pub(crate) fn calculate_invite_state(
         &self,
         invite_event: &PduEvent,
     ) -> Result<Vec<Raw<AnyStrippedStateEvent>>> {
@@ -314,7 +314,7 @@ impl Service {
 
     /// Set the state hash to a new version, but does not update state_cache.
     #[tracing::instrument(skip(self))]
-    pub fn set_room_state(
+    pub(crate) fn set_room_state(
         &self,
         room_id: &RoomId,
         shortstatehash: u64,
@@ -325,7 +325,7 @@ impl Service {
 
     /// Returns the room's version.
     #[tracing::instrument(skip(self))]
-    pub fn get_room_version(&self, room_id: &RoomId) -> Result<RoomVersionId> {
+    pub(crate) fn get_room_version(&self, room_id: &RoomId) -> Result<RoomVersionId> {
         let create_event = services().rooms.state_accessor.room_state_get(
             room_id,
             &StateEventType::RoomCreate,
@@ -346,15 +346,18 @@ impl Service {
         Ok(create_event_content.room_version)
     }
 
-    pub fn get_room_shortstatehash(&self, room_id: &RoomId) -> Result<Option<u64>> {
+    pub(crate) fn get_room_shortstatehash(&self, room_id: &RoomId) -> Result<Option<u64>> {
         self.db.get_room_shortstatehash(room_id)
     }
 
-    pub fn get_forward_extremities(&self, room_id: &RoomId) -> Result<HashSet<Arc<EventId>>> {
+    pub(crate) fn get_forward_extremities(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<HashSet<Arc<EventId>>> {
         self.db.get_forward_extremities(room_id)
     }
 
-    pub fn set_forward_extremities(
+    pub(crate) fn set_forward_extremities(
         &self,
         room_id: &RoomId,
         event_ids: Vec<OwnedEventId>,
@@ -366,7 +369,7 @@ impl Service {
 
     /// This fetches auth events from the current state.
     #[tracing::instrument(skip(self))]
-    pub fn get_auth_events(
+    pub(crate) fn get_auth_events(
         &self,
         room_id: &RoomId,
         kind: &TimelineEventType,

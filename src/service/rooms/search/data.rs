@@ -1,7 +1,7 @@
 use crate::Result;
 use ruma::RoomId;
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn index_pdu(&self, shortroomid: u64, pdu_id: &[u8], message_body: &str) -> Result<()>;
 
     #[allow(clippy::type_complexity)]

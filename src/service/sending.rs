@@ -1,6 +1,6 @@
 mod data;
 
-pub use data::Data;
+pub(crate) use data::Data;
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -45,7 +45,7 @@ use tokio::{
 use tracing::{debug, error, warn};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum OutgoingKind {
+pub(crate) enum OutgoingKind {
     Appservice(String),
     Push(OwnedUserId, String), // user and pushkey
     Normal(OwnedServerName),
@@ -53,7 +53,7 @@ pub enum OutgoingKind {
 
 impl OutgoingKind {
     #[tracing::instrument(skip(self))]
-    pub fn get_prefix(&self) -> Vec<u8> {
+    pub(crate) fn get_prefix(&self) -> Vec<u8> {
         let mut prefix = match self {
             OutgoingKind::Appservice(server) => {
                 let mut p = b"+".to_vec();
@@ -80,17 +80,17 @@ impl OutgoingKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum SendingEventType {
+pub(crate) enum SendingEventType {
     Pdu(Vec<u8>), // pduid
     Edu(Vec<u8>), // pdu json
 }
 
-pub struct Service {
+pub(crate) struct Service {
     db: &'static dyn Data,
 
     /// The state for a given state hash.
     pub(super) maximum_requests: Arc<Semaphore>,
-    pub sender: mpsc::UnboundedSender<(OutgoingKind, SendingEventType, Vec<u8>)>,
+    pub(crate) sender: mpsc::UnboundedSender<(OutgoingKind, SendingEventType, Vec<u8>)>,
     receiver: Mutex<mpsc::UnboundedReceiver<(OutgoingKind, SendingEventType, Vec<u8>)>>,
 }
 
@@ -101,7 +101,7 @@ enum TransactionStatus {
 }
 
 impl Service {
-    pub fn build(db: &'static dyn Data, config: &Config) -> Arc<Self> {
+    pub(crate) fn build(db: &'static dyn Data, config: &Config) -> Arc<Self> {
         let (sender, receiver) = mpsc::unbounded_channel();
         Arc::new(Self {
             db,
@@ -111,7 +111,7 @@ impl Service {
         })
     }
 
-    pub fn start_handler(self: &Arc<Self>) {
+    pub(crate) fn start_handler(self: &Arc<Self>) {
         let self2 = Arc::clone(self);
         tokio::spawn(async move {
             self2.handler().await.unwrap();
@@ -267,7 +267,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, server_name))]
-    pub fn select_edus(&self, server_name: &ServerName) -> Result<(Vec<Vec<u8>>, u64)> {
+    pub(crate) fn select_edus(&self, server_name: &ServerName) -> Result<(Vec<Vec<u8>>, u64)> {
         // u64: count of last edu
         let since = self.db.get_latest_educount(server_name)?;
         let mut events = Vec::new();
@@ -370,7 +370,12 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, pdu_id, user, pushkey))]
-    pub fn send_push_pdu(&self, pdu_id: &[u8], user: &UserId, pushkey: String) -> Result<()> {
+    pub(crate) fn send_push_pdu(
+        &self,
+        pdu_id: &[u8],
+        user: &UserId,
+        pushkey: String,
+    ) -> Result<()> {
         let outgoing_kind = OutgoingKind::Push(user.to_owned(), pushkey);
         let event = SendingEventType::Pdu(pdu_id.to_owned());
         let keys = self.db.queue_requests(&[(&outgoing_kind, event.clone())])?;
@@ -382,7 +387,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, servers, pdu_id))]
-    pub fn send_pdu<I: Iterator<Item = OwnedServerName>>(
+    pub(crate) fn send_pdu<I: Iterator<Item = OwnedServerName>>(
         &self,
         servers: I,
         pdu_id: &[u8],
@@ -412,7 +417,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, server, serialized))]
-    pub fn send_reliable_edu(
+    pub(crate) fn send_reliable_edu(
         &self,
         server: &ServerName,
         serialized: Vec<u8>,
@@ -429,7 +434,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn send_pdu_appservice(&self, appservice_id: String, pdu_id: Vec<u8>) -> Result<()> {
+    pub(crate) fn send_pdu_appservice(&self, appservice_id: String, pdu_id: Vec<u8>) -> Result<()> {
         let outgoing_kind = OutgoingKind::Appservice(appservice_id);
         let event = SendingEventType::Pdu(pdu_id);
         let keys = self.db.queue_requests(&[(&outgoing_kind, event.clone())])?;
@@ -444,7 +449,7 @@ impl Service {
     /// Used for instance after we remove an appservice registration
     ///
     #[tracing::instrument(skip(self))]
-    pub fn cleanup_events(&self, appservice_id: String) -> Result<()> {
+    pub(crate) fn cleanup_events(&self, appservice_id: String) -> Result<()> {
         self.db
             .delete_all_requests_for(&OutgoingKind::Appservice(appservice_id))?;
 
@@ -675,7 +680,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, destination, request))]
-    pub async fn send_federation_request<T: OutgoingRequest>(
+    pub(crate) async fn send_federation_request<T: OutgoingRequest>(
         &self,
         destination: &ServerName,
         request: T,
@@ -704,7 +709,7 @@ impl Service {
     ///
     /// Only returns None if there is no url specified in the appservice registration file
     #[tracing::instrument(skip(self, registration, request))]
-    pub async fn send_appservice_request<T: OutgoingRequest>(
+    pub(crate) async fn send_appservice_request<T: OutgoingRequest>(
         &self,
         registration: Registration,
         request: T,

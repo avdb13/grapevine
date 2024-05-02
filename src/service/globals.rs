@@ -1,5 +1,5 @@
 mod data;
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{
     serde::Base64, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedServerName,
     OwnedServerSigningKeyId, OwnedUserId,
@@ -49,46 +49,46 @@ type SyncHandle = (
     Receiver<Option<Result<sync_events::v3::Response>>>, // rx
 );
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 
-    pub actual_destination_cache: Arc<RwLock<WellKnownMap>>, // actual_destination, host
-    pub tls_name_override: Arc<StdRwLock<TlsNameMap>>,
-    pub config: Config,
+    pub(crate) actual_destination_cache: Arc<RwLock<WellKnownMap>>, // actual_destination, host
+    pub(crate) tls_name_override: Arc<StdRwLock<TlsNameMap>>,
+    pub(crate) config: Config,
     keypair: Arc<ruma::signatures::Ed25519KeyPair>,
     dns_resolver: TokioAsyncResolver,
     jwt_decoding_key: Option<jsonwebtoken::DecodingKey>,
     federation_client: reqwest::Client,
     default_client: reqwest::Client,
-    pub stable_room_versions: Vec<RoomVersionId>,
-    pub unstable_room_versions: Vec<RoomVersionId>,
-    pub bad_event_ratelimiter: Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
-    pub bad_signature_ratelimiter: Arc<RwLock<HashMap<Vec<String>, RateLimitState>>>,
-    pub bad_query_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
-    pub servername_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
-    pub sync_receivers: RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
-    pub roomid_mutex_insert: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
-    pub roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
-    pub roomid_mutex_federation: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>, // this lock will be held longer
-    pub roomid_federationhandletime: RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
-    pub stateres_mutex: Arc<Mutex<()>>,
-    pub rotate: RotationHandler,
+    pub(crate) stable_room_versions: Vec<RoomVersionId>,
+    pub(crate) unstable_room_versions: Vec<RoomVersionId>,
+    pub(crate) bad_event_ratelimiter: Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
+    pub(crate) bad_signature_ratelimiter: Arc<RwLock<HashMap<Vec<String>, RateLimitState>>>,
+    pub(crate) bad_query_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
+    pub(crate) servername_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
+    pub(crate) sync_receivers: RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
+    pub(crate) roomid_mutex_insert: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) roomid_mutex_federation: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>, // this lock will be held longer
+    pub(crate) roomid_federationhandletime: RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
+    pub(crate) stateres_mutex: Arc<Mutex<()>>,
+    pub(crate) rotate: RotationHandler,
 
-    pub shutdown: AtomicBool,
+    pub(crate) shutdown: AtomicBool,
 }
 
 /// Handles "rotation" of long-polling requests. "Rotation" in this context is similar to "rotation" of log files and the like.
 ///
 /// This is utilized to have sync workers return early and release read locks on the database.
-pub struct RotationHandler(broadcast::Sender<()>, broadcast::Receiver<()>);
+pub(crate) struct RotationHandler(broadcast::Sender<()>, broadcast::Receiver<()>);
 
 impl RotationHandler {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let (s, r) = broadcast::channel(1);
         Self(s, r)
     }
 
-    pub fn watch(&self) -> impl Future<Output = ()> {
+    pub(crate) fn watch(&self) -> impl Future<Output = ()> {
         let mut r = self.0.subscribe();
 
         async move {
@@ -96,7 +96,7 @@ impl RotationHandler {
         }
     }
 
-    pub fn fire(&self) {
+    pub(crate) fn fire(&self) {
         let _ = self.0.send(());
     }
 }
@@ -107,13 +107,13 @@ impl Default for RotationHandler {
     }
 }
 
-pub struct Resolver {
+pub(crate) struct Resolver {
     inner: GaiResolver,
     overrides: Arc<StdRwLock<TlsNameMap>>,
 }
 
 impl Resolver {
-    pub fn new(overrides: Arc<StdRwLock<TlsNameMap>>) -> Self {
+    pub(crate) fn new(overrides: Arc<StdRwLock<TlsNameMap>>) -> Self {
         Resolver {
             inner: GaiResolver::new(),
             overrides,
@@ -147,7 +147,7 @@ impl Resolve for Resolver {
 }
 
 impl Service {
-    pub fn load(db: &'static dyn Data, config: Config) -> Result<Self> {
+    pub(crate) fn load(db: &'static dyn Data, config: Config) -> Result<Self> {
         let keypair = db.load_keypair();
 
         let keypair = match keypair {
@@ -229,113 +229,113 @@ impl Service {
     }
 
     /// Returns this server's keypair.
-    pub fn keypair(&self) -> &ruma::signatures::Ed25519KeyPair {
+    pub(crate) fn keypair(&self) -> &ruma::signatures::Ed25519KeyPair {
         &self.keypair
     }
 
     /// Returns a reqwest client which can be used to send requests
-    pub fn default_client(&self) -> reqwest::Client {
+    pub(crate) fn default_client(&self) -> reqwest::Client {
         // Client is cheap to clone (Arc wrapper) and avoids lifetime issues
         self.default_client.clone()
     }
 
     /// Returns a client used for resolving .well-knowns
-    pub fn federation_client(&self) -> reqwest::Client {
+    pub(crate) fn federation_client(&self) -> reqwest::Client {
         // Client is cheap to clone (Arc wrapper) and avoids lifetime issues
         self.federation_client.clone()
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn next_count(&self) -> Result<u64> {
+    pub(crate) fn next_count(&self) -> Result<u64> {
         self.db.next_count()
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn current_count(&self) -> Result<u64> {
+    pub(crate) fn current_count(&self) -> Result<u64> {
         self.db.current_count()
     }
 
-    pub async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
+    pub(crate) async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
         self.db.watch(user_id, device_id).await
     }
 
-    pub fn cleanup(&self) -> Result<()> {
+    pub(crate) fn cleanup(&self) -> Result<()> {
         self.db.cleanup()
     }
 
-    pub fn server_name(&self) -> &ServerName {
+    pub(crate) fn server_name(&self) -> &ServerName {
         self.config.server_name.as_ref()
     }
 
-    pub fn max_request_size(&self) -> u32 {
+    pub(crate) fn max_request_size(&self) -> u32 {
         self.config.max_request_size
     }
 
-    pub fn max_fetch_prev_events(&self) -> u16 {
+    pub(crate) fn max_fetch_prev_events(&self) -> u16 {
         self.config.max_fetch_prev_events
     }
 
-    pub fn allow_registration(&self) -> bool {
+    pub(crate) fn allow_registration(&self) -> bool {
         self.config.allow_registration
     }
 
-    pub fn allow_encryption(&self) -> bool {
+    pub(crate) fn allow_encryption(&self) -> bool {
         self.config.allow_encryption
     }
 
-    pub fn allow_federation(&self) -> bool {
+    pub(crate) fn allow_federation(&self) -> bool {
         self.config.allow_federation
     }
 
-    pub fn allow_room_creation(&self) -> bool {
+    pub(crate) fn allow_room_creation(&self) -> bool {
         self.config.allow_room_creation
     }
 
-    pub fn allow_unstable_room_versions(&self) -> bool {
+    pub(crate) fn allow_unstable_room_versions(&self) -> bool {
         self.config.allow_unstable_room_versions
     }
 
-    pub fn default_room_version(&self) -> RoomVersionId {
+    pub(crate) fn default_room_version(&self) -> RoomVersionId {
         self.config.default_room_version.clone()
     }
 
-    pub fn trusted_servers(&self) -> &[OwnedServerName] {
+    pub(crate) fn trusted_servers(&self) -> &[OwnedServerName] {
         &self.config.trusted_servers
     }
 
-    pub fn dns_resolver(&self) -> &TokioAsyncResolver {
+    pub(crate) fn dns_resolver(&self) -> &TokioAsyncResolver {
         &self.dns_resolver
     }
 
-    pub fn jwt_decoding_key(&self) -> Option<&jsonwebtoken::DecodingKey> {
+    pub(crate) fn jwt_decoding_key(&self) -> Option<&jsonwebtoken::DecodingKey> {
         self.jwt_decoding_key.as_ref()
     }
 
-    pub fn turn_password(&self) -> &String {
+    pub(crate) fn turn_password(&self) -> &String {
         &self.config.turn_password
     }
 
-    pub fn turn_ttl(&self) -> u64 {
+    pub(crate) fn turn_ttl(&self) -> u64 {
         self.config.turn_ttl
     }
 
-    pub fn turn_uris(&self) -> &[String] {
+    pub(crate) fn turn_uris(&self) -> &[String] {
         &self.config.turn_uris
     }
 
-    pub fn turn_username(&self) -> &String {
+    pub(crate) fn turn_username(&self) -> &String {
         &self.config.turn_username
     }
 
-    pub fn turn_secret(&self) -> &String {
+    pub(crate) fn turn_secret(&self) -> &String {
         &self.config.turn_secret
     }
 
-    pub fn emergency_password(&self) -> &Option<String> {
+    pub(crate) fn emergency_password(&self) -> &Option<String> {
         &self.config.emergency_password
     }
 
-    pub fn supported_room_versions(&self) -> Vec<RoomVersionId> {
+    pub(crate) fn supported_room_versions(&self) -> Vec<RoomVersionId> {
         let mut room_versions: Vec<RoomVersionId> = vec![];
         room_versions.extend(self.stable_room_versions.clone());
         if self.allow_unstable_room_versions() {
@@ -348,7 +348,7 @@ impl Service {
     /// Remove the outdated keys and insert the new ones.
     ///
     /// This doesn't actually check that the keys provided are newer than the old set.
-    pub fn add_signing_key(
+    pub(crate) fn add_signing_key(
         &self,
         origin: &ServerName,
         new_keys: ServerSigningKeys,
@@ -357,7 +357,7 @@ impl Service {
     }
 
     /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found for the server.
-    pub fn signing_keys_for(
+    pub(crate) fn signing_keys_for(
         &self,
         origin: &ServerName,
     ) -> Result<BTreeMap<OwnedServerSigningKeyId, VerifyKey>> {
@@ -376,22 +376,22 @@ impl Service {
         Ok(keys)
     }
 
-    pub fn database_version(&self) -> Result<u64> {
+    pub(crate) fn database_version(&self) -> Result<u64> {
         self.db.database_version()
     }
 
-    pub fn bump_database_version(&self, new_version: u64) -> Result<()> {
+    pub(crate) fn bump_database_version(&self, new_version: u64) -> Result<()> {
         self.db.bump_database_version(new_version)
     }
 
-    pub fn get_media_folder(&self) -> PathBuf {
+    pub(crate) fn get_media_folder(&self) -> PathBuf {
         let mut r = PathBuf::new();
         r.push(self.config.database_path.clone());
         r.push("media");
         r
     }
 
-    pub fn get_media_file(&self, key: &[u8]) -> PathBuf {
+    pub(crate) fn get_media_file(&self, key: &[u8]) -> PathBuf {
         let mut r = PathBuf::new();
         r.push(self.config.database_path.clone());
         r.push("media");
@@ -399,11 +399,11 @@ impl Service {
         r
     }
 
-    pub fn well_known_client(&self) -> &Option<String> {
+    pub(crate) fn well_known_client(&self) -> &Option<String> {
         &self.config.well_known_client
     }
 
-    pub fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) {
         self.shutdown.store(true, atomic::Ordering::Relaxed);
         // On shutdown
         info!(target: "shutdown-sync", "Received shutdown notification, notifying sync helpers...");

@@ -1,7 +1,7 @@
 use crate::Result;
 use ruma::{OwnedRoomId, RoomId};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     /// Adds the room to the public room directory
     fn set_public(&self, room_id: &RoomId) -> Result<()>;
 

@@ -1,9 +1,9 @@
-pub mod read_receipt;
-pub mod typing;
+pub(crate) mod read_receipt;
+pub(crate) mod typing;
 
-pub trait Data: read_receipt::Data + 'static {}
+pub(crate) trait Data: read_receipt::Data + 'static {}
 
-pub struct Service {
-    pub read_receipt: read_receipt::Service,
-    pub typing: typing::Service,
+pub(crate) struct Service {
+    pub(crate) read_receipt: read_receipt::Service,
+    pub(crate) typing: typing::Service,
 }

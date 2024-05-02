@@ -1,7 +1,7 @@
 use crate::Result;
 use std::{collections::HashSet, sync::Arc};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn get_cached_eventid_authchain(
         &self,
         shorteventid: &[u64],

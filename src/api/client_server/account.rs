@@ -30,7 +30,7 @@ const RANDOM_USER_ID_LENGTH: usize = 10;
 /// - No user or appservice on this server already claimed this username
 ///
 /// Note: This will not reserve the username, so the username might become invalid when trying to register
-pub async fn get_register_available_route(
+pub(crate) async fn get_register_available_route(
     body: Ruma<get_username_availability::v3::Request>,
 ) -> Result<get_username_availability::v3::Response> {
     // Validate user id
@@ -74,7 +74,9 @@ pub async fn get_register_available_route(
 /// - If type is not guest and no username is given: Always fails after UIAA check
 /// - Creates a new account and populates it with default account data
 /// - If `inhibit_login` is false: Creates a device and returns device id and access_token
-pub async fn register_route(body: Ruma<register::v3::Request>) -> Result<register::v3::Response> {
+pub(crate) async fn register_route(
+    body: Ruma<register::v3::Request>,
+) -> Result<register::v3::Response> {
     if !services().globals.allow_registration() && body.appservice_info.is_none() {
         return Err(Error::BadRequest(
             ErrorKind::Forbidden,
@@ -307,7 +309,7 @@ pub async fn register_route(body: Ruma<register::v3::Request>) -> Result<registe
 /// - Deletes device metadata (device id, device display name, last seen ip, last seen ts)
 /// - Forgets to-device events
 /// - Triggers device list updates
-pub async fn change_password_route(
+pub(crate) async fn change_password_route(
     body: Ruma<change_password::v3::Request>,
 ) -> Result<change_password::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -373,7 +375,7 @@ pub async fn change_password_route(
 /// Get user_id of the sender user.
 ///
 /// Note: Also works for Application Services
-pub async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoami::v3::Response> {
+pub(crate) async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoami::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let device_id = body.sender_device.as_ref().cloned();
 
@@ -394,7 +396,7 @@ pub async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoami::v3:
 /// - Forgets all to-device events
 /// - Triggers device list updates
 /// - Removes ability to log in again
-pub async fn deactivate_route(
+pub(crate) async fn deactivate_route(
     body: Ruma<deactivate::v3::Request>,
 ) -> Result<deactivate::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -452,7 +454,7 @@ pub async fn deactivate_route(
 /// Get a list of third party identifiers associated with this account.
 ///
 /// - Currently always returns empty list
-pub async fn third_party_route(
+pub(crate) async fn third_party_route(
     body: Ruma<get_3pids::v3::Request>,
 ) -> Result<get_3pids::v3::Response> {
     let _sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -465,7 +467,7 @@ pub async fn third_party_route(
 /// "This API should be used to request validation tokens when adding an email address to an account"
 ///
 /// - 403 signals that The homeserver does not allow the third party identifier as a contact option.
-pub async fn request_3pid_management_token_via_email_route(
+pub(crate) async fn request_3pid_management_token_via_email_route(
     _body: Ruma<request_3pid_management_token_via_email::v3::Request>,
 ) -> Result<request_3pid_management_token_via_email::v3::Response> {
     Err(Error::BadRequest(
@@ -479,7 +481,7 @@ pub async fn request_3pid_management_token_via_email_route(
 /// "This API should be used to request validation tokens when adding an phone number to an account"
 ///
 /// - 403 signals that The homeserver does not allow the third party identifier as a contact option.
-pub async fn request_3pid_management_token_via_msisdn_route(
+pub(crate) async fn request_3pid_management_token_via_msisdn_route(
     _body: Ruma<request_3pid_management_token_via_msisdn::v3::Request>,
 ) -> Result<request_3pid_management_token_via_msisdn::v3::Response> {
     Err(Error::BadRequest(

@@ -1,7 +1,7 @@
 mod data;
 use std::collections::{HashMap, HashSet};
 
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{DeviceId, OwnedDeviceId, OwnedRoomId, OwnedUserId, RoomId, UserId};
 use tokio::sync::Mutex;
 
@@ -9,17 +9,17 @@ use crate::Result;
 
 use super::timeline::PduCount;
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 
     #[allow(clippy::type_complexity)]
-    pub lazy_load_waiting:
+    pub(crate) lazy_load_waiting:
         Mutex<HashMap<(OwnedUserId, OwnedDeviceId, OwnedRoomId, PduCount), HashSet<OwnedUserId>>>,
 }
 
 impl Service {
     #[tracing::instrument(skip(self))]
-    pub fn lazy_load_was_sent_before(
+    pub(crate) fn lazy_load_was_sent_before(
         &self,
         user_id: &UserId,
         device_id: &DeviceId,
@@ -31,7 +31,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn lazy_load_mark_sent(
+    pub(crate) async fn lazy_load_mark_sent(
         &self,
         user_id: &UserId,
         device_id: &DeviceId,
@@ -51,7 +51,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn lazy_load_confirm_delivery(
+    pub(crate) async fn lazy_load_confirm_delivery(
         &self,
         user_id: &UserId,
         device_id: &DeviceId,
@@ -78,7 +78,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn lazy_load_reset(
+    pub(crate) fn lazy_load_reset(
         &self,
         user_id: &UserId,
         device_id: &DeviceId,

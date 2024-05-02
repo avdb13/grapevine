@@ -13,84 +13,84 @@ mod proxy;
 use self::proxy::ProxyConfig;
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct Config {
+pub(crate) struct Config {
     #[serde(default = "default_address")]
-    pub address: IpAddr,
+    pub(crate) address: IpAddr,
     #[serde(default = "default_port")]
-    pub port: u16,
-    pub tls: Option<TlsConfig>,
+    pub(crate) port: u16,
+    pub(crate) tls: Option<TlsConfig>,
 
-    pub server_name: OwnedServerName,
-    pub database_backend: String,
-    pub database_path: String,
+    pub(crate) server_name: OwnedServerName,
+    pub(crate) database_backend: String,
+    pub(crate) database_path: String,
     #[serde(default = "default_db_cache_capacity_mb")]
-    pub db_cache_capacity_mb: f64,
+    pub(crate) db_cache_capacity_mb: f64,
     #[serde(default = "default_cache_capacity_modifier")]
-    pub cache_capacity_modifier: f64,
+    pub(crate) cache_capacity_modifier: f64,
     #[serde(default = "default_rocksdb_max_open_files")]
-    pub rocksdb_max_open_files: i32,
+    pub(crate) rocksdb_max_open_files: i32,
     #[serde(default = "default_pdu_cache_capacity")]
-    pub pdu_cache_capacity: u32,
+    pub(crate) pdu_cache_capacity: u32,
     #[serde(default = "default_cleanup_second_interval")]
-    pub cleanup_second_interval: u32,
+    pub(crate) cleanup_second_interval: u32,
     #[serde(default = "default_max_request_size")]
-    pub max_request_size: u32,
+    pub(crate) max_request_size: u32,
     #[serde(default = "default_max_concurrent_requests")]
-    pub max_concurrent_requests: u16,
+    pub(crate) max_concurrent_requests: u16,
     #[serde(default = "default_max_fetch_prev_events")]
-    pub max_fetch_prev_events: u16,
+    pub(crate) max_fetch_prev_events: u16,
     #[serde(default = "false_fn")]
-    pub allow_registration: bool,
-    pub registration_token: Option<String>,
+    pub(crate) allow_registration: bool,
+    pub(crate) registration_token: Option<String>,
     #[serde(default = "true_fn")]
-    pub allow_encryption: bool,
+    pub(crate) allow_encryption: bool,
     #[serde(default = "false_fn")]
-    pub allow_federation: bool,
+    pub(crate) allow_federation: bool,
     #[serde(default = "true_fn")]
-    pub allow_room_creation: bool,
+    pub(crate) allow_room_creation: bool,
     #[serde(default = "true_fn")]
-    pub allow_unstable_room_versions: bool,
+    pub(crate) allow_unstable_room_versions: bool,
     #[serde(default = "default_default_room_version")]
-    pub default_room_version: RoomVersionId,
-    pub well_known_client: Option<String>,
+    pub(crate) default_room_version: RoomVersionId,
+    pub(crate) well_known_client: Option<String>,
     #[serde(default = "false_fn")]
-    pub allow_jaeger: bool,
+    pub(crate) allow_jaeger: bool,
     #[serde(default = "false_fn")]
-    pub tracing_flame: bool,
+    pub(crate) tracing_flame: bool,
     #[serde(default)]
-    pub proxy: ProxyConfig,
-    pub jwt_secret: Option<String>,
+    pub(crate) proxy: ProxyConfig,
+    pub(crate) jwt_secret: Option<String>,
     #[serde(default = "default_trusted_servers")]
-    pub trusted_servers: Vec<OwnedServerName>,
+    pub(crate) trusted_servers: Vec<OwnedServerName>,
     #[serde(default = "default_log")]
-    pub log: String,
+    pub(crate) log: String,
     #[serde(default)]
-    pub turn_username: String,
+    pub(crate) turn_username: String,
     #[serde(default)]
-    pub turn_password: String,
+    pub(crate) turn_password: String,
     #[serde(default = "Vec::new")]
-    pub turn_uris: Vec<String>,
+    pub(crate) turn_uris: Vec<String>,
     #[serde(default)]
-    pub turn_secret: String,
+    pub(crate) turn_secret: String,
     #[serde(default = "default_turn_ttl")]
-    pub turn_ttl: u64,
+    pub(crate) turn_ttl: u64,
 
-    pub emergency_password: Option<String>,
+    pub(crate) emergency_password: Option<String>,
 
     #[serde(flatten)]
-    pub catchall: BTreeMap<String, IgnoredAny>,
+    pub(crate) catchall: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct TlsConfig {
-    pub certs: String,
-    pub key: String,
+pub(crate) struct TlsConfig {
+    pub(crate) certs: String,
+    pub(crate) key: String,
 }
 
 const DEPRECATED_KEYS: &[&str] = &["cache_capacity"];
 
 impl Config {
-    pub fn warn_deprecated(&self) {
+    pub(crate) fn warn_deprecated(&self) {
         let mut was_deprecated = false;
         for key in self
             .catchall
@@ -259,6 +259,6 @@ fn default_turn_ttl() -> u64 {
 }
 
 // I know, it's a great name
-pub fn default_default_room_version() -> RoomVersionId {
+pub(crate) fn default_default_room_version() -> RoomVersionId {
     RoomVersionId::V10
 }

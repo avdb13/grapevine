@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-pub use data::Data;
+pub(crate) use data::Data;
 
 use ruma::{
     api::{client::error::ErrorKind, federation},
@@ -42,20 +42,20 @@ use crate::{
 use super::state_compressor::CompressedStateEvent;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
-pub enum PduCount {
+pub(crate) enum PduCount {
     Backfilled(u64),
     Normal(u64),
 }
 
 impl PduCount {
-    pub fn min() -> Self {
+    pub(crate) fn min() -> Self {
         Self::Backfilled(u64::MAX)
     }
-    pub fn max() -> Self {
+    pub(crate) fn max() -> Self {
         Self::Normal(u64::MAX)
     }
 
-    pub fn try_from_string(token: &str) -> Result<Self> {
+    pub(crate) fn try_from_string(token: &str) -> Result<Self> {
         if let Some(stripped) = token.strip_prefix('-') {
             stripped.parse().map(PduCount::Backfilled)
         } else {
@@ -64,7 +64,7 @@ impl PduCount {
         .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Invalid pagination token."))
     }
 
-    pub fn stringify(&self) -> String {
+    pub(crate) fn stringify(&self) -> String {
         match self {
             PduCount::Backfilled(x) => format!("-{x}"),
             PduCount::Normal(x) => x.to_string(),
@@ -89,15 +89,15 @@ impl Ord for PduCount {
     }
 }
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 
-    pub lasttimelinecount_cache: Mutex<HashMap<OwnedRoomId, PduCount>>,
+    pub(crate) lasttimelinecount_cache: Mutex<HashMap<OwnedRoomId, PduCount>>,
 }
 
 impl Service {
     #[tracing::instrument(skip(self))]
-    pub fn first_pdu_in_room(&self, room_id: &RoomId) -> Result<Option<Arc<PduEvent>>> {
+    pub(crate) fn first_pdu_in_room(&self, room_id: &RoomId) -> Result<Option<Arc<PduEvent>>> {
         self.all_pdus(user_id!("@doesntmatter:grapevine"), room_id)?
             .next()
             .map(|o| o.map(|(_, p)| Arc::new(p)))
@@ -105,19 +105,23 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn last_timeline_count(&self, sender_user: &UserId, room_id: &RoomId) -> Result<PduCount> {
+    pub(crate) fn last_timeline_count(
+        &self,
+        sender_user: &UserId,
+        room_id: &RoomId,
+    ) -> Result<PduCount> {
         self.db.last_timeline_count(sender_user, room_id)
     }
 
     /// Returns the `count` of this pdu's id.
-    pub fn get_pdu_count(&self, event_id: &EventId) -> Result<Option<PduCount>> {
+    pub(crate) fn get_pdu_count(&self, event_id: &EventId) -> Result<Option<PduCount>> {
         self.db.get_pdu_count(event_id)
     }
 
     // TODO Is this the same as the function above?
     /*
     #[tracing::instrument(skip(self))]
-    pub fn latest_pdu_count(&self, room_id: &RoomId) -> Result<u64> {
+    pub(crate) fn latest_pdu_count(&self, room_id: &RoomId) -> Result<u64> {
         let prefix = self
             .get_shortroomid(room_id)?
             .expect("room exists")
@@ -138,12 +142,12 @@ impl Service {
     */
 
     /// Returns the json of a pdu.
-    pub fn get_pdu_json(&self, event_id: &EventId) -> Result<Option<CanonicalJsonObject>> {
+    pub(crate) fn get_pdu_json(&self, event_id: &EventId) -> Result<Option<CanonicalJsonObject>> {
         self.db.get_pdu_json(event_id)
     }
 
     /// Returns the json of a pdu.
-    pub fn get_non_outlier_pdu_json(
+    pub(crate) fn get_non_outlier_pdu_json(
         &self,
         event_id: &EventId,
     ) -> Result<Option<CanonicalJsonObject>> {
@@ -151,39 +155,42 @@ impl Service {
     }
 
     /// Returns the pdu's id.
-    pub fn get_pdu_id(&self, event_id: &EventId) -> Result<Option<Vec<u8>>> {
+    pub(crate) fn get_pdu_id(&self, event_id: &EventId) -> Result<Option<Vec<u8>>> {
         self.db.get_pdu_id(event_id)
     }
 
     /// Returns the pdu.
     ///
     /// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-    pub fn get_non_outlier_pdu(&self, event_id: &EventId) -> Result<Option<PduEvent>> {
+    pub(crate) fn get_non_outlier_pdu(&self, event_id: &EventId) -> Result<Option<PduEvent>> {
         self.db.get_non_outlier_pdu(event_id)
     }
 
     /// Returns the pdu.
     ///
     /// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-    pub fn get_pdu(&self, event_id: &EventId) -> Result<Option<Arc<PduEvent>>> {
+    pub(crate) fn get_pdu(&self, event_id: &EventId) -> Result<Option<Arc<PduEvent>>> {
         self.db.get_pdu(event_id)
     }
 
     /// Returns the pdu.
     ///
     /// This does __NOT__ check the outliers `Tree`.
-    pub fn get_pdu_from_id(&self, pdu_id: &[u8]) -> Result<Option<PduEvent>> {
+    pub(crate) fn get_pdu_from_id(&self, pdu_id: &[u8]) -> Result<Option<PduEvent>> {
         self.db.get_pdu_from_id(pdu_id)
     }
 
     /// Returns the pdu as a `BTreeMap<String, CanonicalJsonValue>`.
-    pub fn get_pdu_json_from_id(&self, pdu_id: &[u8]) -> Result<Option<CanonicalJsonObject>> {
+    pub(crate) fn get_pdu_json_from_id(
+        &self,
+        pdu_id: &[u8],
+    ) -> Result<Option<CanonicalJsonObject>> {
         self.db.get_pdu_json_from_id(pdu_id)
     }
 
     /// Removes a pdu and creates a new one with the same id.
     #[tracing::instrument(skip(self))]
-    pub fn replace_pdu(
+    pub(crate) fn replace_pdu(
         &self,
         pdu_id: &[u8],
         pdu_json: &CanonicalJsonObject,
@@ -199,7 +206,7 @@ impl Service {
     ///
     /// Returns pdu id
     #[tracing::instrument(skip(self, pdu, pdu_json, leaves))]
-    pub async fn append_pdu<'a>(
+    pub(crate) async fn append_pdu<'a>(
         &self,
         pdu: &PduEvent,
         mut pdu_json: CanonicalJsonObject,
@@ -624,7 +631,7 @@ impl Service {
         Ok(pdu_id)
     }
 
-    pub fn create_hash_and_sign_event(
+    pub(crate) fn create_hash_and_sign_event(
         &self,
         pdu_builder: PduBuilder,
         sender: &UserId,
@@ -807,7 +814,7 @@ impl Service {
     /// Creates a new persisted data unit and adds it to a room. This function takes a
     /// roomid_mutex_state, meaning that only this function is able to mutate the room state.
     #[tracing::instrument(skip(self, state_lock))]
-    pub async fn build_and_append_pdu(
+    pub(crate) async fn build_and_append_pdu(
         &self,
         pdu_builder: PduBuilder,
         sender: &UserId,
@@ -1007,7 +1014,7 @@ impl Service {
     /// Append the incoming event setting the state snapshot to the state from the
     /// server that sent the event.
     #[tracing::instrument(skip_all)]
-    pub async fn append_incoming_pdu<'a>(
+    pub(crate) async fn append_incoming_pdu<'a>(
         &self,
         pdu: &PduEvent,
         pdu_json: CanonicalJsonObject,
@@ -1047,7 +1054,7 @@ impl Service {
     }
 
     /// Returns an iterator over all PDUs in a room.
-    pub fn all_pdus<'a>(
+    pub(crate) fn all_pdus<'a>(
         &'a self,
         user_id: &UserId,
         room_id: &RoomId,
@@ -1058,7 +1065,7 @@ impl Service {
     /// Returns an iterator over all events and their tokens in a room that happened before the
     /// event with id `until` in reverse-chronological order.
     #[tracing::instrument(skip(self))]
-    pub fn pdus_until<'a>(
+    pub(crate) fn pdus_until<'a>(
         &'a self,
         user_id: &UserId,
         room_id: &RoomId,
@@ -1070,7 +1077,7 @@ impl Service {
     /// Returns an iterator over all events and their token in a room that happened after the event
     /// with id `from` in chronological order.
     #[tracing::instrument(skip(self))]
-    pub fn pdus_after<'a>(
+    pub(crate) fn pdus_after<'a>(
         &'a self,
         user_id: &UserId,
         room_id: &RoomId,
@@ -1081,7 +1088,7 @@ impl Service {
 
     /// Replace a PDU with the redacted form.
     #[tracing::instrument(skip(self, reason))]
-    pub fn redact_pdu(&self, event_id: &EventId, reason: &PduEvent) -> Result<()> {
+    pub(crate) fn redact_pdu(&self, event_id: &EventId, reason: &PduEvent) -> Result<()> {
         // TODO: Don't reserialize, keep original json
         if let Some(pdu_id) = self.get_pdu_id(event_id)? {
             let mut pdu = self
@@ -1100,7 +1107,11 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, room_id))]
-    pub async fn backfill_if_required(&self, room_id: &RoomId, from: PduCount) -> Result<()> {
+    pub(crate) async fn backfill_if_required(
+        &self,
+        room_id: &RoomId,
+        from: PduCount,
+    ) -> Result<()> {
         let first_pdu = self
             .all_pdus(user_id!("@doesntmatter:grapevine"), room_id)?
             .next()
@@ -1165,7 +1176,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, pdu))]
-    pub async fn backfill_pdu(
+    pub(crate) async fn backfill_pdu(
         &self,
         origin: &ServerName,
         pdu: Box<RawJsonValue>,

@@ -1,4 +1,4 @@
-pub mod error;
+pub(crate) mod error;
 
 use argon2::{Config, Variant};
 use cmp::Ordering;
@@ -11,7 +11,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub fn millis_since_unix_epoch() -> u64 {
+pub(crate) fn millis_since_unix_epoch() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("time is valid")
@@ -19,7 +19,7 @@ pub fn millis_since_unix_epoch() -> u64 {
 }
 
 #[cfg(any(feature = "rocksdb", feature = "sqlite"))]
-pub fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
+pub(crate) fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
     let number = match old.map(|bytes| bytes.try_into()) {
         Some(Ok(bytes)) => {
             let number = u64::from_be_bytes(bytes);
@@ -31,7 +31,7 @@ pub fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
     Some(number.to_be_bytes().to_vec())
 }
 
-pub fn generate_keypair() -> Vec<u8> {
+pub(crate) fn generate_keypair() -> Vec<u8> {
     let mut value = random_string(8).as_bytes().to_vec();
     value.push(0xff);
     value.extend_from_slice(
@@ -42,17 +42,17 @@ pub fn generate_keypair() -> Vec<u8> {
 }
 
 /// Parses the bytes into an u64.
-pub fn u64_from_bytes(bytes: &[u8]) -> Result<u64, std::array::TryFromSliceError> {
+pub(crate) fn u64_from_bytes(bytes: &[u8]) -> Result<u64, std::array::TryFromSliceError> {
     let array: [u8; 8] = bytes.try_into()?;
     Ok(u64::from_be_bytes(array))
 }
 
 /// Parses the bytes into a string.
-pub fn string_from_bytes(bytes: &[u8]) -> Result<String, std::string::FromUtf8Error> {
+pub(crate) fn string_from_bytes(bytes: &[u8]) -> Result<String, std::string::FromUtf8Error> {
     String::from_utf8(bytes.to_vec())
 }
 
-pub fn random_string(length: usize) -> String {
+pub(crate) fn random_string(length: usize) -> String {
     thread_rng()
         .sample_iter(&rand::distributions::Alphanumeric)
         .take(length)
@@ -61,7 +61,7 @@ pub fn random_string(length: usize) -> String {
 }
 
 /// Calculate a new hash for the given password
-pub fn calculate_password_hash(password: &str) -> Result<String, argon2::Error> {
+pub(crate) fn calculate_password_hash(password: &str) -> Result<String, argon2::Error> {
     let hashing_config = Config {
         variant: Variant::Argon2id,
         ..Default::default()
@@ -72,14 +72,14 @@ pub fn calculate_password_hash(password: &str) -> Result<String, argon2::Error> 
 }
 
 #[tracing::instrument(skip(keys))]
-pub fn calculate_hash(keys: &[&[u8]]) -> Vec<u8> {
+pub(crate) fn calculate_hash(keys: &[&[u8]]) -> Vec<u8> {
     // We only hash the pdu's event ids, not the whole pdu
     let bytes = keys.join(&0xff);
     let hash = digest::digest(&digest::SHA256, &bytes);
     hash.as_ref().to_owned()
 }
 
-pub fn common_elements(
+pub(crate) fn common_elements(
     mut iterators: impl Iterator<Item = impl Iterator<Item = Vec<u8>>>,
     check_order: impl Fn(&[u8], &[u8]) -> Ordering,
 ) -> Option<impl Iterator<Item = Vec<u8>>> {
@@ -106,7 +106,7 @@ pub fn common_elements(
 /// Fallible conversion from any value that implements `Serialize` to a `CanonicalJsonObject`.
 ///
 /// `value` must serialize to an `serde_json::Value::Object`.
-pub fn to_canonical_object<T: serde::Serialize>(
+pub(crate) fn to_canonical_object<T: serde::Serialize>(
     value: T,
 ) -> Result<CanonicalJsonObject, CanonicalJsonError> {
     use serde::ser::Error;
@@ -119,7 +119,7 @@ pub fn to_canonical_object<T: serde::Serialize>(
     }
 }
 
-pub fn deserialize_from_str<
+pub(crate) fn deserialize_from_str<
     'de,
     D: serde::de::Deserializer<'de>,
     T: FromStr<Err = E>,
@@ -150,7 +150,7 @@ pub fn deserialize_from_str<
 
 /// Wrapper struct which will emit the HTML-escaped version of the contained
 /// string when passed to a format string.
-pub struct HtmlEscape<'a>(pub &'a str);
+pub(crate) struct HtmlEscape<'a>(pub(crate) &'a str);
 
 impl<'a> fmt::Display for HtmlEscape<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {

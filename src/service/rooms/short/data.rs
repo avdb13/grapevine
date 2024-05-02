@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::Result;
 use ruma::{events::StateEventType, EventId, RoomId};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn get_or_create_shorteventid(&self, event_id: &EventId) -> Result<u64>;
 
     fn get_shortstatekey(

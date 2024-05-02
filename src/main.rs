@@ -38,19 +38,19 @@ use tower_http::{
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{prelude::*, EnvFilter};
 
-pub mod api;
-pub mod clap;
+pub(crate) mod api;
+pub(crate) mod clap;
 mod config;
 mod database;
 mod service;
 mod utils;
 
-pub use api::ruma_wrapper::{Ruma, RumaResponse};
+pub(crate) use api::ruma_wrapper::{Ruma, RumaResponse};
 use api::{client_server, server_server};
-pub use config::Config;
-pub use database::KeyValueDatabase;
-pub use service::{pdu::PduEvent, Services};
-pub use utils::error::{Error, Result};
+pub(crate) use config::Config;
+pub(crate) use database::KeyValueDatabase;
+pub(crate) use service::{pdu::PduEvent, Services};
+pub(crate) use utils::error::{Error, Result};
 
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 use tikv_jemallocator::Jemalloc;
@@ -59,12 +59,12 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-pub static SERVICES: RwLock<Option<&'static Services>> = RwLock::new(None);
+pub(crate) static SERVICES: RwLock<Option<&'static Services>> = RwLock::new(None);
 
 // Not async due to services() being used in many closures, and async closures are not stable as of writing
 // This is the case for every other occurence of sync Mutex/RwLock, except for database related ones, where
 // the previous maintainer has asked to not modify those
-pub fn services() -> &'static Services {
+pub(crate) fn services() -> &'static Services {
     SERVICES
         .read()
         .unwrap()
@@ -534,7 +534,7 @@ impl RouterExt for Router {
     }
 }
 
-pub trait RumaHandler<T> {
+pub(crate) trait RumaHandler<T> {
     // Can't transform to a handler without boxing or relying on the nightly-only
     // impl-trait-in-traits feature. Moving a small amount of extra logic into the trait
     // allows bypassing both.

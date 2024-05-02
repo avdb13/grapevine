@@ -9,7 +9,7 @@ use ruma::{
 };
 use std::collections::BTreeMap;
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     /// Check if a user has an account on this homeserver.
     fn exists(&self, user_id: &UserId) -> Result<bool>;
 

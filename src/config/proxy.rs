@@ -30,7 +30,7 @@ use crate::Result;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
-pub enum ProxyConfig {
+pub(crate) enum ProxyConfig {
     #[default]
     None,
     Global {
@@ -40,7 +40,7 @@ pub enum ProxyConfig {
     ByDomain(Vec<PartialProxyConfig>),
 }
 impl ProxyConfig {
-    pub fn to_proxy(&self) -> Result<Option<Proxy>> {
+    pub(crate) fn to_proxy(&self) -> Result<Option<Proxy>> {
         Ok(match self.clone() {
             ProxyConfig::None => None,
             ProxyConfig::Global { url } => Some(Proxy::all(url)?),
@@ -52,7 +52,7 @@ impl ProxyConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct PartialProxyConfig {
+pub(crate) struct PartialProxyConfig {
     #[serde(deserialize_with = "crate::utils::deserialize_from_str")]
     url: Url,
     #[serde(default)]
@@ -61,7 +61,7 @@ pub struct PartialProxyConfig {
     exclude: Vec<WildCardedDomain>,
 }
 impl PartialProxyConfig {
-    pub fn for_url(&self, url: &Url) -> Option<&Url> {
+    pub(crate) fn for_url(&self, url: &Url) -> Option<&Url> {
         let domain = url.domain()?;
         let mut included_because = None; // most specific reason it was included
         let mut excluded_because = None; // most specific reason it was excluded
@@ -95,20 +95,20 @@ impl PartialProxyConfig {
 
 /// A domain name, that optionally allows a * as its first subdomain.
 #[derive(Clone, Debug)]
-pub enum WildCardedDomain {
+pub(crate) enum WildCardedDomain {
     WildCard,
     WildCarded(String),
     Exact(String),
 }
 impl WildCardedDomain {
-    pub fn matches(&self, domain: &str) -> bool {
+    pub(crate) fn matches(&self, domain: &str) -> bool {
         match self {
             WildCardedDomain::WildCard => true,
             WildCardedDomain::WildCarded(d) => domain.ends_with(d),
             WildCardedDomain::Exact(d) => domain == d,
         }
     }
-    pub fn more_specific_than(&self, other: &Self) -> bool {
+    pub(crate) fn more_specific_than(&self, other: &Self) -> bool {
         match (self, other) {
             (WildCardedDomain::WildCard, WildCardedDomain::WildCard) => false,
             (_, WildCardedDomain::WildCard) => true,

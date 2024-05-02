@@ -21,7 +21,7 @@ struct Claims {
 ///
 /// Get the supported login types of this server. One of these should be used as the `type` field
 /// when logging in.
-pub async fn get_login_types_route(
+pub(crate) async fn get_login_types_route(
     _body: Ruma<get_login_types::v3::Request>,
 ) -> Result<get_login_types::v3::Response> {
     Ok(get_login_types::v3::Response::new(vec![
@@ -41,7 +41,7 @@ pub async fn get_login_types_route(
 ///
 /// Note: You can use [`GET /_matrix/client/r0/login`](fn.get_supported_versions_route.html) to see
 /// supported login types.
-pub async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Response> {
+pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Response> {
     // To allow deprecated login methods
     #![allow(deprecated)]
     // Validate login method
@@ -223,7 +223,7 @@ pub async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Re
 /// - Deletes device metadata (device id, device display name, last seen ip, last seen ts)
 /// - Forgets to-device events
 /// - Triggers device list updates
-pub async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logout::v3::Response> {
+pub(crate) async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logout::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_ref().expect("user is authenticated");
 
@@ -252,7 +252,7 @@ pub async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logout::v3:
 ///
 /// Note: This is equivalent to calling [`GET /_matrix/client/r0/logout`](fn.logout_route.html)
 /// from each device of this user.
-pub async fn logout_all_route(
+pub(crate) async fn logout_all_route(
     body: Ruma<logout_all::v3::Request>,
 ) -> Result<logout_all::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");

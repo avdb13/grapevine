@@ -4,28 +4,35 @@ use std::{
     sync::Arc,
 };
 
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{api::client::error::ErrorKind, EventId, RoomId};
 use tracing::{debug, error, warn};
 
 use crate::{services, Error, Result};
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
-    pub fn get_cached_eventid_authchain(&self, key: &[u64]) -> Result<Option<Arc<HashSet<u64>>>> {
+    pub(crate) fn get_cached_eventid_authchain(
+        &self,
+        key: &[u64],
+    ) -> Result<Option<Arc<HashSet<u64>>>> {
         self.db.get_cached_eventid_authchain(key)
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn cache_auth_chain(&self, key: Vec<u64>, auth_chain: Arc<HashSet<u64>>) -> Result<()> {
+    pub(crate) fn cache_auth_chain(
+        &self,
+        key: Vec<u64>,
+        auth_chain: Arc<HashSet<u64>>,
+    ) -> Result<()> {
         self.db.cache_auth_chain(key, auth_chain)
     }
 
     #[tracing::instrument(skip(self, starting_events))]
-    pub async fn get_auth_chain<'a>(
+    pub(crate) async fn get_auth_chain<'a>(
         &self,
         room_id: &RoomId,
         starting_events: Vec<Arc<EventId>>,

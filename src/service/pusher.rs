@@ -1,5 +1,5 @@
 mod data;
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{events::AnySyncTimelineEvent, push::PushConditionPowerLevelsCtx};
 
 use crate::{services, Error, PduEvent, Result};
@@ -22,29 +22,33 @@ use ruma::{
 use std::{fmt::Debug, mem};
 use tracing::{info, warn};
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
-    pub fn set_pusher(&self, sender: &UserId, pusher: set_pusher::v3::PusherAction) -> Result<()> {
+    pub(crate) fn set_pusher(
+        &self,
+        sender: &UserId,
+        pusher: set_pusher::v3::PusherAction,
+    ) -> Result<()> {
         self.db.set_pusher(sender, pusher)
     }
 
-    pub fn get_pusher(&self, sender: &UserId, pushkey: &str) -> Result<Option<Pusher>> {
+    pub(crate) fn get_pusher(&self, sender: &UserId, pushkey: &str) -> Result<Option<Pusher>> {
         self.db.get_pusher(sender, pushkey)
     }
 
-    pub fn get_pushers(&self, sender: &UserId) -> Result<Vec<Pusher>> {
+    pub(crate) fn get_pushers(&self, sender: &UserId) -> Result<Vec<Pusher>> {
         self.db.get_pushers(sender)
     }
 
-    pub fn get_pushkeys(&self, sender: &UserId) -> Box<dyn Iterator<Item = Result<String>>> {
+    pub(crate) fn get_pushkeys(&self, sender: &UserId) -> Box<dyn Iterator<Item = Result<String>>> {
         self.db.get_pushkeys(sender)
     }
 
     #[tracing::instrument(skip(self, destination, request))]
-    pub async fn send_request<T: OutgoingRequest>(
+    pub(crate) async fn send_request<T: OutgoingRequest>(
         &self,
         destination: &str,
         request: T,
@@ -128,7 +132,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, user, unread, pusher, ruleset, pdu))]
-    pub async fn send_push_notice(
+    pub(crate) async fn send_push_notice(
         &self,
         user: &UserId,
         unread: UInt,
@@ -184,7 +188,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, user, ruleset, pdu))]
-    pub fn get_actions<'a>(
+    pub(crate) fn get_actions<'a>(
         &self,
         user: &UserId,
         ruleset: &'a Ruleset,

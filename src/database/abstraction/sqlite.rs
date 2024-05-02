@@ -18,8 +18,8 @@ thread_local! {
 }
 
 struct PreparedStatementIterator<'a> {
-    pub iterator: Box<dyn Iterator<Item = TupleOfBytes> + 'a>,
-    pub _statement_ref: NonAliasingBox<rusqlite::Statement<'a>>,
+    pub(crate) iterator: Box<dyn Iterator<Item = TupleOfBytes> + 'a>,
+    pub(crate) _statement_ref: NonAliasingBox<rusqlite::Statement<'a>>,
 }
 
 impl Iterator for PreparedStatementIterator<'_> {
@@ -37,7 +37,7 @@ impl<T> Drop for NonAliasingBox<T> {
     }
 }
 
-pub struct Engine {
+pub(crate) struct Engine {
     writer: Mutex<Connection>,
     read_conn_tls: ThreadLocal<Connection>,
     read_iterator_conn_tls: ThreadLocal<Connection>,
@@ -73,7 +73,7 @@ impl Engine {
             .get_or(|| Self::prepare_conn(&self.path, self.cache_size_per_thread).unwrap())
     }
 
-    pub fn flush_wal(self: &Arc<Self>) -> Result<()> {
+    pub(crate) fn flush_wal(self: &Arc<Self>) -> Result<()> {
         self.write_lock()
             .pragma_update(Some(Main), "wal_checkpoint", "RESTART")?;
         Ok(())
@@ -125,7 +125,7 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
     }
 }
 
-pub struct SqliteTable {
+pub(crate) struct SqliteTable {
     engine: Arc<Engine>,
     name: String,
     watchers: Watchers,
@@ -153,7 +153,7 @@ impl SqliteTable {
         Ok(())
     }
 
-    pub fn iter_with_guard<'a>(
+    pub(crate) fn iter_with_guard<'a>(
         &'a self,
         guard: &'a Connection,
     ) -> Box<dyn Iterator<Item = TupleOfBytes> + 'a> {

@@ -15,7 +15,7 @@ use ruma::{
 /// # `GET /_matrix/client/r0/pushrules`
 ///
 /// Retrieves the push rules event for this user.
-pub async fn get_pushrules_all_route(
+pub(crate) async fn get_pushrules_all_route(
     body: Ruma<get_pushrules_all::v3::Request>,
 ) -> Result<get_pushrules_all::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -44,7 +44,7 @@ pub async fn get_pushrules_all_route(
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}`
 ///
 /// Retrieves a single specified push rule for this user.
-pub async fn get_pushrule_route(
+pub(crate) async fn get_pushrule_route(
     body: Ruma<get_pushrule::v3::Request>,
 ) -> Result<get_pushrule::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -83,7 +83,7 @@ pub async fn get_pushrule_route(
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}`
 ///
 /// Creates a single specified push rule for this user.
-pub async fn set_pushrule_route(
+pub(crate) async fn set_pushrule_route(
     body: Ruma<set_pushrule::v3::Request>,
 ) -> Result<set_pushrule::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -156,7 +156,7 @@ pub async fn set_pushrule_route(
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/actions`
 ///
 /// Gets the actions of a single specified push rule for this user.
-pub async fn get_pushrule_actions_route(
+pub(crate) async fn get_pushrule_actions_route(
     body: Ruma<get_pushrule_actions::v3::Request>,
 ) -> Result<get_pushrule_actions::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -199,7 +199,7 @@ pub async fn get_pushrule_actions_route(
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/actions`
 ///
 /// Sets the actions of a single specified push rule for this user.
-pub async fn set_pushrule_actions_route(
+pub(crate) async fn set_pushrule_actions_route(
     body: Ruma<set_pushrule_actions::v3::Request>,
 ) -> Result<set_pushrule_actions::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -251,7 +251,7 @@ pub async fn set_pushrule_actions_route(
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/enabled`
 ///
 /// Gets the enabled status of a single specified push rule for this user.
-pub async fn get_pushrule_enabled_route(
+pub(crate) async fn get_pushrule_enabled_route(
     body: Ruma<get_pushrule_enabled::v3::Request>,
 ) -> Result<get_pushrule_enabled::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -293,7 +293,7 @@ pub async fn get_pushrule_enabled_route(
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/enabled`
 ///
 /// Sets the enabled status of a single specified push rule for this user.
-pub async fn set_pushrule_enabled_route(
+pub(crate) async fn set_pushrule_enabled_route(
     body: Ruma<set_pushrule_enabled::v3::Request>,
 ) -> Result<set_pushrule_enabled::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -345,7 +345,7 @@ pub async fn set_pushrule_enabled_route(
 /// # `DELETE /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}`
 ///
 /// Deletes a single specified push rule for this user.
-pub async fn delete_pushrule_route(
+pub(crate) async fn delete_pushrule_route(
     body: Ruma<delete_pushrule::v3::Request>,
 ) -> Result<delete_pushrule::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -404,7 +404,7 @@ pub async fn delete_pushrule_route(
 /// # `GET /_matrix/client/r0/pushers`
 ///
 /// Gets all currently active pushers for the sender user.
-pub async fn get_pushers_route(
+pub(crate) async fn get_pushers_route(
     body: Ruma<get_pushers::v3::Request>,
 ) -> Result<get_pushers::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -419,7 +419,7 @@ pub async fn get_pushers_route(
 /// Adds a pusher for the sender user.
 ///
 /// - TODO: Handle `append`
-pub async fn set_pushers_route(
+pub(crate) async fn set_pushers_route(
     body: Ruma<set_pusher::v3::Request>,
 ) -> Result<set_pusher::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");

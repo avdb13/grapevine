@@ -19,9 +19,9 @@ fn version() -> String {
 /// Command line arguments
 #[derive(Parser)]
 #[clap(about, version = version())]
-pub struct Args {}
+pub(crate) struct Args {}
 
 /// Parse command line arguments into structured data
-pub fn parse() -> Args {
+pub(crate) fn parse() -> Args {
     Args::parse()
 }

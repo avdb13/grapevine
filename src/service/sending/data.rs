@@ -4,7 +4,7 @@ use crate::Result;
 
 use super::{OutgoingKind, SendingEventType};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     #[allow(clippy::type_complexity)]
     fn active_requests<'a>(
         &'a self,

@@ -9,37 +9,37 @@ use tokio::sync::{broadcast, Mutex};
 use crate::{Config, Result};
 use tokio::sync::RwLock;
 
-pub mod account_data;
-pub mod admin;
-pub mod appservice;
-pub mod globals;
-pub mod key_backups;
-pub mod media;
-pub mod pdu;
-pub mod pusher;
-pub mod rooms;
-pub mod sending;
-pub mod transaction_ids;
-pub mod uiaa;
-pub mod users;
+pub(crate) mod account_data;
+pub(crate) mod admin;
+pub(crate) mod appservice;
+pub(crate) mod globals;
+pub(crate) mod key_backups;
+pub(crate) mod media;
+pub(crate) mod pdu;
+pub(crate) mod pusher;
+pub(crate) mod rooms;
+pub(crate) mod sending;
+pub(crate) mod transaction_ids;
+pub(crate) mod uiaa;
+pub(crate) mod users;
 
-pub struct Services {
-    pub appservice: appservice::Service,
-    pub pusher: pusher::Service,
-    pub rooms: rooms::Service,
-    pub transaction_ids: transaction_ids::Service,
-    pub uiaa: uiaa::Service,
-    pub users: users::Service,
-    pub account_data: account_data::Service,
-    pub admin: Arc<admin::Service>,
-    pub globals: globals::Service,
-    pub key_backups: key_backups::Service,
-    pub media: media::Service,
-    pub sending: Arc<sending::Service>,
+pub(crate) struct Services {
+    pub(crate) appservice: appservice::Service,
+    pub(crate) pusher: pusher::Service,
+    pub(crate) rooms: rooms::Service,
+    pub(crate) transaction_ids: transaction_ids::Service,
+    pub(crate) uiaa: uiaa::Service,
+    pub(crate) users: users::Service,
+    pub(crate) account_data: account_data::Service,
+    pub(crate) admin: Arc<admin::Service>,
+    pub(crate) globals: globals::Service,
+    pub(crate) key_backups: key_backups::Service,
+    pub(crate) media: media::Service,
+    pub(crate) sending: Arc<sending::Service>,
 }
 
 impl Services {
-    pub fn build<
+    pub(crate) fn build<
         D: appservice::Data
             + pusher::Data
             + rooms::Data

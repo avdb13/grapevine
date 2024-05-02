@@ -1,7 +1,7 @@
 use crate::Result;
 use ruma::{events::receipt::ReceiptEvent, serde::Raw, OwnedUserId, RoomId, UserId};
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     /// Replaces the previous read receipt.
     fn readreceipt_update(
         &self,

@@ -4,7 +4,7 @@ use ruma::api::client::space::get_hierarchy;
 /// # `GET /_matrix/client/v1/rooms/{room_id}/hierarchy``
 ///
 /// Paginates over the space tree in a depth-first manner to locate child rooms of a given space.
-pub async fn get_hierarchy_route(
+pub(crate) async fn get_hierarchy_route(
     body: Ruma<get_hierarchy::v1::Request>,
 ) -> Result<get_hierarchy::v1::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");

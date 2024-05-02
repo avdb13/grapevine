@@ -1,7 +1,7 @@
 mod data;
 use std::sync::Arc;
 
-pub use data::Data;
+pub(crate) use data::Data;
 use ruma::{
     api::client::relations::get_relating_events,
     events::{relation::RelationType, TimelineEventType},
@@ -13,8 +13,8 @@ use crate::{services, PduEvent, Result};
 
 use super::timeline::PduCount;
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -29,7 +29,7 @@ struct ExtractRelatesToEventId {
 
 impl Service {
     #[tracing::instrument(skip(self, from, to))]
-    pub fn add_relation(&self, from: PduCount, to: PduCount) -> Result<()> {
+    pub(crate) fn add_relation(&self, from: PduCount, to: PduCount) -> Result<()> {
         match (from, to) {
             (PduCount::Normal(f), PduCount::Normal(t)) => self.db.add_relation(f, t),
             _ => {
@@ -41,7 +41,7 @@ impl Service {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn paginate_relations_with_filter(
+    pub(crate) fn paginate_relations_with_filter(
         &self,
         sender_user: &UserId,
         room_id: &RoomId,
@@ -152,7 +152,7 @@ impl Service {
         }
     }
 
-    pub fn relations_until<'a>(
+    pub(crate) fn relations_until<'a>(
         &'a self,
         user_id: &'a UserId,
         room_id: &'a RoomId,
@@ -169,22 +169,26 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, room_id, event_ids))]
-    pub fn mark_as_referenced(&self, room_id: &RoomId, event_ids: &[Arc<EventId>]) -> Result<()> {
+    pub(crate) fn mark_as_referenced(
+        &self,
+        room_id: &RoomId,
+        event_ids: &[Arc<EventId>],
+    ) -> Result<()> {
         self.db.mark_as_referenced(room_id, event_ids)
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> Result<bool> {
+    pub(crate) fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> Result<bool> {
         self.db.is_event_referenced(room_id, event_id)
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn mark_event_soft_failed(&self, event_id: &EventId) -> Result<()> {
+    pub(crate) fn mark_event_soft_failed(&self, event_id: &EventId) -> Result<()> {
         self.db.mark_event_soft_failed(event_id)
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn is_event_soft_failed(&self, event_id: &EventId) -> Result<bool> {
+    pub(crate) fn is_event_soft_failed(&self, event_id: &EventId) -> Result<bool> {
         self.db.is_event_soft_failed(event_id)
     }
 }

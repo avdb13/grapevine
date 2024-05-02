@@ -7,7 +7,7 @@ use ruma::{
     OwnedRoomId, RoomId, UserId,
 };
 
-pub trait Data: Send + Sync {
+pub(crate) trait Data: Send + Sync {
     fn create_backup(
         &self,
         user_id: &UserId,

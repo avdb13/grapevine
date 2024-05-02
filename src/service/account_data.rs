@@ -1,6 +1,6 @@
 mod data;
 
-pub use data::Data;
+pub(crate) use data::Data;
 
 use ruma::{
     events::{AnyEphemeralRoomEvent, RoomAccountDataEventType},
@@ -12,14 +12,14 @@ use std::collections::HashMap;
 
 use crate::Result;
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 }
 
 impl Service {
     /// Places one event in the account data of the user and removes the previous entry.
     #[tracing::instrument(skip(self, room_id, user_id, event_type, data))]
-    pub fn update(
+    pub(crate) fn update(
         &self,
         room_id: Option<&RoomId>,
         user_id: &UserId,
@@ -31,7 +31,7 @@ impl Service {
 
     /// Searches the account data for a specific kind.
     #[tracing::instrument(skip(self, room_id, user_id, event_type))]
-    pub fn get(
+    pub(crate) fn get(
         &self,
         room_id: Option<&RoomId>,
         user_id: &UserId,
@@ -42,7 +42,7 @@ impl Service {
 
     /// Returns all changes to the account data that happened after `since`.
     #[tracing::instrument(skip(self, room_id, user_id, since))]
-    pub fn changes_since(
+    pub(crate) fn changes_since(
         &self,
         room_id: Option<&RoomId>,
         user_id: &UserId,

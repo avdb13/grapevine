@@ -65,7 +65,7 @@ use tracing::{error, info};
 ///
 /// - Sync is handled in an async task, multiple requests from the same device with the same
 /// `since` will be cached
-pub async fn sync_events_route(
+pub(crate) async fn sync_events_route(
     body: Ruma<sync_events::v3::Request>,
 ) -> Result<sync_events::v3::Response, RumaResponse<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");
@@ -1180,7 +1180,7 @@ fn share_encrypted_room(
         .any(|encrypted| encrypted))
 }
 
-pub async fn sync_events_v4_route(
+pub(crate) async fn sync_events_v4_route(
     body: Ruma<sync_events::v4::Request>,
 ) -> Result<sync_events::v4::Response, RumaResponse<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");

@@ -15,7 +15,7 @@ use ruma::{
 /// # `PUT /_matrix/client/r0/directory/room/{roomAlias}`
 ///
 /// Creates a new room alias on this server.
-pub async fn create_alias_route(
+pub(crate) async fn create_alias_route(
     body: Ruma<create_alias::v3::Request>,
 ) -> Result<create_alias::v3::Response> {
     if body.room_alias.server_name() != services().globals.server_name() {
@@ -66,7 +66,7 @@ pub async fn create_alias_route(
 ///
 /// - TODO: additional access control checks
 /// - TODO: Update canonical alias event
-pub async fn delete_alias_route(
+pub(crate) async fn delete_alias_route(
     body: Ruma<delete_alias::v3::Request>,
 ) -> Result<delete_alias::v3::Response> {
     if body.room_alias.server_name() != services().globals.server_name() {
@@ -106,7 +106,7 @@ pub async fn delete_alias_route(
 /// Resolve an alias locally or over federation.
 ///
 /// - TODO: Suggest more servers to join via
-pub async fn get_alias_route(
+pub(crate) async fn get_alias_route(
     body: Ruma<get_alias::v3::Request>,
 ) -> Result<get_alias::v3::Response> {
     get_alias_helper(body.body.room_alias).await

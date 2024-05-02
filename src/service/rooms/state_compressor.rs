@@ -1,11 +1,11 @@
-pub mod data;
+pub(crate) mod data;
 use std::{
     collections::HashSet,
     mem::size_of,
     sync::{Arc, Mutex},
 };
 
-pub use data::Data;
+pub(crate) use data::Data;
 use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
@@ -13,11 +13,11 @@ use crate::{services, utils, Result};
 
 use self::data::StateDiff;
 
-pub struct Service {
-    pub db: &'static dyn Data,
+pub(crate) struct Service {
+    pub(crate) db: &'static dyn Data,
 
     #[allow(clippy::type_complexity)]
-    pub stateinfo_cache: Mutex<
+    pub(crate) stateinfo_cache: Mutex<
         LruCache<
             u64,
             Vec<(
@@ -30,13 +30,13 @@ pub struct Service {
     >,
 }
 
-pub type CompressedStateEvent = [u8; 2 * size_of::<u64>()];
+pub(crate) type CompressedStateEvent = [u8; 2 * size_of::<u64>()];
 
 impl Service {
     /// Returns a stack with info on shortstatehash, full state, added diff and removed diff for the selected shortstatehash and each parent layer.
     #[allow(clippy::type_complexity)]
     #[tracing::instrument(skip(self))]
-    pub fn load_shortstatehash_info(
+    pub(crate) fn load_shortstatehash_info(
         &self,
         shortstatehash: u64,
     ) -> Result<
@@ -89,7 +89,7 @@ impl Service {
         }
     }
 
-    pub fn compress_state_event(
+    pub(crate) fn compress_state_event(
         &self,
         shortstatekey: u64,
         event_id: &EventId,
@@ -106,7 +106,7 @@ impl Service {
     }
 
     /// Returns shortstatekey, event id
-    pub fn parse_compressed_state_event(
+    pub(crate) fn parse_compressed_state_event(
         &self,
         compressed_event: &CompressedStateEvent,
     ) -> Result<(u64, Arc<EventId>)> {
@@ -141,7 +141,7 @@ impl Service {
         diff_to_sibling,
         parent_states
     ))]
-    pub fn save_state_from_diff(
+    pub(crate) fn save_state_from_diff(
         &self,
         shortstatehash: u64,
         statediffnew: Arc<HashSet<CompressedStateEvent>>,
@@ -257,7 +257,7 @@ impl Service {
 
     /// Returns the new shortstatehash, and the state diff from the previous room state
     #[allow(clippy::type_complexity)]
-    pub fn save_state(
+    pub(crate) fn save_state(
         &self,
         room_id: &RoomId,
         new_state_ids_compressed: Arc<HashSet<CompressedStateEvent>>,

@@ -9,7 +9,7 @@ use ruma::{
 ///
 /// Reports an inappropriate event to homeserver admins
 ///
-pub async fn report_event_route(
+pub(crate) async fn report_event_route(
     body: Ruma<report_content::v3::Request>,
 ) -> Result<report_content::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");

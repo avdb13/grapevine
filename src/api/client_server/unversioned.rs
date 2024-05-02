@@ -15,7 +15,7 @@ use crate::{services, Error, Result, Ruma};
 ///
 /// Note: Unstable features are used while developing new features. Clients should avoid using
 /// unstable features in their stable releases
-pub async fn get_supported_versions_route(
+pub(crate) async fn get_supported_versions_route(
     _body: Ruma<get_supported_versions::Request>,
 ) -> Result<get_supported_versions::Response> {
     let resp = get_supported_versions::Response {
@@ -35,7 +35,7 @@ pub async fn get_supported_versions_route(
 }
 
 /// # `GET /.well-known/matrix/client`
-pub async fn well_known_client_route(
+pub(crate) async fn well_known_client_route(
     _body: Ruma<get_supported_versions::Request>,
 ) -> Result<impl IntoResponse> {
     let client_url = match services().globals.well_known_client() {

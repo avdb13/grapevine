@@ -13,10 +13,10 @@ use tracing::{error, info};
 
 use crate::RumaResponse;
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub(crate) enum Error {
     #[cfg(feature = "sqlite")]
     #[error("There was a problem with the connection to the sqlite database: {source}")]
     SqliteError {
@@ -77,19 +77,19 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn bad_database(message: &'static str) -> Self {
+    pub(crate) fn bad_database(message: &'static str) -> Self {
         error!("BadDatabase: {}", message);
         Self::BadDatabase(message)
     }
 
-    pub fn bad_config(message: &'static str) -> Self {
+    pub(crate) fn bad_config(message: &'static str) -> Self {
         error!("BadConfig: {}", message);
         Self::BadConfig(message)
     }
 }
 
 impl Error {
-    pub fn to_response(&self) -> RumaResponse<UiaaResponse> {
+    pub(crate) fn to_response(&self) -> RumaResponse<UiaaResponse> {
         if let Self::Uiaa(uiaainfo) = self {
             return RumaResponse(UiaaResponse::AuthResponse(uiaainfo.clone()));
         }
@@ -136,7 +136,7 @@ impl Error {
     }
 
     /// Sanitizes public-facing errors that can leak sensitive information.
-    pub fn sanitized_error(&self) -> String {
+    pub(crate) fn sanitized_error(&self) -> String {
         let db_error = String::from("Database or I/O error occurred.");
 
         match self {

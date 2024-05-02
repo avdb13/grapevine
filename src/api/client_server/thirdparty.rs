@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 /// # `GET /_matrix/client/r0/thirdparty/protocols`
 ///
 /// TODO: Fetches all metadata about protocols supported by the homeserver.
-pub async fn get_protocols_route(
+pub(crate) async fn get_protocols_route(
     _body: Ruma<get_protocols::v3::Request>,
 ) -> Result<get_protocols::v3::Response> {
     // TODO

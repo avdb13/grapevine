@@ -6,11 +6,15 @@ macro_use_extern_crate = "warn"
 missing_abi = "warn"
 noop_method_call = "warn"
 pointer_structural_match = "warn"
+unreachable_pub = "warn"
 unsafe_op_in_unsafe_fn = "warn"
 unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_macro_rules = "warn"
 unused_qualifications = "warn"
+
+# TODO: Remove these
+dead_code = "allow"
 
 # Keep alphabetically sorted
 [workspace.lints.clippy]
@@ -46,6 +50,9 @@ unnecessary_self_imports = "warn"
 unseparated_literal_suffix = "warn"
 verbose_file_reads = "warn"
 wildcard_dependencies = "warn"
+
+# TODO: Remove these
+enum_variant_names = "allow"
 
 [package]
 name = "grapevine"

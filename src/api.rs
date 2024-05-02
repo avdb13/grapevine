@@ -1,4 +1,4 @@
-pub mod appservice_server;
-pub mod client_server;
-pub mod ruma_wrapper;
-pub mod server_server;
+pub(crate) mod appservice_server;
+pub(crate) mod client_server;
+pub(crate) mod ruma_wrapper;
+pub(crate) mod server_server;

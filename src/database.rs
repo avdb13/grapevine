@@ -1,5 +1,5 @@
-pub mod abstraction;
-pub mod key_value;
+pub(crate) mod abstraction;
+pub(crate) mod key_value;
 
 use crate::{
     service::rooms::timeline::PduCount, services, utils, Config, Error, PduEvent, Result, Services,
@@ -29,14 +29,14 @@ use std::{
 
 use tracing::{debug, error, info, warn};
 
-pub struct KeyValueDatabase {
+pub(crate) struct KeyValueDatabase {
     _db: Arc<dyn KeyValueDatabaseEngine>,
 
-    //pub globals: globals::Globals,
+    //pub(crate) globals: globals::Globals,
     pub(super) global: Arc<dyn KvTree>,
     pub(super) server_signingkeys: Arc<dyn KvTree>,
 
-    //pub users: users::Users,
+    //pub(crate) users: users::Users,
     pub(super) userid_password: Arc<dyn KvTree>,
     pub(super) userid_displayname: Arc<dyn KvTree>,
     pub(super) userid_avatarurl: Arc<dyn KvTree>,
@@ -58,12 +58,12 @@ pub struct KeyValueDatabase {
 
     pub(super) todeviceid_events: Arc<dyn KvTree>, // ToDeviceId = UserId + DeviceId + Count
 
-    //pub uiaa: uiaa::Uiaa,
+    //pub(crate) uiaa: uiaa::Uiaa,
     pub(super) userdevicesessionid_uiaainfo: Arc<dyn KvTree>, // User-interactive authentication
     pub(super) userdevicesessionid_uiaarequest:
         RwLock<BTreeMap<(OwnedUserId, OwnedDeviceId, String), CanonicalJsonValue>>,
 
-    //pub edus: RoomEdus,
+    //pub(crate) edus: RoomEdus,
     pub(super) readreceiptid_readreceipt: Arc<dyn KvTree>, // ReadReceiptId = RoomId + Count + UserId
     pub(super) roomuserid_privateread: Arc<dyn KvTree>, // RoomUserId = Room + User, PrivateRead = Count
     pub(super) roomuserid_lastprivatereadupdate: Arc<dyn KvTree>, // LastPrivateReadUpdate = Count
@@ -74,7 +74,7 @@ pub struct KeyValueDatabase {
     #[allow(dead_code)]
     pub(super) userid_lastpresenceupdate: Arc<dyn KvTree>, // LastPresenceUpdate = Count
 
-    //pub rooms: rooms::Rooms,
+    //pub(crate) rooms: rooms::Rooms,
     pub(super) pduid_pdu: Arc<dyn KvTree>, // PduId = ShortRoomId + Count
     pub(super) eventid_pduid: Arc<dyn KvTree>,
     pub(super) roomid_pduleaves: Arc<dyn KvTree>,
@@ -137,28 +137,28 @@ pub struct KeyValueDatabase {
     /// RoomId + EventId -> Parent PDU EventId.
     pub(super) referencedevents: Arc<dyn KvTree>,
 
-    //pub account_data: account_data::AccountData,
+    //pub(crate) account_data: account_data::AccountData,
     pub(super) roomuserdataid_accountdata: Arc<dyn KvTree>, // RoomUserDataId = Room + User + Count + Type
     pub(super) roomusertype_roomuserdataid: Arc<dyn KvTree>, // RoomUserType = Room + User + Type
 
-    //pub media: media::Media,
+    //pub(crate) media: media::Media,
     pub(super) mediaid_file: Arc<dyn KvTree>, // MediaId = MXC + WidthHeight + ContentDisposition + ContentType
-    //pub key_backups: key_backups::KeyBackups,
+    //pub(crate) key_backups: key_backups::KeyBackups,
     pub(super) backupid_algorithm: Arc<dyn KvTree>, // BackupId = UserId + Version(Count)
     pub(super) backupid_etag: Arc<dyn KvTree>,      // BackupId = UserId + Version(Count)
     pub(super) backupkeyid_backup: Arc<dyn KvTree>, // BackupKeyId = UserId + Version + RoomId + SessionId
 
-    //pub transaction_ids: transaction_ids::TransactionIds,
+    //pub(crate) transaction_ids: transaction_ids::TransactionIds,
     pub(super) userdevicetxnid_response: Arc<dyn KvTree>, // Response can be empty (/sendToDevice) or the event id (/send)
-    //pub sending: sending::Sending,
+    //pub(crate) sending: sending::Sending,
     pub(super) servername_educount: Arc<dyn KvTree>, // EduCount: Count of last EDU sync
     pub(super) servernameevent_data: Arc<dyn KvTree>, // ServernameEvent = (+ / $)SenderKey / ServerName / UserId + PduId / Id (for edus), Data = EDU content
     pub(super) servercurrentevent_data: Arc<dyn KvTree>, // ServerCurrentEvents = (+ / $)ServerName / UserId + PduId / Id (for edus), Data = EDU content
 
-    //pub appservice: appservice::Appservice,
+    //pub(crate) appservice: appservice::Appservice,
     pub(super) id_appserviceregistrations: Arc<dyn KvTree>,
 
-    //pub pusher: pusher::PushData,
+    //pub(crate) pusher: pusher::PushData,
     pub(super) senderkey_pusher: Arc<dyn KvTree>,
 
     pub(super) pdu_cache: Mutex<LruCache<OwnedEventId, Arc<PduEvent>>>,
@@ -214,7 +214,7 @@ impl KeyValueDatabase {
         not(any(feature = "rocksdb", feature = "sqlite")),
         allow(unreachable_code)
     )]
-    pub async fn load_or_create(config: Config) -> Result<()> {
+    pub(crate) async fn load_or_create(config: Config) -> Result<()> {
         Self::check_db_setup(&config)?;
 
         if !Path::new(&config.database_path).exists() {
@@ -959,7 +959,7 @@ impl KeyValueDatabase {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn flush(&self) -> Result<()> {
+    pub(crate) fn flush(&self) -> Result<()> {
         let start = std::time::Instant::now();
 
         let res = self._db.flush();
@@ -970,7 +970,7 @@ impl KeyValueDatabase {
     }
 
     #[tracing::instrument]
-    pub async fn start_cleanup_task() {
+    pub(crate) async fn start_cleanup_task() {
         use tokio::time::interval;
 
         #[cfg(unix)]
