@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,
     time::Duration,
@@ -6,6 +7,7 @@ use std::{
 
 use ruma::{
     api::client::{
+        error::ErrorKind,
         filter::{FilterDefinition, LazyLoadOptions},
         sync::sync_events::{
             self,
@@ -30,7 +32,12 @@ use tracing::{debug, error};
 
 use crate::{
     service::{pdu::EventHash, rooms::timeline::PduCount},
-    services, utils, Ar, Error, PduEvent, Ra, Result,
+    services,
+    utils::{
+        self,
+        filter::{AllowDenyList, CompiledFilterDefinition},
+    },
+    Ar, Error, PduEvent, Ra, Result,
 };
 
 /// # `GET /_matrix/client/r0/sync`
@@ -96,6 +103,14 @@ pub(crate) async fn sync_events_route(
             .get_filter(&sender_user, &filter_id)?
             .unwrap_or_default(),
     };
+    let Ok(compiled_filter) = CompiledFilterDefinition::try_from(&filter)
+    else {
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "invalid 'filter' parameter",
+        )
+        .into());
+    };
 
     let (lazy_load_enabled, lazy_load_send_redundant) =
         match filter.room.state.lazy_load_options {
@@ -125,13 +140,25 @@ pub(crate) async fn sync_events_route(
             .filter_map(Result::ok),
     );
 
-    let all_joined_rooms = services()
-        .rooms
-        .state_cache
-        .rooms_joined(&sender_user)
-        .collect::<Vec<_>>();
+    let room_filter = compiled_filter.room.rooms();
+
+    let mut all_joined_rooms = Vec::new();
+    if let AllowDenyList::Allow(allow_set) = room_filter {
+        for &room_id in allow_set {
+            if services().rooms.state_cache.is_joined(&sender_user, room_id)? {
+                all_joined_rooms.push(Cow::Borrowed(room_id));
+            }
+        }
+    } else {
+        for result in services().rooms.state_cache.rooms_joined(&sender_user) {
+            let room_id = result?;
+            if room_filter.allowed(&room_id) {
+                all_joined_rooms.push(Cow::Owned(room_id));
+            }
+        }
+    }
+
     for room_id in all_joined_rooms {
-        let room_id = room_id?;
         if let Ok(joined_room) = load_joined_room(
             &sender_user,
             &sender_device,
@@ -149,17 +176,31 @@ pub(crate) async fn sync_events_route(
         .await
         {
             if !joined_room.is_empty() {
-                joined_rooms.insert(room_id.clone(), joined_room);
+                joined_rooms.insert(room_id.into_owned(), joined_room);
             }
         }
     }
 
     let mut left_rooms = BTreeMap::new();
-    let all_left_rooms: Vec<_> =
-        services().rooms.state_cache.rooms_left(&sender_user).collect();
-    for result in all_left_rooms {
+    let mut all_left_rooms = Vec::new();
+    if let AllowDenyList::Allow(allow_set) = room_filter {
+        for &room_id in allow_set {
+            if services().rooms.state_cache.is_left(&sender_user, room_id)? {
+                all_left_rooms.push(room_id.to_owned());
+            }
+        }
+    } else {
+        for result in services().rooms.state_cache.rooms_left(&sender_user) {
+            let (room_id, _) = result?;
+            if room_filter.allowed(&room_id) {
+                all_left_rooms.push(room_id);
+            }
+        }
+    }
+
+    for room_id in all_left_rooms {
         handle_left_room(
-            result?.0,
+            room_id,
             &sender_user,
             &mut left_rooms,
             since,
@@ -171,11 +212,29 @@ pub(crate) async fn sync_events_route(
     }
 
     let mut invited_rooms = BTreeMap::new();
-    let all_invited_rooms: Vec<_> =
-        services().rooms.state_cache.rooms_invited(&sender_user).collect();
-    for result in all_invited_rooms {
-        let (room_id, invite_state_events) = result?;
+    let mut all_invited_rooms = Vec::new();
+    if let AllowDenyList::Allow(allow_set) = room_filter {
+        for &room_id in allow_set {
+            if let Some(invite_state_events) = services()
+                .rooms
+                .state_cache
+                .invite_state(&sender_user, room_id)?
+            {
+                all_invited_rooms
+                    .push((Cow::Borrowed(room_id), invite_state_events));
+            }
+        }
+    } else {
+        for result in services().rooms.state_cache.rooms_invited(&sender_user) {
+            let (room_id, invite_state_events) = result?;
+            if room_filter.allowed(&room_id) {
+                all_invited_rooms
+                    .push((Cow::Owned(room_id), invite_state_events));
+            }
+        }
+    }
 
+    for (room_id, invite_state_events) in all_invited_rooms {
         {
             // Get and drop the lock to wait for remaining operations to finish
             let mutex_insert = Arc::clone(
@@ -184,7 +243,7 @@ pub(crate) async fn sync_events_route(
                     .roomid_mutex_insert
                     .write()
                     .await
-                    .entry(room_id.clone())
+                    .entry(room_id.clone().into_owned())
                     .or_default(),
             );
             let insert_lock = mutex_insert.lock().await;
@@ -202,7 +261,7 @@ pub(crate) async fn sync_events_route(
         }
 
         invited_rooms.insert(
-            room_id.clone(),
+            room_id.into_owned(),
             InvitedRoom {
                 invite_state: InviteState {
                     events: invite_state_events,
