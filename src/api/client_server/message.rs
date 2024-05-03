@@ -9,7 +9,7 @@ use ruma::{
         message::{get_message_events, send_message_event},
     },
     events::{StateEventType, TimelineEventType},
-    uint,
+    uint, UInt,
 };
 
 use crate::{
@@ -177,6 +177,7 @@ pub(crate) async fn get_message_events_route(
 
     let limit = body
         .limit
+        .min(body.filter.limit.unwrap_or(UInt::MAX))
         .min(uint!(100))
         .try_into()
         .expect("0-100 should fit in usize");
@@ -193,7 +194,6 @@ pub(crate) async fn get_message_events_route(
                 .rooms
                 .timeline
                 .pdus_after(sender_user, &body.room_id, from)?
-                .take(limit)
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
@@ -207,6 +207,7 @@ pub(crate) async fn get_message_events_route(
                         .unwrap_or(false)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
+                .take(limit)
                 .collect();
 
             for (_, event) in &events_after {
@@ -249,7 +250,6 @@ pub(crate) async fn get_message_events_route(
                 .rooms
                 .timeline
                 .pdus_until(sender_user, &body.room_id, from)?
-                .take(limit)
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
@@ -263,6 +263,7 @@ pub(crate) async fn get_message_events_route(
                         .unwrap_or(false)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
+                .take(limit)
                 .collect();
 
             for (_, event) in &events_before {
