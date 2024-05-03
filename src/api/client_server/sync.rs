@@ -170,6 +170,7 @@ pub(crate) async fn sync_events_route(
             lazy_load_enabled,
             lazy_load_send_redundant,
             full_state,
+            &compiled_filter,
             &mut device_list_updates,
             &mut left_encrypted_users,
         )
@@ -207,6 +208,7 @@ pub(crate) async fn sync_events_route(
             &next_batch_string,
             full_state,
             lazy_load_enabled,
+            &compiled_filter,
         )
         .await?;
     }
@@ -382,9 +384,11 @@ async fn load_joined_room(
     lazy_load_enabled: bool,
     lazy_load_send_redundant: bool,
     full_state: bool,
+    filter: &CompiledFilterDefinition<'_>,
     device_list_updates: &mut HashSet<OwnedUserId>,
     left_encrypted_users: &mut HashSet<OwnedUserId>,
 ) -> Result<JoinedRoom> {
+    // TODO: can we skip this when the room is filtered out?
     {
         // Get and drop the lock to wait for remaining operations to finish
         // This will make sure the we have all events until next_batch
@@ -402,7 +406,7 @@ async fn load_joined_room(
     }
 
     let (timeline_pdus, limited) =
-        load_timeline(sender_user, room_id, sincecount, 10)?;
+        load_timeline(sender_user, room_id, sincecount, 10, Some(filter))?;
 
     let send_notification_counts = !timeline_pdus.is_empty()
         || services()
@@ -974,6 +978,7 @@ async fn load_joined_room(
         room_id = %room_id,
     ),
 )]
+#[allow(clippy::too_many_arguments)]
 async fn handle_left_room(
     room_id: OwnedRoomId,
     sender_user: &UserId,
@@ -982,6 +987,7 @@ async fn handle_left_room(
     next_batch_string: &str,
     full_state: bool,
     lazy_load_enabled: bool,
+    filter: &CompiledFilterDefinition<'_>,
 ) -> Result<()> {
     {
         // Get and drop the lock to wait for remaining operations to finish
@@ -1005,6 +1011,20 @@ async fn handle_left_room(
     if Some(since) >= left_count {
         return Ok(());
     }
+
+    let timeline = if filter.room.timeline.room_allowed(&room_id) {
+        Timeline {
+            limited: false,
+            prev_batch: Some(next_batch_string.to_owned()),
+            events: vec![],
+        }
+    } else {
+        Timeline {
+            limited: false,
+            prev_batch: None,
+            events: vec![],
+        }
+    };
 
     if !services().rooms.metadata.exists(&room_id)? {
         // This is just a rejected invite, not a room we know
@@ -1037,11 +1057,7 @@ async fn handle_left_room(
                 account_data: RoomAccountData {
                     events: Vec::new(),
                 },
-                timeline: Timeline {
-                    limited: false,
-                    prev_batch: Some(next_batch_string.to_owned()),
-                    events: Vec::new(),
-                },
+                timeline,
                 state: State {
                     events: vec![event.to_sync_state_event()],
                 },
@@ -1126,11 +1142,7 @@ async fn handle_left_room(
             account_data: RoomAccountData {
                 events: Vec::new(),
             },
-            timeline: Timeline {
-                limited: false,
-                prev_batch: Some(next_batch_string.to_owned()),
-                events: Vec::new(),
-            },
+            timeline,
             state: State {
                 events: left_state_events,
             },
@@ -1145,9 +1157,17 @@ fn load_timeline(
     room_id: &RoomId,
     roomsincecount: PduCount,
     limit: u64,
+    filter: Option<&CompiledFilterDefinition<'_>>,
 ) -> Result<(Vec<(PduCount, PduEvent)>, bool), Error> {
     let timeline_pdus;
     let limited;
+
+    if let Some(filter) = filter {
+        if !filter.room.timeline.room_allowed(room_id) {
+            return Ok((vec![], false));
+        }
+    }
+
     if services().rooms.timeline.last_timeline_count(sender_user, room_id)?
         > roomsincecount
     {
@@ -1622,6 +1642,7 @@ pub(crate) async fn sync_events_v4_route(
             room_id,
             roomsincecount,
             *timeline_limit,
+            None,
         )?;
 
         if roomsince != &0 && timeline_pdus.is_empty() {
