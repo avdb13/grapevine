@@ -1,4 +1,5 @@
 pub(crate) mod error;
+pub(crate) mod filter;
 
 use std::{
     borrow::Cow,

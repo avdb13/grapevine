@@ -14,7 +14,9 @@ use ruma::{
 
 use crate::{
     service::{pdu::PduBuilder, rooms::timeline::PduCount},
-    services, utils, Ar, Error, Ra, Result,
+    services, utils,
+    utils::filter::CompiledRoomEventFilter,
+    Ar, Error, Ra, Result,
 };
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/send/{eventType}/{txnId}`
@@ -136,6 +138,13 @@ pub(crate) async fn get_message_events_route(
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
 
+    let Ok(filter) = CompiledRoomEventFilter::try_from(&body.filter) else {
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "invalid 'filter' parameter",
+        ));
+    };
+
     let from = match body.from.clone() {
         Some(from) => PduCount::try_from_string(&from)?,
         None => match body.dir {
@@ -143,6 +152,15 @@ pub(crate) async fn get_message_events_route(
             ruma::api::Direction::Backward => PduCount::MAX,
         },
     };
+
+    if !filter.room_allowed(&body.room_id) {
+        return Ok(Ra(get_message_events::v3::Response {
+            start: from.stringify(),
+            end: None,
+            chunk: vec![],
+            state: vec![],
+        }));
+    }
 
     let to = body.to.as_ref().and_then(|t| PduCount::try_from_string(t).ok());
 
