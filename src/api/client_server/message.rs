@@ -9,14 +9,14 @@ use ruma::{
         message::{get_message_events, send_message_event},
     },
     events::{StateEventType, TimelineEventType},
-    uint, UInt,
+    uint, RoomId, UInt, UserId,
 };
 
 use crate::{
     service::{pdu::PduBuilder, rooms::timeline::PduCount},
     services, utils,
     utils::filter::{load_limit, CompiledRoomEventFilter},
-    Ar, Error, Ra, Result,
+    Ar, Error, PduEvent, Ra, Result,
 };
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/send/{eventType}/{txnId}`
@@ -197,15 +197,8 @@ pub(crate) async fn get_message_events_route(
                 .take(load_limit(limit))
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
-                    services()
-                        .rooms
-                        .state_accessor
-                        .user_can_see_event(
-                            sender_user,
-                            &body.room_id,
-                            &pdu.event_id,
-                        )
-                        .unwrap_or(false)
+                    filter.pdu_event_allowed(pdu)
+                        && visibility_filter(pdu, sender_user, &body.room_id)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
                 .take(limit)
@@ -254,15 +247,8 @@ pub(crate) async fn get_message_events_route(
                 .take(load_limit(limit))
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
-                    services()
-                        .rooms
-                        .state_accessor
-                        .user_can_see_event(
-                            sender_user,
-                            &body.room_id,
-                            &pdu.event_id,
-                        )
-                        .unwrap_or(false)
+                    filter.pdu_event_allowed(pdu)
+                        && visibility_filter(pdu, sender_user, &body.room_id)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
                 .take(limit)
@@ -330,4 +316,16 @@ pub(crate) async fn get_message_events_route(
     */
 
     Ok(Ra(resp))
+}
+
+fn visibility_filter(
+    pdu: &PduEvent,
+    user_id: &UserId,
+    room_id: &RoomId,
+) -> bool {
+    services()
+        .rooms
+        .state_accessor
+        .user_can_see_event(user_id, room_id, &pdu.event_id)
+        .unwrap_or(false)
 }
