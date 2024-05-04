@@ -262,14 +262,14 @@ pub(crate) async fn sync_events_route(
             continue;
         }
 
-        invited_rooms.insert(
-            room_id.into_owned(),
-            InvitedRoom {
-                invite_state: InviteState {
-                    events: invite_state_events,
-                },
+        let invited_room = InvitedRoom {
+            invite_state: InviteState {
+                events: invite_state_events,
             },
-        );
+        };
+        if !invited_room.is_empty() {
+            invited_rooms.insert(room_id.into_owned(), invited_room);
+        }
     }
 
     for user_id in left_encrypted_users {
@@ -1158,16 +1158,16 @@ async fn handle_left_room(
         }
     };
 
-    left_rooms.insert(
-        room_id.clone(),
-        LeftRoom {
-            account_data: RoomAccountData {
-                events: Vec::new(),
-            },
-            timeline,
-            state,
+    let left_room = LeftRoom {
+        account_data: RoomAccountData {
+            events: Vec::new(),
         },
-    );
+        timeline,
+        state,
+    };
+    if !left_rooms.is_empty() {
+        left_rooms.insert(room_id.clone(), left_room);
+    }
 
     Ok(())
 }
