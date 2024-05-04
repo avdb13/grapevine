@@ -917,26 +917,39 @@ async fn load_joined_room(
     let room_events: Vec<_> =
         timeline_pdus.iter().map(|(_, pdu)| pdu.to_sync_room_event()).collect();
 
-    let mut edus: Vec<_> = services()
-        .rooms
-        .edus
-        .read_receipt
-        .readreceipts_since(room_id, since)
-        .filter_map(Result::ok)
-        .map(|(_, _, v)| v)
-        .collect();
+    let edus = if filter.room.ephemeral.room_allowed(room_id) {
+        let mut edus: Vec<_> = services()
+            .rooms
+            .edus
+            .read_receipt
+            .readreceipts_since(room_id, since)
+            .filter_map(Result::ok)
+            .map(|(_, _, v)| v)
+            .collect();
 
-    if services().rooms.edus.typing.last_typing_update(room_id).await? > since {
-        edus.push(
-            serde_json::from_str(
-                &serde_json::to_string(
-                    &services().rooms.edus.typing.typings_all(room_id).await?,
+        if services().rooms.edus.typing.last_typing_update(room_id).await?
+            > since
+        {
+            edus.push(
+                serde_json::from_str(
+                    &serde_json::to_string(
+                        &services()
+                            .rooms
+                            .edus
+                            .typing
+                            .typings_all(room_id)
+                            .await?,
+                    )
+                    .expect("event is valid, we just created it"),
                 )
                 .expect("event is valid, we just created it"),
-            )
-            .expect("event is valid, we just created it"),
-        );
-    }
+            );
+        }
+
+        edus
+    } else {
+        vec![]
+    };
 
     // Save the state after this sync so we can send the correct state diff next
     // sync
