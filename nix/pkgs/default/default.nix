@@ -1,6 +1,7 @@
 # Dependencies (keep sorted)
 { craneLib
 , inputs
+, jq
 , lib
 , pkgsBuildHost
 , rocksdb
@@ -21,6 +22,7 @@ let
       };
     in
     {
+      NIX_OUTPATH_USED_AS_RANDOM_SEED = "randomseed";
       CARGO_PROFILE = profile;
       ROCKSDB_INCLUDE_DIR = "${rocksdb'}/include";
       ROCKSDB_LIB_DIR = "${rocksdb'}/lib";
@@ -63,6 +65,12 @@ let
       # weirdness", pkgs.rustPlatform.bindgenHook on its own doesn't quite do the
       # right thing here.
       pkgsBuildHost.rustPlatform.bindgenHook
+
+      # We don't actually depend on `jq`, but crane's `buildPackage` does, but
+      # its `buildDepsOnly` doesn't. This causes those two derivations to have
+      # differing values for `NIX_CFLAGS_COMPILE`, which contributes to spurious
+      # rebuilds of bindgen and its depedents.
+      jq
     ];
   };
 in
