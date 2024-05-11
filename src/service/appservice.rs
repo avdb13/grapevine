@@ -138,9 +138,7 @@ impl Service {
     /// Registers an appservice and returns the ID to the caller.
     pub(crate) async fn register_appservice(&self, yaml: Registration) -> Result<String> {
         //TODO: Check for collisions between exclusive appservice namespaces
-        services()
-            .appservice
-            .registration_info
+        self.registration_info
             .write()
             .await
             .insert(yaml.id.clone(), yaml.clone().try_into()?);
