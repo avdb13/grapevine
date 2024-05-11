@@ -48,6 +48,8 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
+    #[allow(clippy::type_complexity)]
     fn readreceipts_since<'a>(
         &'a self,
         room_id: &RoomId,
@@ -105,6 +107,7 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
         )
     }
 
+    #[tracing::instrument(skip(self))]
     fn private_read_set(&self, room_id: &RoomId, user_id: &UserId, count: u64) -> Result<()> {
         let mut key = room_id.as_bytes().to_vec();
         key.push(0xff);
@@ -117,6 +120,7 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
             .insert(&key, &services().globals.next_count()?.to_be_bytes())
     }
 
+    #[tracing::instrument(skip(self))]
     fn private_read_get(&self, room_id: &RoomId, user_id: &UserId) -> Result<Option<u64>> {
         let mut key = room_id.as_bytes().to_vec();
         key.push(0xff);

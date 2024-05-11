@@ -19,6 +19,7 @@ impl service::rooms::outlier::Data for KeyValueDatabase {
             })
     }
 
+    #[tracing::instrument(skip(self, pdu))]
     fn add_pdu_outlier(&self, event_id: &EventId, pdu: &CanonicalJsonObject) -> Result<()> {
         self.eventid_outlierpdu.insert(
             event_id.as_bytes(),

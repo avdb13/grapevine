@@ -3,6 +3,7 @@ use ruma::RoomId;
 use crate::{database::KeyValueDatabase, service, services, utils, Result};
 
 impl service::rooms::search::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self))]
     fn index_pdu(&self, shortroomid: u64, pdu_id: &[u8], message_body: &str) -> Result<()> {
         let mut batch = message_body
             .split_terminator(|c: char| !c.is_alphanumeric())
@@ -20,6 +21,8 @@ impl service::rooms::search::Data for KeyValueDatabase {
         self.tokenids.insert_batch(&mut batch)
     }
 
+    #[tracing::instrument(skip(self))]
+    #[allow(clippy::type_complexity)]
     fn search_pdus<'a>(
         &'a self,
         room_id: &RoomId,

@@ -3,6 +3,7 @@ use ruma::{api::client::error::ErrorKind, OwnedRoomAliasId, OwnedRoomId, RoomAli
 use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
 
 impl service::rooms::alias::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self))]
     fn set_alias(&self, alias: &RoomAliasId, room_id: &RoomId) -> Result<()> {
         self.alias_roomid
             .insert(alias.alias().as_bytes(), room_id.as_bytes())?;
@@ -13,6 +14,7 @@ impl service::rooms::alias::Data for KeyValueDatabase {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn remove_alias(&self, alias: &RoomAliasId) -> Result<()> {
         if let Some(room_id) = self.alias_roomid.get(alias.alias().as_bytes())? {
             let mut prefix = room_id.clone();
@@ -31,6 +33,7 @@ impl service::rooms::alias::Data for KeyValueDatabase {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn resolve_local_alias(&self, alias: &RoomAliasId) -> Result<Option<OwnedRoomId>> {
         self.alias_roomid
             .get(alias.alias().as_bytes())?
@@ -43,6 +46,7 @@ impl service::rooms::alias::Data for KeyValueDatabase {
             .transpose()
     }
 
+    #[tracing::instrument(skip(self))]
     fn local_aliases_for_room<'a>(
         &'a self,
         room_id: &RoomId,

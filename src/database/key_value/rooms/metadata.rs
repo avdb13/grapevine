@@ -3,6 +3,7 @@ use ruma::{OwnedRoomId, RoomId};
 use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
 
 impl service::rooms::metadata::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self))]
     fn exists(&self, room_id: &RoomId) -> Result<bool> {
         let prefix = match services().rooms.short.get_shortroomid(room_id)? {
             Some(b) => b.to_be_bytes().to_vec(),

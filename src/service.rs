@@ -60,11 +60,11 @@ impl Services {
             appservice: appservice::Service::build(db)?,
             pusher: pusher::Service { db },
             rooms: rooms::Service {
-                alias: rooms::alias::Service { db },
+                alias: db,
                 auth_chain: rooms::auth_chain::Service { db },
-                directory: rooms::directory::Service { db },
+                directory: db,
                 edus: rooms::edus::Service {
-                    read_receipt: rooms::edus::read_receipt::Service { db },
+                    read_receipt: db,
                     typing: rooms::edus::typing::Service {
                         typing: RwLock::new(BTreeMap::new()),
                         last_typing_update: RwLock::new(BTreeMap::new()),
@@ -76,11 +76,11 @@ impl Services {
                     db,
                     lazy_load_waiting: Mutex::new(HashMap::new()),
                 },
-                metadata: rooms::metadata::Service { db },
-                outlier: rooms::outlier::Service { db },
+                metadata: db,
+                outlier: db,
                 pdu_metadata: rooms::pdu_metadata::Service { db },
-                search: rooms::search::Service { db },
-                short: rooms::short::Service { db },
+                search: db,
+                short: db,
                 state: rooms::state::Service { db },
                 state_accessor: rooms::state_accessor::Service {
                     db,
@@ -121,17 +121,17 @@ impl Services {
                 spaces: rooms::spaces::Service {
                     roomid_spacechunk_cache: Mutex::new(LruCache::new(200)),
                 },
-                user: rooms::user::Service { db },
+                user: db,
             },
-            transaction_ids: transaction_ids::Service { db },
+            transaction_ids: db,
             uiaa: uiaa::Service { db },
             users: users::Service {
                 db,
                 connections: StdMutex::new(BTreeMap::new()),
             },
-            account_data: account_data::Service { db },
+            account_data: db,
             admin: admin::Service::build(),
-            key_backups: key_backups::Service { db },
+            key_backups: db,
             media: media::Service { db },
             sending: sending::Service::build(db, &config),
 
