@@ -128,9 +128,7 @@ pub(crate) fn deserialize_from_str<
     deserializer: D,
 ) -> Result<T, D::Error> {
     struct Visitor<T: FromStr<Err = E>, E>(std::marker::PhantomData<T>);
-    impl<'de, T: FromStr<Err = Err>, Err: std::fmt::Display> serde::de::Visitor<'de>
-        for Visitor<T, Err>
-    {
+    impl<T: FromStr<Err = Err>, Err: std::fmt::Display> serde::de::Visitor<'_> for Visitor<T, Err> {
         type Value = T;
         fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a parsable string")
@@ -152,7 +150,7 @@ pub(crate) fn deserialize_from_str<
 /// string when passed to a format string.
 pub(crate) struct HtmlEscape<'a>(pub(crate) &'a str);
 
-impl<'a> fmt::Display for HtmlEscape<'a> {
+impl fmt::Display for HtmlEscape<'_> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Because the internet is always right, turns out there's not that many
         // characters to escape: http://stackoverflow.com/questions/7381974

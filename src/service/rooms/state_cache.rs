@@ -226,11 +226,7 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn server_in_room<'a>(
-        &'a self,
-        server: &ServerName,
-        room_id: &RoomId,
-    ) -> Result<bool> {
+    pub(crate) fn server_in_room(&self, server: &ServerName, room_id: &RoomId) -> Result<bool> {
         self.db.server_in_room(server, room_id)
     }
 
