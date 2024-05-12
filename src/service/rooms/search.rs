@@ -11,7 +11,7 @@ pub(crate) struct Service {
 
 impl Service {
     #[tracing::instrument(skip(self))]
-    pub(crate) fn index_pdu<'a>(
+    pub(crate) fn index_pdu(
         &self,
         shortroomid: u64,
         pdu_id: &[u8],

@@ -156,7 +156,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(())
     }
 
-    fn insert_batch<'a>(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()> {
+    fn insert_batch(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()> {
         let writeoptions = rocksdb::WriteOptions::default();
         for (key, value) in iter {
             self.db
@@ -230,7 +230,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(new)
     }
 
-    fn increment_batch<'a>(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()> {
+    fn increment_batch(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()> {
         let readoptions = rocksdb::ReadOptions::default();
         let writeoptions = rocksdb::WriteOptions::default();
 
