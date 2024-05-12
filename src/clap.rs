@@ -19,7 +19,7 @@ fn version() -> String {
 /// Command line arguments
 #[derive(Parser)]
 #[clap(about, version = version())]
-pub(crate) struct Args {}
+pub(crate) struct Args;
 
 /// Parse command line arguments into structured data
 pub(crate) fn parse() -> Args {
