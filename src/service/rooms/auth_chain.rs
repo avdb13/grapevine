@@ -44,6 +44,9 @@ impl Service {
         let mut i = 0;
         for id in starting_events {
             let short = services().rooms.short.get_or_create_shorteventid(&id)?;
+            // I'm afraid to change this in case there is accidental reliance on
+            // the truncation
+            #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
             let bucket_id = (short % NUM_BUCKETS as u64) as usize;
             buckets[bucket_id].insert((short, id.clone()));
             i += 1;

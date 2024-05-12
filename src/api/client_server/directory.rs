@@ -24,7 +24,7 @@ use ruma::{
         },
         StateEventType,
     },
-    ServerName, UInt,
+    uint, ServerName, UInt,
 };
 use tracing::{error, info, warn};
 
@@ -157,8 +157,8 @@ pub(crate) async fn get_public_rooms_filtered_helper(
         });
     }
 
-    let limit = limit.map_or(10, u64::from);
-    let mut num_since = 0_u64;
+    let limit = limit.unwrap_or(uint!(10));
+    let mut num_since = UInt::MIN;
 
     if let Some(s) = &since {
         let mut characters = s.chars();
@@ -340,21 +340,21 @@ pub(crate) async fn get_public_rooms_filtered_helper(
 
     all_rooms.sort_by(|l, r| r.num_joined_members.cmp(&l.num_joined_members));
 
-    let total_room_count_estimate = (all_rooms.len() as u32).into();
+    let total_room_count_estimate = all_rooms.len().try_into().unwrap_or(UInt::MAX);
 
     let chunk: Vec<_> = all_rooms
         .into_iter()
-        .skip(num_since as usize)
-        .take(limit as usize)
+        .skip(num_since.try_into().expect("UInt should fit in usize"))
+        .take(limit.try_into().expect("UInt should fit in usize"))
         .collect();
 
-    let prev_batch = if num_since == 0 {
+    let prev_batch = if num_since == uint!(0) {
         None
     } else {
         Some(format!("p{num_since}"))
     };
 
-    let next_batch = if chunk.len() < limit as usize {
+    let next_batch = if chunk.len() < limit.try_into().expect("UInt should fit in usize") {
         None
     } else {
         Some(format!("n{}", num_since + limit))

@@ -17,7 +17,7 @@ pub(crate) async fn search_users_route(
     body: Ruma<search_users::v3::Request>,
 ) -> Result<search_users::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let limit = u64::from(body.limit) as usize;
+    let limit = body.limit.try_into().unwrap_or(usize::MAX);
 
     let mut users = services().users.iter().filter_map(|user_id| {
         // Filter out buggy users (they should not exist, but you never know...)

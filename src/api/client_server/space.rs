@@ -1,5 +1,5 @@
 use crate::{services, Result, Ruma};
-use ruma::api::client::space::get_hierarchy;
+use ruma::{api::client::space::get_hierarchy, uint};
 
 /// # `GET /_matrix/client/v1/rooms/{room_id}/hierarchy``
 ///
@@ -15,9 +15,17 @@ pub(crate) async fn get_hierarchy_route(
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
 
-    let limit = body.limit.map_or(10, u64::from).min(100) as usize;
+    let limit = body
+        .limit
+        .map(|x| x.min(uint!(100)))
+        .unwrap_or(uint!(10))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
-    let max_depth = body.max_depth.map_or(3, u64::from).min(10) as usize + 1; // +1 to skip the space room itself
+    let max_depth = usize::try_from(body.max_depth.map(|x| x.min(uint!(10))).unwrap_or(uint!(3)))
+        .expect("0-10 should fit in usize")
+        // Skip the space room itself
+        + 1;
 
     services()
         .rooms

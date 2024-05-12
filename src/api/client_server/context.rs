@@ -2,6 +2,7 @@ use crate::{services, Error, Result, Ruma};
 use ruma::{
     api::client::{context::get_context, error::ErrorKind, filter::LazyLoadOptions},
     events::StateEventType,
+    uint,
 };
 use std::collections::HashSet;
 use tracing::error;
@@ -70,7 +71,8 @@ pub(crate) async fn get_context_route(
     }
 
     // Use limit with maximum 100
-    let limit = u64::from(body.limit).min(100) as usize;
+    let half_limit =
+        usize::try_from(body.limit.min(uint!(100)) / uint!(2)).expect("0-50 should fit in usize");
 
     let base_event = base_event.to_room_event();
 
@@ -78,7 +80,7 @@ pub(crate) async fn get_context_route(
         .rooms
         .timeline
         .pdus_until(sender_user, &room_id, base_token)?
-        .take(limit / 2)
+        .take(half_limit)
         .filter_map(|r| r.ok()) // Remove buggy events
         .filter(|(_, pdu)| {
             services()
@@ -115,7 +117,7 @@ pub(crate) async fn get_context_route(
         .rooms
         .timeline
         .pdus_after(sender_user, &room_id, base_token)?
-        .take(limit / 2)
+        .take(half_limit)
         .filter_map(|r| r.ok()) // Remove buggy events
         .filter(|(_, pdu)| {
             services()

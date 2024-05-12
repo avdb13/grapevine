@@ -107,7 +107,7 @@ impl Service {
             db,
             sender,
             receiver: Mutex::new(receiver),
-            maximum_requests: Arc::new(Semaphore::new(config.max_concurrent_requests as usize)),
+            maximum_requests: Arc::new(Semaphore::new(config.max_concurrent_requests.into())),
         })
     }
 

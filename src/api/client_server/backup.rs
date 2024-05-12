@@ -56,7 +56,11 @@ pub(crate) async fn get_latest_backup_info_route(
 
     Ok(get_latest_backup_info::v3::Response {
         algorithm,
-        count: (services().key_backups.count_keys(sender_user, &version)? as u32).into(),
+        count: services()
+            .key_backups
+            .count_keys(sender_user, &version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services().key_backups.get_etag(sender_user, &version)?,
         version,
     })
@@ -79,10 +83,11 @@ pub(crate) async fn get_backup_info_route(
 
     Ok(get_backup_info::v3::Response {
         algorithm,
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -144,10 +149,11 @@ pub(crate) async fn add_backup_keys_route(
     }
 
     Ok(add_backup_keys::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -189,10 +195,11 @@ pub(crate) async fn add_backup_keys_for_room_route(
     }
 
     Ok(add_backup_keys_for_room::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -232,10 +239,11 @@ pub(crate) async fn add_backup_keys_for_session_route(
     )?;
 
     Ok(add_backup_keys_for_session::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -302,10 +310,11 @@ pub(crate) async fn delete_backup_keys_route(
         .delete_all_keys(sender_user, &body.version)?;
 
     Ok(delete_backup_keys::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -325,10 +334,11 @@ pub(crate) async fn delete_backup_keys_for_room_route(
         .delete_room_keys(sender_user, &body.version, &body.room_id)?;
 
     Ok(delete_backup_keys_for_room::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
@@ -351,10 +361,11 @@ pub(crate) async fn delete_backup_keys_for_session_route(
     )?;
 
     Ok(delete_backup_keys_for_session::v3::Response {
-        count: (services()
+        count: services()
             .key_backups
-            .count_keys(sender_user, &body.version)? as u32)
-            .into(),
+            .count_keys(sender_user, &body.version)?
+            .try_into()
+            .expect("count should fit in UInt"),
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,

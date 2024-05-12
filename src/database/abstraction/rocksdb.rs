@@ -32,7 +32,7 @@ fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::O
     let mut db_opts = rocksdb::Options::default();
     db_opts.set_block_based_table_factory(&block_based_options);
     db_opts.create_if_missing(true);
-    db_opts.increase_parallelism(num_cpus::get() as i32);
+    db_opts.increase_parallelism(num_cpus::get().try_into().unwrap_or(i32::MAX));
     db_opts.set_max_open_files(max_open_files);
     db_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
     db_opts.set_bottommost_compression_type(rocksdb::DBCompressionType::Zstd);
@@ -58,6 +58,11 @@ fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::O
 
 impl KeyValueDatabaseEngine for Arc<Engine> {
     fn open(config: &Config) -> Result<Self> {
+        #[allow(
+            clippy::as_conversions,
+            clippy::cast_sign_loss,
+            clippy::cast_possible_truncation
+        )]
         let cache_capacity_bytes = (config.db_cache_capacity_mb * 1024.0 * 1024.0) as usize;
         let rocksdb_cache = rocksdb::Cache::new_lru_cache(cache_capacity_bytes);
 
@@ -109,6 +114,7 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
         Ok(())
     }
 
+    #[allow(clippy::as_conversions, clippy::cast_precision_loss)]
     fn memory_usage(&self) -> Result<String> {
         let stats =
             rocksdb::perf::get_memory_usage_stats(Some(&[&self.rocks]), Some(&[&self.cache]))?;

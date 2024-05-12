@@ -437,7 +437,9 @@ where
     };
 
     // With more than 1 buf, we gotta flatten into a Vec first.
-    let cap = first.remaining() + second.remaining() + body.size_hint().lower() as usize;
+    let cap = first.remaining()
+        + second.remaining()
+        + body.size_hint().lower().try_into().unwrap_or(usize::MAX);
     let mut vec = Vec::with_capacity(cap);
     vec.put(first);
     vec.put(second);

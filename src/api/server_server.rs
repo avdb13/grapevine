@@ -1100,7 +1100,7 @@ pub(crate) async fn get_missing_events_route(
     let mut events = Vec::new();
 
     let mut i = 0;
-    while i < queued_events.len() && events.len() < u64::from(body.limit) as usize {
+    while i < queued_events.len() && events.len() < body.limit.try_into().unwrap_or(usize::MAX) {
         if let Some(pdu) = services().rooms.timeline.get_pdu_json(&queued_events[i])? {
             let room_id_str = pdu
                 .get("room_id")

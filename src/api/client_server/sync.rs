@@ -1087,8 +1087,8 @@ async fn load_joined_room(
         },
         summary: RoomSummary {
             heroes,
-            joined_member_count: joined_member_count.map(|n| (n as u32).into()),
-            invited_member_count: invited_member_count.map(|n| (n as u32).into()),
+            joined_member_count: joined_member_count.map(UInt::new_saturating),
+            invited_member_count: invited_member_count.map(UInt::new_saturating),
         },
         unread_notifications: UnreadNotificationsCount {
             highlight_count,
@@ -1140,7 +1140,7 @@ fn load_timeline(
         // Take the last events for the timeline
         timeline_pdus = non_timeline_pdus
             .by_ref()
-            .take(limit as usize)
+            .take(limit.try_into().expect("limit should fit in usize"))
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
@@ -1427,12 +1427,16 @@ pub(crate) async fn sync_events_v4_route(
                     .ranges
                     .into_iter()
                     .map(|mut r| {
-                        r.0 =
-                            r.0.clamp(uint!(0), UInt::from(all_joined_rooms.len() as u32 - 1));
-                        r.1 =
-                            r.1.clamp(r.0, UInt::from(all_joined_rooms.len() as u32 - 1));
-                        let room_ids = all_joined_rooms
-                            [(u64::from(r.0) as usize)..=(u64::from(r.1) as usize)]
+                        r.0 = r.0.clamp(
+                            uint!(0),
+                            UInt::try_from(all_joined_rooms.len() - 1).unwrap_or(UInt::MAX),
+                        );
+                        r.1 = r.1.clamp(
+                            r.0,
+                            UInt::try_from(all_joined_rooms.len() - 1).unwrap_or(UInt::MAX),
+                        );
+                        let room_ids = all_joined_rooms[r.0.try_into().unwrap_or(usize::MAX)
+                            ..=r.1.try_into().unwrap_or(usize::MAX)]
                             .to_vec();
                         new_known_rooms.extend(room_ids.iter().cloned());
                         for room_id in &room_ids {
@@ -1468,7 +1472,7 @@ pub(crate) async fn sync_events_v4_route(
                         }
                     })
                     .collect(),
-                count: UInt::from(all_joined_rooms.len() as u32),
+                count: UInt::try_from(all_joined_rooms.len()).unwrap_or(UInt::MAX),
             },
         );
 
@@ -1663,20 +1667,20 @@ pub(crate) async fn sync_events_v4_route(
                 prev_batch,
                 limited,
                 joined_count: Some(
-                    (services()
+                    services()
                         .rooms
                         .state_cache
                         .room_joined_count(room_id)?
-                        .unwrap_or(0) as u32)
-                        .into(),
+                        .map(UInt::new_saturating)
+                        .unwrap_or(uint!(0)),
                 ),
                 invited_count: Some(
-                    (services()
+                    services()
                         .rooms
                         .state_cache
                         .room_invited_count(room_id)?
-                        .unwrap_or(0) as u32)
-                        .into(),
+                        .map(UInt::new_saturating)
+                        .unwrap_or(uint!(0)),
                 ),
                 num_live: None, // Count events in timeline greater than global sync counter
                 timestamp: None,

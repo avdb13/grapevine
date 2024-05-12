@@ -84,9 +84,19 @@ impl Services {
                 state: rooms::state::Service { db },
                 state_accessor: rooms::state_accessor::Service {
                     db,
+                    #[allow(
+                        clippy::as_conversions,
+                        clippy::cast_sign_loss,
+                        clippy::cast_possible_truncation
+                    )]
                     server_visibility_cache: StdMutex::new(LruCache::new(
                         (100.0 * config.cache_capacity_modifier) as usize,
                     )),
+                    #[allow(
+                        clippy::as_conversions,
+                        clippy::cast_sign_loss,
+                        clippy::cast_possible_truncation
+                    )]
                     user_visibility_cache: StdMutex::new(LruCache::new(
                         (100.0 * config.cache_capacity_modifier) as usize,
                     )),
@@ -94,6 +104,11 @@ impl Services {
                 state_cache: rooms::state_cache::Service { db },
                 state_compressor: rooms::state_compressor::Service {
                     db,
+                    #[allow(
+                        clippy::as_conversions,
+                        clippy::cast_sign_loss,
+                        clippy::cast_possible_truncation
+                    )]
                     stateinfo_cache: StdMutex::new(LruCache::new(
                         (100.0 * config.cache_capacity_modifier) as usize,
                     )),

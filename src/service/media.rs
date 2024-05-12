@@ -154,10 +154,8 @@ impl Service {
                 } else {
                     let (exact_width, exact_height) = {
                         // Copied from image::dynimage::resize_dimensions
-                        let ratio = u64::from(original_width) * u64::from(height);
-                        let nratio = u64::from(width) * u64::from(original_height);
-
-                        let use_width = nratio <= ratio;
+                        let use_width = (u64::from(width) * u64::from(original_height))
+                            <= (u64::from(original_width) * u64::from(height));
                         let intermediate = if use_width {
                             u64::from(original_height) * u64::from(width)
                                 / u64::from(original_width)
@@ -167,21 +165,23 @@ impl Service {
                         };
                         if use_width {
                             if intermediate <= u64::from(::std::u32::MAX) {
-                                (width, intermediate as u32)
+                                (width, intermediate.try_into().unwrap_or(u32::MAX))
                             } else {
                                 (
                                     (u64::from(width) * u64::from(::std::u32::MAX) / intermediate)
-                                        as u32,
+                                        .try_into()
+                                        .unwrap_or(u32::MAX),
                                     ::std::u32::MAX,
                                 )
                             }
                         } else if intermediate <= u64::from(::std::u32::MAX) {
-                            (intermediate as u32, height)
+                            (intermediate.try_into().unwrap_or(u32::MAX), height)
                         } else {
                             (
                                 ::std::u32::MAX,
                                 (u64::from(height) * u64::from(::std::u32::MAX) / intermediate)
-                                    as u32,
+                                    .try_into()
+                                    .unwrap_or(u32::MAX),
                             )
                         }
                     };

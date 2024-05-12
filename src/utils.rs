@@ -11,6 +11,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+// Hopefully we have a better chat protocol in 530 years
+#[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
 pub(crate) fn millis_since_unix_epoch() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

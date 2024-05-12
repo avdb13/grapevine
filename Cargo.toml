@@ -17,6 +17,7 @@ unused_qualifications = "warn"
 
 # Keep alphabetically sorted
 [workspace.lints.clippy]
+as_conversions = "warn"
 assertions_on_result_states = "warn"
 cloned_instead_of_copied = "warn"
 dbg_macro = "warn"

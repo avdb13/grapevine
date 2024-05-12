@@ -1,10 +1,13 @@
 use crate::{services, Error, Result, Ruma};
-use ruma::api::client::{
-    error::ErrorKind,
-    search::search_events::{
-        self,
-        v3::{EventContextResult, ResultCategories, ResultRoomEvents, SearchResult},
+use ruma::{
+    api::client::{
+        error::ErrorKind,
+        search::search_events::{
+            self,
+            v3::{EventContextResult, ResultCategories, ResultRoomEvents, SearchResult},
+        },
     },
+    uint,
 };
 
 use std::collections::BTreeMap;
@@ -32,7 +35,12 @@ pub(crate) async fn search_events_route(
     });
 
     // Use limit or else 10, with maximum 100
-    let limit = filter.limit.map_or(10, u64::from).min(100) as usize;
+    let limit = filter
+        .limit
+        .map(|x| x.min(uint!(100)))
+        .unwrap_or(uint!(10))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
     let mut searches = Vec::new();
 
@@ -123,8 +131,8 @@ pub(crate) async fn search_events_route(
 
     Ok(search_events::v3::Response::new(ResultCategories {
         room_events: ResultRoomEvents {
-            count: Some((results.len() as u32).into()), // TODO: set this to none. Element shouldn't depend on it
-            groups: BTreeMap::new(),                    // TODO
+            count: None,
+            groups: BTreeMap::new(), // TODO
             next_batch,
             results,
             state: BTreeMap::new(), // TODO

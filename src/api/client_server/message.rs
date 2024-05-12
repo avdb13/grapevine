@@ -8,6 +8,7 @@ use ruma::{
         message::{get_message_events, send_message_event},
     },
     events::{StateEventType, TimelineEventType},
+    uint,
 };
 use std::{
     collections::{BTreeMap, HashSet},
@@ -136,7 +137,11 @@ pub(crate) async fn get_message_events_route(
         .lazy_load_confirm_delivery(sender_user, sender_device, &body.room_id, from)
         .await?;
 
-    let limit = u64::from(body.limit).min(100) as usize;
+    let limit = body
+        .limit
+        .min(uint!(100))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
     let next_token;
 

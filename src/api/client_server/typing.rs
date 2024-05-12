@@ -30,7 +30,8 @@ pub(crate) async fn create_typing_event_route(
             .typing_add(
                 sender_user,
                 &body.room_id,
-                duration.as_millis() as u64 + utils::millis_since_unix_epoch(),
+                duration.as_millis().try_into().unwrap_or(u64::MAX)
+                    + utils::millis_since_unix_epoch(),
             )
             .await?;
     } else {

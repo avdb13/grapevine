@@ -345,18 +345,43 @@ impl KeyValueDatabase {
                     .try_into()
                     .expect("pdu cache capacity fits into usize"),
             )),
+            #[allow(
+                clippy::as_conversions,
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation
+            )]
             auth_chain_cache: Mutex::new(LruCache::new(
                 (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
+            #[allow(
+                clippy::as_conversions,
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation
+            )]
             shorteventid_cache: Mutex::new(LruCache::new(
                 (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
+            #[allow(
+                clippy::as_conversions,
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation
+            )]
             eventidshort_cache: Mutex::new(LruCache::new(
                 (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
+            #[allow(
+                clippy::as_conversions,
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation
+            )]
             shortstatekey_cache: Mutex::new(LruCache::new(
                 (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
+            #[allow(
+                clippy::as_conversions,
+                clippy::cast_sign_loss,
+                clippy::cast_possible_truncation
+            )]
             statekeyshort_cache: Mutex::new(LruCache::new(
                 (100_000.0 * config.cache_capacity_modifier) as usize,
             )),
@@ -979,7 +1004,7 @@ impl KeyValueDatabase {
         use std::time::{Duration, Instant};
 
         let timer_interval =
-            Duration::from_secs(services().globals.config.cleanup_second_interval as u64);
+            Duration::from_secs(u64::from(services().globals.config.cleanup_second_interval));
 
         tokio::spawn(async move {
             let mut i = interval(timer_interval);

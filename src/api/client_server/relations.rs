@@ -1,6 +1,9 @@
-use ruma::api::client::relations::{
-    get_relating_events, get_relating_events_with_rel_type,
-    get_relating_events_with_rel_type_and_event_type,
+use ruma::{
+    api::client::relations::{
+        get_relating_events, get_relating_events_with_rel_type,
+        get_relating_events_with_rel_type_and_event_type,
+    },
+    uint,
 };
 
 use crate::{service::rooms::timeline::PduCount, services, Result, Ruma};
@@ -28,9 +31,10 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
     // Use limit or else 10, with maximum 100
     let limit = body
         .limit
-        .and_then(|u| u32::try_from(u).ok())
-        .map_or(10_usize, |u| u as usize)
-        .min(100);
+        .map(|x| x.min(uint!(100)))
+        .unwrap_or(uint!(10))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
     let res = services()
         .rooms
@@ -78,9 +82,10 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
     // Use limit or else 10, with maximum 100
     let limit = body
         .limit
-        .and_then(|u| u32::try_from(u).ok())
-        .map_or(10_usize, |u| u as usize)
-        .min(100);
+        .map(|x| x.min(uint!(100)))
+        .unwrap_or(uint!(10))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
     let res = services()
         .rooms
@@ -126,9 +131,10 @@ pub(crate) async fn get_relating_events_route(
     // Use limit or else 10, with maximum 100
     let limit = body
         .limit
-        .and_then(|u| u32::try_from(u).ok())
-        .map_or(10_usize, |u| u as usize)
-        .min(100);
+        .map(|x| x.min(uint!(100)))
+        .unwrap_or(uint!(10))
+        .try_into()
+        .expect("0-100 should fit in usize");
 
     services()
         .rooms
