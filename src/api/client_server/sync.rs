@@ -1608,7 +1608,7 @@ pub(crate) async fn sync_events_v4_route(
             })
             .take(5)
             .collect::<Vec<_>>();
-        let name = match &heroes[..] {
+        let name = match &*heroes {
             [] => None,
             [only] => Some(only.0.clone()),
             [firsts @ .., last] => Some(
@@ -1622,7 +1622,7 @@ pub(crate) async fn sync_events_v4_route(
             ),
         };
 
-        let avatar = if let [only] = &heroes[..] {
+        let avatar = if let [only] = &*heroes {
             only.1.clone()
         } else {
             None
