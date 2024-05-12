@@ -763,13 +763,7 @@ impl KeyValueDatabase {
                 let batch2: Vec<_> = db
                     .tokenids
                     .iter()
-                    .filter_map(|(key, _)| {
-                        if key.starts_with(b"!") {
-                            Some(key)
-                        } else {
-                            None
-                        }
-                    })
+                    .filter_map(|(key, _)| key.starts_with(b"!").then_some(key))
                     .collect();
 
                 for key in batch2 {

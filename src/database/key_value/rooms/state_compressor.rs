@@ -14,7 +14,7 @@ impl service::rooms::state_compressor::Data for KeyValueDatabase {
             .ok_or_else(|| Error::bad_database("State hash does not exist"))?;
         let parent =
             utils::u64_from_bytes(&value[0..size_of::<u64>()]).expect("bytes have right length");
-        let parent = if parent != 0 { Some(parent) } else { None };
+        let parent = (parent != 0).then_some(parent);
 
         let mut add_mode = true;
         let mut added = HashSet::new();

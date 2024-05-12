@@ -996,31 +996,20 @@ async fn load_joined_room(
             .filter_map(|r| r.ok()),
     );
 
-    let notification_count = if send_notification_counts {
-        Some(
+    let notification_count = send_notification_counts
+        .then(|| {
             services()
                 .rooms
                 .user
-                .notification_count(sender_user, room_id)?
-                .try_into()
-                .expect("notification count can't go that high"),
-        )
-    } else {
-        None
-    };
+                .notification_count(sender_user, room_id)
+        })
+        .transpose()?
+        .map(|x| x.try_into().expect("notification count can't go that high"));
 
-    let highlight_count = if send_notification_counts {
-        Some(
-            services()
-                .rooms
-                .user
-                .highlight_count(sender_user, room_id)?
-                .try_into()
-                .expect("highlight count can't go that high"),
-        )
-    } else {
-        None
-    };
+    let highlight_count = send_notification_counts
+        .then(|| services().rooms.user.highlight_count(sender_user, room_id))
+        .transpose()?
+        .map(|x| x.try_into().expect("highlight count can't go that high"));
 
     let prev_batch = timeline_pdus
         .first()
@@ -1557,13 +1546,7 @@ pub(crate) async fn sync_events_v4_route(
                     PduCount::Normal(c) => c.to_string(),
                 }))
             })?
-            .or_else(|| {
-                if roomsince != &0 {
-                    Some(roomsince.to_string())
-                } else {
-                    None
-                }
-            });
+            .or_else(|| (roomsince != &0).then(|| roomsince.to_string()));
 
         let room_events: Vec<_> = timeline_pdus
             .iter()
@@ -1708,16 +1691,21 @@ pub(crate) async fn sync_events_v4_route(
         lists,
         rooms,
         extensions: sync_events::v4::Extensions {
-            to_device: if body.extensions.to_device.enabled.unwrap_or(false) {
-                Some(sync_events::v4::ToDevice {
-                    events: services()
+            to_device: body
+                .extensions
+                .to_device
+                .enabled
+                .unwrap_or(false)
+                .then(|| {
+                    services()
                         .users
-                        .get_to_device_events(&sender_user, &sender_device)?,
-                    next_batch: next_batch.to_string(),
+                        .get_to_device_events(&sender_user, &sender_device)
+                        .map(|events| sync_events::v4::ToDevice {
+                            events,
+                            next_batch: next_batch.to_string(),
+                        })
                 })
-            } else {
-                None
-            },
+                .transpose()?,
             e2ee: sync_events::v4::E2EE {
                 device_lists: DeviceLists {
                     changed: device_list_changes.into_iter().collect(),
