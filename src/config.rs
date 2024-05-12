@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     fmt,
+    fmt::Write,
     net::{IpAddr, Ipv4Addr},
 };
 
@@ -191,7 +192,8 @@ impl fmt::Display for Config {
         let mut msg: String = "Active config values:\n\n".to_owned();
 
         for line in lines.into_iter().enumerate() {
-            msg += &format!("{}: {}\n", line.1 .0, line.1 .1);
+            writeln!(msg, "{}: {}", line.1 .0, line.1 .1)
+                .expect("write to in-memory buffer should succeed");
         }
 
         write!(f, "{msg}")

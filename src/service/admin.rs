@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     convert::{TryFrom, TryInto},
+    fmt::Write,
     sync::Arc,
     time::Instant,
 };
@@ -413,13 +414,13 @@ impl Service {
 
                 for (r, (e, i)) in map.iter() {
                     let elapsed = i.elapsed();
-                    msg += &format!(
-                        "{} {}: {}m{}s\n",
-                        r,
-                        e,
+                    writeln!(
+                        msg,
+                        "{r} {e}: {}m{}s",
                         elapsed.as_secs() / 60,
                         elapsed.as_secs() % 60
-                    );
+                    )
+                    .expect("write to in-memory buffer should succeed");
                 }
                 RoomMessageEventContent::text_plain(&msg)
             }
@@ -718,8 +719,10 @@ impl Service {
                         markdown_message.push_str("The following user ids are not valid:\n```\n");
                         html_message.push_str("The following user ids are not valid:\n<pre>\n");
                         for invalid_user in invalid_users {
-                            markdown_message.push_str(&format!("{invalid_user}\n"));
-                            html_message.push_str(&format!("{invalid_user}\n"));
+                            writeln!(markdown_message, "{invalid_user}")
+                                .expect("write to in-memory buffer should succeed");
+                            writeln!(html_message, "{invalid_user}")
+                                .expect("write to in-memory buffer should succeed");
                         }
                         markdown_message.push_str("```\n\n");
                         html_message.push_str("</pre>\n\n");
@@ -730,8 +733,10 @@ impl Service {
                         html_message
                             .push_str("The following users are not from this server:\n<pre>\n");
                         for remote_id in remote_ids {
-                            markdown_message.push_str(&format!("{remote_id}\n"));
-                            html_message.push_str(&format!("{remote_id}\n"));
+                            writeln!(markdown_message, "{remote_id}")
+                                .expect("write to in-memory buffer should succeed");
+                            writeln!(html_message, "{remote_id}")
+                                .expect("write to in-memory buffer should succeed");
                         }
                         markdown_message.push_str("```\n\n");
                         html_message.push_str("</pre>\n\n");
@@ -740,8 +745,10 @@ impl Service {
                         markdown_message.push_str("The following users do not exist:\n```\n");
                         html_message.push_str("The following users do not exist:\n<pre>\n");
                         for non_existant_id in non_existant_ids {
-                            markdown_message.push_str(&format!("{non_existant_id}\n"));
-                            html_message.push_str(&format!("{non_existant_id}\n"));
+                            writeln!(markdown_message, "{non_existant_id}")
+                                .expect("write to in-memory buffer should succeed");
+                            writeln!(html_message, "{non_existant_id}")
+                                .expect("write to in-memory buffer should succeed");
                         }
                         markdown_message.push_str("```\n\n");
                         html_message.push_str("</pre>\n\n");
