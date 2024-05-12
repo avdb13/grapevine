@@ -16,6 +16,7 @@ use crate::RumaResponse;
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Error, Debug)]
+#[allow(clippy::error_impl_error)]
 pub(crate) enum Error {
     #[cfg(feature = "sqlite")]
     #[error("There was a problem with the connection to the sqlite database: {source}")]
