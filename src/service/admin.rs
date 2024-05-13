@@ -385,17 +385,17 @@ impl Service {
                 let output = format!(
                     "Rooms:\n{}",
                     room_ids
-                        .filter_map(|r| r.ok())
-                        .map(|id| id.to_string()
-                            + "\tMembers: "
-                            + &services()
+                        .filter_map(std::result::Result::ok)
+                        .map(|id| format!(
+                            "{id}\tMembers: {}",
+                            &services()
                                 .rooms
                                 .state_cache
                                 .room_joined_count(&id)
                                 .ok()
                                 .flatten()
                                 .unwrap_or(0)
-                                .to_string())
+                        ))
                         .collect::<Vec<_>>()
                         .join("\n")
                 );

@@ -1598,15 +1598,15 @@ pub(crate) async fn sync_events_v4_route(
         let name = match &*heroes {
             [] => None,
             [only] => Some(only.0.clone()),
-            [firsts @ .., last] => Some(
-                firsts
+            [firsts @ .., last] => Some({
+                let firsts = firsts
                     .iter()
                     .map(|h| h.0.clone())
                     .collect::<Vec<_>>()
-                    .join(", ")
-                    + " and "
-                    + &last.0,
-            ),
+                    .join(", ");
+
+                format!("{firsts} and {}", last.0)
+            }),
         };
 
         let avatar = if let [only] = &*heroes {

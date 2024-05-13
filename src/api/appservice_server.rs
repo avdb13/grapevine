@@ -44,7 +44,7 @@ where
     };
 
     parts.path_and_query = Some(
-        (old_path_and_query + symbol + "access_token=" + hs_token)
+        format!("{old_path_and_query}{symbol}access_token={hs_token}")
             .parse()
             .unwrap(),
     );
