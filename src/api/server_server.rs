@@ -107,7 +107,7 @@ impl FedDest {
     fn port(&self) -> Option<u16> {
         match &self {
             Self::Literal(addr) => Some(addr.port()),
-            Self::Named(_, port) => port[1..].parse().ok(),
+            Self::Named(_, port) => port.strip_prefix(':').and_then(|x| x.parse().ok()),
         }
     }
 }

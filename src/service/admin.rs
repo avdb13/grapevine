@@ -33,9 +33,7 @@ use tracing::warn;
 
 use crate::{
     api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
-    services,
-    utils::{self, HtmlEscape},
-    Error, PduEvent, Result,
+    services, utils, Error, PduEvent, Result,
 };
 
 use super::pdu::PduBuilder;
@@ -516,7 +514,7 @@ impl Service {
                                 } else {
                                     "PDU was accepted"
                                 },
-                                HtmlEscape(&json_text)
+                                html_escape::encode_safe(&json_text)
                             ),
                         )
                     }
@@ -897,29 +895,15 @@ impl Service {
         // Look for a `[commandbody]()` tag. If it exists, use all lines below it that
         // start with a `#` in the USAGE section.
         let mut text_lines: Vec<&str> = text.lines().collect();
-        let mut command_body = String::new();
-
-        if let Some(line_index) = text_lines
+        let command_body = text_lines
             .iter()
-            .position(|line| *line == "[commandbody]()")
-        {
-            text_lines.remove(line_index);
+            .skip_while(|x| x != &&"[commandbody]()")
+            .skip(1)
+            .map_while(|&x| x.strip_prefix('#'))
+            .map(|x| x.strip_prefix(' ').unwrap_or(x))
+            .collect::<String>();
 
-            while text_lines
-                .get(line_index)
-                .map(|line| line.starts_with('#'))
-                .unwrap_or(false)
-            {
-                command_body += if text_lines[line_index].starts_with("# ") {
-                    &text_lines[line_index][2..]
-                } else {
-                    &text_lines[line_index][1..]
-                };
-                command_body += "[nobr]\n";
-                text_lines.remove(line_index);
-            }
-        }
-
+        text_lines.retain(|x| x != &"[commandbody]()");
         let text = text_lines.join("\n");
 
         // Improve the usage section

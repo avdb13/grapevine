@@ -124,13 +124,10 @@ impl std::str::FromStr for WildCardedDomain {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // maybe do some domain validation?
-        Ok(if s.starts_with("*.") {
-            WildCardedDomain::WildCarded(s[1..].to_owned())
-        } else if s == "*" {
-            WildCardedDomain::WildCarded("".to_owned())
-        } else {
-            WildCardedDomain::Exact(s.to_owned())
-        })
+        Ok(s.strip_prefix("*.")
+            .map(|x| WildCardedDomain::WildCarded(x.to_owned()))
+            .or_else(|| (s == "*").then(|| WildCardedDomain::WildCarded(String::new())))
+            .unwrap_or_else(|| WildCardedDomain::Exact(s.to_owned())))
     }
 }
 impl<'de> Deserialize<'de> for WildCardedDomain {

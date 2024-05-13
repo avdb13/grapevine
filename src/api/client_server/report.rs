@@ -1,4 +1,4 @@
-use crate::{services, utils::HtmlEscape, Error, Result, Ruma};
+use crate::{services, Error, Result, Ruma};
 use ruma::{
     api::client::{error::ErrorKind, room::report_content},
     events::room::message,
@@ -61,7 +61,7 @@ pub(crate) async fn report_event_route(
                 pdu.room_id,
                 pdu.sender,
                 body.score,
-                HtmlEscape(body.reason.as_deref().unwrap_or(""))
+                html_escape::encode_safe(body.reason.as_deref().unwrap_or(""))
             ),
         ));
 
