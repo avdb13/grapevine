@@ -87,9 +87,7 @@ impl Error {
         error!("BadConfig: {}", message);
         Self::BadConfig(message)
     }
-}
 
-impl Error {
     pub(crate) fn to_response(&self) -> RumaResponse<UiaaResponse> {
         if let Self::Uiaa(uiaainfo) = self {
             return RumaResponse(UiaaResponse::AuthResponse(uiaainfo.clone()));

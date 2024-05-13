@@ -952,8 +952,6 @@ impl service::users::Data for KeyValueDatabase {
     }
 }
 
-impl KeyValueDatabase {}
-
 /// Will only return with Some(username) if the password was not empty and the
 /// username could be successfully parsed.
 /// If utils::string_from_bytes(...) returns an error that username will be skipped
