@@ -25,7 +25,7 @@ pub(crate) async fn create_alias_route(
         ));
     }
 
-    if let Some(ref info) = body.appservice_info {
+    if let Some(info) = &body.appservice_info {
         if !info.aliases.is_match(body.room_alias.as_str()) {
             return Err(Error::BadRequest(
                 ErrorKind::Exclusive,
@@ -76,7 +76,7 @@ pub(crate) async fn delete_alias_route(
         ));
     }
 
-    if let Some(ref info) = body.appservice_info {
+    if let Some(info) = &body.appservice_info {
         if !info.aliases.is_match(body.room_alias.as_str()) {
             return Err(Error::BadRequest(
                 ErrorKind::Exclusive,

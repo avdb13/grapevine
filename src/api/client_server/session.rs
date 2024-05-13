@@ -147,7 +147,7 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
             }
             .map_err(|_| Error::BadRequest(ErrorKind::InvalidUsername, "Username is invalid."))?;
 
-            if let Some(ref info) = body.appservice_info {
+            if let Some(info) = &body.appservice_info {
                 if !info.is_user_match(&user_id) {
                     return Err(Error::BadRequest(
                         ErrorKind::Exclusive,
@@ -227,7 +227,7 @@ pub(crate) async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logo
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_ref().expect("user is authenticated");
 
-    if let Some(ref info) = body.appservice_info {
+    if let Some(info) = &body.appservice_info {
         if !info.is_user_match(sender_user) {
             return Err(Error::BadRequest(
                 ErrorKind::Exclusive,
@@ -257,7 +257,7 @@ pub(crate) async fn logout_all_route(
 ) -> Result<logout_all::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    if let Some(ref info) = body.appservice_info {
+    if let Some(info) = &body.appservice_info {
         if !info.is_user_match(sender_user) {
             return Err(Error::BadRequest(
                 ErrorKind::Exclusive,

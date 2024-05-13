@@ -93,7 +93,7 @@ impl FedDest {
     fn into_uri_string(self) -> String {
         match self {
             Self::Literal(addr) => addr.to_string(),
-            Self::Named(host, ref port) => host + port,
+            Self::Named(host, port) => format!("{host}{port}"),
         }
     }
 

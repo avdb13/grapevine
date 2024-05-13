@@ -104,8 +104,8 @@ pub(crate) async fn create_room_route(
                 }
             })?;
 
-    if let Some(ref alias) = alias {
-        if let Some(ref info) = body.appservice_info {
+    if let Some(alias) = &alias {
+        if let Some(info) = &body.appservice_info {
             if !info.aliases.is_match(alias.as_str()) {
                 return Err(Error::BadRequest(
                     ErrorKind::Exclusive,

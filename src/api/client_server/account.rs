@@ -122,7 +122,7 @@ pub(crate) async fn register_route(
     };
 
     if body.body.login_type == Some(LoginType::ApplicationService) {
-        if let Some(ref info) = body.appservice_info {
+        if let Some(info) = &body.appservice_info {
             if !info.is_user_match(&user_id) {
                 return Err(Error::BadRequest(
                     ErrorKind::Exclusive,
