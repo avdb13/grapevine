@@ -18,8 +18,8 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
         Some(from) => PduCount::try_from_string(&from)?,
         None => match ruma::api::Direction::Backward {
             // TODO: fix ruma so `body.dir` exists
-            ruma::api::Direction::Forward => PduCount::min(),
-            ruma::api::Direction::Backward => PduCount::max(),
+            ruma::api::Direction::Forward => PduCount::MIN,
+            ruma::api::Direction::Backward => PduCount::MAX,
         },
     };
 
@@ -69,8 +69,8 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
         Some(from) => PduCount::try_from_string(&from)?,
         None => match ruma::api::Direction::Backward {
             // TODO: fix ruma so `body.dir` exists
-            ruma::api::Direction::Forward => PduCount::min(),
-            ruma::api::Direction::Backward => PduCount::max(),
+            ruma::api::Direction::Forward => PduCount::MIN,
+            ruma::api::Direction::Backward => PduCount::MAX,
         },
     };
 
@@ -118,8 +118,8 @@ pub(crate) async fn get_relating_events_route(
         Some(from) => PduCount::try_from_string(&from)?,
         None => match ruma::api::Direction::Backward {
             // TODO: fix ruma so `body.dir` exists
-            ruma::api::Direction::Forward => PduCount::min(),
-            ruma::api::Direction::Backward => PduCount::max(),
+            ruma::api::Direction::Forward => PduCount::MIN,
+            ruma::api::Direction::Backward => PduCount::MAX,
         },
     };
 

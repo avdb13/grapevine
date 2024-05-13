@@ -1120,7 +1120,7 @@ fn load_timeline(
         let mut non_timeline_pdus = services()
             .rooms
             .timeline
-            .pdus_until(sender_user, room_id, PduCount::max())?
+            .pdus_until(sender_user, room_id, PduCount::MAX)?
             .filter_map(|r| {
                 // Filter out buggy events
                 if r.is_err() {

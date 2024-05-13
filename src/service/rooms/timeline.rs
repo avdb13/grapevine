@@ -48,12 +48,8 @@ pub(crate) enum PduCount {
 }
 
 impl PduCount {
-    pub(crate) fn min() -> Self {
-        Self::Backfilled(u64::MAX)
-    }
-    pub(crate) fn max() -> Self {
-        Self::Normal(u64::MAX)
-    }
+    pub(crate) const MIN: Self = Self::Backfilled(u64::MAX);
+    pub(crate) const MAX: Self = Self::Normal(u64::MAX);
 
     pub(crate) fn try_from_string(token: &str) -> Result<Self> {
         if let Some(stripped) = token.strip_prefix('-') {
@@ -1052,7 +1048,7 @@ impl Service {
         user_id: &UserId,
         room_id: &RoomId,
     ) -> Result<impl Iterator<Item = Result<(PduCount, PduEvent)>> + 'a> {
-        self.pdus_after(user_id, room_id, PduCount::min())
+        self.pdus_after(user_id, room_id, PduCount::MIN)
     }
 
     /// Returns an iterator over all events and their tokens in a room that happened before the

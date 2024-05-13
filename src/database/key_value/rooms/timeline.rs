@@ -19,7 +19,7 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
         {
             hash_map::Entry::Vacant(v) => {
                 if let Some(last_count) = self
-                    .pdus_until(sender_user, room_id, PduCount::max())?
+                    .pdus_until(sender_user, room_id, PduCount::MAX)?
                     .find_map(|r| {
                         // Filter out buggy events
                         if r.is_err() {

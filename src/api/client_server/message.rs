@@ -121,8 +121,8 @@ pub(crate) async fn get_message_events_route(
     let from = match body.from.clone() {
         Some(from) => PduCount::try_from_string(&from)?,
         None => match body.dir {
-            ruma::api::Direction::Forward => PduCount::min(),
-            ruma::api::Direction::Backward => PduCount::max(),
+            ruma::api::Direction::Forward => PduCount::MIN,
+            ruma::api::Direction::Backward => PduCount::MAX,
         },
     };
 
