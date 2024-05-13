@@ -1400,7 +1400,9 @@ pub(crate) async fn leave_all_rooms(user_id: &UserId) -> Result<()> {
             Err(_) => continue,
         };
 
-        let _ = leave_room(user_id, &room_id, None).await;
+        if let Err(error) = leave_room(user_id, &room_id, None).await {
+            warn!(%user_id, %room_id, %error, "failed to leave room");
+        }
     }
 
     Ok(())

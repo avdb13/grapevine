@@ -29,6 +29,7 @@ use ruma::{
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::warn;
 
 use crate::{
     api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
@@ -784,7 +785,9 @@ impl Service {
 
                     if leave_rooms {
                         for &user_id in &user_ids {
-                            let _ = leave_all_rooms(user_id).await;
+                            if let Err(error) = leave_all_rooms(user_id).await {
+                                warn!(%user_id, %error, "failed to leave one or more rooms");
+                            }
                         }
                     }
 

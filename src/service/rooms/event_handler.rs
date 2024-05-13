@@ -1533,19 +1533,22 @@ impl Service {
 
             // Try to fetch keys, failure is okay
             // Servers we couldn't find in the cache will be added to `servers`
-            for pdu in &event.room_state.state {
-                let _ = self
+            for pdu in event
+                .room_state
+                .state
+                .iter()
+                .chain(&event.room_state.auth_chain)
+            {
+                if let Err(error) = self
                     .get_server_keys_from_cache(pdu, &mut servers, room_version, &mut pkm)
-                    .await;
-            }
-            for pdu in &event.room_state.auth_chain {
-                let _ = self
-                    .get_server_keys_from_cache(pdu, &mut servers, room_version, &mut pkm)
-                    .await;
+                    .await
+                {
+                    debug!(%error, "failed to get server keys from cache");
+                };
             }
 
             drop(pkm);
-        }
+        };
 
         if servers.is_empty() {
             info!("We had all keys locally");

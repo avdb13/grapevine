@@ -96,9 +96,9 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
     fn open_tree(&self, name: &'static str) -> Result<Arc<dyn KvTree>> {
         if !self.old_cfs.contains(&name.to_owned()) {
             // Create if it didn't exist
-            let _ = self
-                .rocks
-                .create_cf(name, &db_options(self.max_open_files, &self.cache));
+            self.rocks
+                .create_cf(name, &db_options(self.max_open_files, &self.cache))
+                .expect("should be able to create column family");
         }
 
         Ok(Arc::new(RocksDbEngineTree {

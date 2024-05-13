@@ -13,6 +13,7 @@ use ruma::{
 };
 use serde_json::value::to_raw_value;
 use std::sync::Arc;
+use tracing::warn;
 
 /// # `PUT /_matrix/client/r0/profile/{userId}/displayname`
 ///
@@ -84,11 +85,14 @@ pub(crate) async fn set_displayname_route(
         );
         let state_lock = mutex_state.lock().await;
 
-        let _ = services()
+        if let Err(error) = services()
             .rooms
             .timeline
             .build_and_append_pdu(pdu_builder, sender_user, &room_id, &state_lock)
-            .await;
+            .await
+        {
+            warn!(%error, "failed to add PDU");
+        }
     }
 
     Ok(set_display_name::v3::Response {})
@@ -198,11 +202,14 @@ pub(crate) async fn set_avatar_url_route(
         );
         let state_lock = mutex_state.lock().await;
 
-        let _ = services()
+        if let Err(error) = services()
             .rooms
             .timeline
             .build_and_append_pdu(pdu_builder, sender_user, &room_id, &state_lock)
-            .await;
+            .await
+        {
+            warn!(%error, "failed to add PDU");
+        };
     }
 
     Ok(set_avatar_url::v3::Response {})

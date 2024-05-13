@@ -480,7 +480,11 @@ pub(crate) async fn create_room_route(
     // 8. Events implied by invite (and TODO: invite_3pid)
     drop(state_lock);
     for user_id in &body.invite {
-        let _ = invite_helper(sender_user, user_id, &room_id, None, body.is_direct).await;
+        if let Err(error) =
+            invite_helper(sender_user, user_id, &room_id, None, body.is_direct).await
+        {
+            warn!(%error, "invite helper failed");
+        };
     }
 
     // Homeserver specific stuff

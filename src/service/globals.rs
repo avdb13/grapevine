@@ -92,12 +92,12 @@ impl RotationHandler {
         let mut r = self.0.subscribe();
 
         async move {
-            let _ = r.recv().await;
+            r.recv().await.expect("should receive a message");
         }
     }
 
     pub(crate) fn fire(&self) {
-        let _ = self.0.send(());
+        self.0.send(()).expect("should be able to send message");
     }
 }
 

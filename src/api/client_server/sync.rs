@@ -29,7 +29,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::watch::Sender;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 /// # `GET /_matrix/client/r0/sync`
 ///
@@ -164,7 +164,8 @@ async fn sync_helper_wrapper(
         }
     }
 
-    let _ = tx.send(Some(r.map(|(r, _)| r)));
+    tx.send(Some(r.map(|(r, _)| r)))
+        .expect("receiver should not be dropped");
 }
 
 async fn sync_helper(
@@ -543,7 +544,10 @@ async fn sync_helper(
         if duration.as_secs() > 30 {
             duration = Duration::from_secs(30);
         }
-        let _ = tokio::time::timeout(duration, watcher).await;
+        match tokio::time::timeout(duration, watcher).await {
+            Ok(x) => x.expect("watcher should succeed"),
+            Err(error) => debug!(%error, "timed out"),
+        };
         Ok((response, false))
     } else {
         Ok((response, since != next_batch)) // Only cache if we made progress
@@ -1681,7 +1685,10 @@ pub(crate) async fn sync_events_v4_route(
         if duration.as_secs() > 30 {
             duration = Duration::from_secs(30);
         }
-        let _ = tokio::time::timeout(duration, watcher).await;
+        match tokio::time::timeout(duration, watcher).await {
+            Ok(x) => x.expect("watcher should succeed"),
+            Err(error) => debug!(%error, "timed out"),
+        };
     }
 
     Ok(sync_events::v4::Response {

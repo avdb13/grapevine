@@ -227,7 +227,8 @@ async fn run_server() -> io::Result<()> {
             let server = bind_rustls(addr, conf).handle(handle).serve(app);
 
             #[cfg(feature = "systemd")]
-            let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
+            sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
+                .expect("should be able to notify systemd");
 
             server.await?
         }
@@ -235,7 +236,8 @@ async fn run_server() -> io::Result<()> {
             let server = bind(addr).handle(handle).serve(app);
 
             #[cfg(feature = "systemd")]
-            let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
+            sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
+                .expect("should be able to notify systemd");
 
             server.await?
         }
@@ -494,7 +496,8 @@ async fn shutdown_signal(handle: ServerHandle) {
     services().globals.shutdown();
 
     #[cfg(feature = "systemd")]
-    let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Stopping]);
+    sd_notify::notify(true, &[sd_notify::NotifyState::Stopping])
+        .expect("should be able to notify systemd");
 }
 
 async fn federation_disabled(_: Uri) -> impl IntoResponse {

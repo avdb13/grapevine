@@ -1,6 +1,7 @@
 use ruma::{events::SyncEphemeralRoomEvent, OwnedRoomId, OwnedUserId, RoomId, UserId};
 use std::collections::BTreeMap;
 use tokio::sync::{broadcast, RwLock};
+use tracing::trace;
 
 use crate::{services, utils, Result};
 
@@ -29,7 +30,9 @@ impl Service {
             .write()
             .await
             .insert(room_id.to_owned(), services().globals.next_count()?);
-        let _ = self.typing_update_sender.send(room_id.to_owned());
+        if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+            trace!("receiver found what it was looking for and is no longer interested");
+        }
         Ok(())
     }
 
@@ -45,7 +48,9 @@ impl Service {
             .write()
             .await
             .insert(room_id.to_owned(), services().globals.next_count()?);
-        let _ = self.typing_update_sender.send(room_id.to_owned());
+        if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+            trace!("receiver found what it was looking for and is no longer interested");
+        }
         Ok(())
     }
 
@@ -86,7 +91,9 @@ impl Service {
                 .write()
                 .await
                 .insert(room_id.to_owned(), services().globals.next_count()?);
-            let _ = self.typing_update_sender.send(room_id.to_owned());
+            if self.typing_update_sender.send(room_id.to_owned()).is_err() {
+                trace!("receiver found what it was looking for and is no longer interested");
+            }
         }
         Ok(())
     }
