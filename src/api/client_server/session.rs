@@ -51,8 +51,7 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
             identifier,
             password,
             user,
-            address: _,
-            medium: _,
+            ..
         }) => {
             let user_id = if let Some(UserIdentifier::UserIdOrLocalpart(user_id)) = identifier {
                 UserId::parse_with_server_name(
