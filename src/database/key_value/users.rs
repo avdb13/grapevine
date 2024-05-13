@@ -198,8 +198,10 @@ impl service::users::Data for KeyValueDatabase {
         token: &str,
         initial_device_display_name: Option<String>,
     ) -> Result<()> {
-        // This method should never be called for nonexistent users.
-        assert!(self.exists(user_id)?);
+        assert!(
+            self.exists(user_id)?,
+            "user must exist before calling this method"
+        );
 
         let mut userdeviceid = user_id.as_bytes().to_vec();
         userdeviceid.push(0xff);
@@ -285,8 +287,10 @@ impl service::users::Data for KeyValueDatabase {
         userdeviceid.push(0xff);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
-        // All devices have metadata
-        assert!(self.userdeviceid_metadata.get(&userdeviceid)?.is_some());
+        assert!(
+            self.userdeviceid_metadata.get(&userdeviceid)?.is_some(),
+            "devices should have metadata"
+        );
 
         // Remove old token
         if let Some(old_token) = self.userdeviceid_token.get(&userdeviceid)? {
@@ -314,9 +318,10 @@ impl service::users::Data for KeyValueDatabase {
         key.push(0xff);
         key.extend_from_slice(device_id.as_bytes());
 
-        // All devices have metadata
-        // Only existing devices should be able to call this.
-        assert!(self.userdeviceid_metadata.get(&key)?.is_some());
+        assert!(
+            self.userdeviceid_metadata.get(&key)?.is_some(),
+            "devices should have metadata and this method should only be called with existing devices"
+        );
 
         key.push(0xff);
         // TODO: Use DeviceKeyId::to_string when it's available (and update everything,
@@ -852,8 +857,10 @@ impl service::users::Data for KeyValueDatabase {
         userdeviceid.push(0xff);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
-        // Only existing devices should be able to call this.
-        assert!(self.userdeviceid_metadata.get(&userdeviceid)?.is_some());
+        assert!(
+            self.userdeviceid_metadata.get(&userdeviceid)?.is_some(),
+            "this method should only be called with existing devices"
+        );
 
         self.userid_devicelistversion
             .increment(user_id.as_bytes())?;

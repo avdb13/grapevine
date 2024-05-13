@@ -929,7 +929,8 @@ impl KeyValueDatabase {
 
             assert_eq!(
                 services().globals.database_version().unwrap(),
-                latest_database_version
+                latest_database_version,
+                "database should be migrated to the current version",
             );
 
             info!(
