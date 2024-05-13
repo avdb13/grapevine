@@ -81,10 +81,15 @@ pub(crate) fn calculate_hash(keys: &[&[u8]]) -> Vec<u8> {
     hash.as_ref().to_owned()
 }
 
-pub(crate) fn common_elements(
-    mut iterators: impl Iterator<Item = impl Iterator<Item = Vec<u8>>>,
-    check_order: impl Fn(&[u8], &[u8]) -> Ordering,
-) -> Option<impl Iterator<Item = Vec<u8>>> {
+pub(crate) fn common_elements<I, F>(
+    mut iterators: I,
+    check_order: F,
+) -> Option<impl Iterator<Item = Vec<u8>>>
+where
+    I: Iterator,
+    I::Item: Iterator<Item = Vec<u8>>,
+    F: Fn(&[u8], &[u8]) -> Ordering,
+{
     let first_iterator = iterators.next()?;
     let mut other_iterators = iterators.map(|i| i.peekable()).collect::<Vec<_>>();
 
