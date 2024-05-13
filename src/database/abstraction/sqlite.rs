@@ -19,7 +19,7 @@ thread_local! {
 
 struct PreparedStatementIterator<'a> {
     pub(crate) iterator: Box<dyn Iterator<Item = TupleOfBytes> + 'a>,
-    pub(crate) _statement_ref: NonAliasingBox<rusqlite::Statement<'a>>,
+    pub(crate) _statement_ref: AliasableBox<rusqlite::Statement<'a>>,
 }
 
 impl Iterator for PreparedStatementIterator<'_> {
@@ -30,10 +30,25 @@ impl Iterator for PreparedStatementIterator<'_> {
     }
 }
 
-struct NonAliasingBox<T>(*mut T);
-impl<T> Drop for NonAliasingBox<T> {
+struct AliasableBox<T>(*mut T);
+impl<T> Drop for AliasableBox<T> {
     fn drop(&mut self) {
-        drop(unsafe { Box::from_raw(self.0) });
+        // SAFETY: This is cursed and relies on non-local reasoning.
+        //
+        // In order for this to be safe:
+        //
+        // * All aliased references to this value must have been dropped first,
+        //   for example by coming after its referrers in struct fields, because
+        //   struct fields are automatically dropped in order from top to bottom
+        //   in the absence of an explicit Drop impl. Otherwise, the referrers
+        //   may read into deallocated memory.
+        // * This type must not be copyable or cloneable. Otherwise, double-free
+        //   can occur.
+        //
+        // These conditions are met, but again, note that changing safe code in
+        // this module can result in unsoundness if any of these constraints are
+        // violated.
+        unsafe { drop(Box::from_raw(self.0)) }
     }
 }
 
@@ -171,7 +186,7 @@ impl SqliteTable {
                 .unwrap(),
         ));
 
-        let statement_ref = NonAliasingBox(statement);
+        let statement_ref = AliasableBox(statement);
 
         //let name = self.name.clone();
 
@@ -270,7 +285,7 @@ impl KvTree for SqliteTable {
                     .unwrap(),
             ));
 
-            let statement_ref = NonAliasingBox(statement);
+            let statement_ref = AliasableBox(statement);
 
             let iterator = Box::new(
                 statement
@@ -292,7 +307,7 @@ impl KvTree for SqliteTable {
                     .unwrap(),
             ));
 
-            let statement_ref = NonAliasingBox(statement);
+            let statement_ref = AliasableBox(statement);
 
             let iterator = Box::new(
                 statement
