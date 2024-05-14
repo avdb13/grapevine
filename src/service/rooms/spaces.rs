@@ -66,10 +66,10 @@ impl Service {
             while stack.last().map_or(false, |s| s.is_empty()) {
                 stack.pop();
             }
-            if !stack.is_empty() {
-                stack.last_mut().and_then(|s| s.pop())
-            } else {
+            if stack.is_empty() {
                 None
+            } else {
+                stack.last_mut().and_then(|s| s.pop())
             }
         } {
             rooms_in_path.push(current_room.clone());

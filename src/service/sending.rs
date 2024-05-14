@@ -160,7 +160,9 @@ impl Service {
                             // Find events that have been added since starting the last request
                             let new_events = self.db.queued_requests(&outgoing_kind).filter_map(|r| r.ok()).take(30).collect::<Vec<_>>();
 
-                            if !new_events.is_empty() {
+                            if new_events.is_empty() {
+                                current_transaction_status.remove(&outgoing_kind);
+                            } else {
                                 // Insert pdus we found
                                 self.db.mark_as_active(&new_events)?;
 
@@ -170,8 +172,6 @@ impl Service {
                                         new_events.into_iter().map(|(event, _)| event).collect(),
                                     )
                                 );
-                            } else {
-                                current_transaction_status.remove(&outgoing_kind);
                             }
                         }
                         Err((outgoing_kind, _)) => {

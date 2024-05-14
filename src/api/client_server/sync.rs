@@ -94,7 +94,9 @@ pub(crate) async fn sync_events_route(
             rx
         }
         Entry::Occupied(mut o) => {
-            if o.get().0 != body.since {
+            if o.get().0 == body.since {
+                o.get().1.clone()
+            } else {
                 let (tx, rx) = tokio::sync::watch::channel(None);
 
                 o.insert((body.since.clone(), rx.clone()));
@@ -109,8 +111,6 @@ pub(crate) async fn sync_events_route(
                 ));
 
                 rx
-            } else {
-                o.get().1.clone()
             }
         }
     };
