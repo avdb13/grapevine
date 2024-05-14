@@ -69,11 +69,11 @@ pub(crate) async fn get_register_available_route(
 /// to check if the user id is valid and available.
 ///
 /// - Only works if registration is enabled
-/// - If type is guest: ignores all parameters except initial_device_display_name
+/// - If type is guest: ignores all parameters except `initial_device_display_name`
 /// - If sender is not appservice: Requires UIAA (but we only use a dummy stage)
 /// - If type is not guest and no username is given: Always fails after UIAA check
 /// - Creates a new account and populates it with default account data
-/// - If `inhibit_login` is false: Creates a device and returns device id and access_token
+/// - If `inhibit_login` is false: Creates a device and returns `device_id` and `access_token`
 pub(crate) async fn register_route(
     body: Ruma<register::v3::Request>,
 ) -> Result<register::v3::Response> {
@@ -304,9 +304,9 @@ pub(crate) async fn register_route(
 /// - The password hash is calculated using argon2 with 32 character salt, the plain password is
 /// not saved
 ///
-/// If logout_devices is true it does the following for each device except the sender device:
+/// If `logout_devices` is true it does the following for each device except the sender device:
 /// - Invalidates access token
-/// - Deletes device metadata (device id, device display name, last seen ip, last seen ts)
+/// - Deletes device metadata (device ID, device display name, last seen IP, last seen timestamp)
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn change_password_route(
@@ -372,7 +372,7 @@ pub(crate) async fn change_password_route(
 
 /// # `GET _matrix/client/r0/account/whoami`
 ///
-/// Get user_id of the sender user.
+/// Get `user_id` of the sender user.
 ///
 /// Note: Also works for Application Services
 pub(crate) async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoami::v3::Response> {

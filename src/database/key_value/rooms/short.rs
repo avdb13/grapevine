@@ -175,7 +175,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(result)
     }
 
-    /// Returns (shortstatehash, already_existed)
+    /// Returns `(shortstatehash, already_existed)`
     fn get_or_create_shortstatehash(&self, state_hash: &[u8]) -> Result<(u64, bool)> {
         Ok(match self.statehash_shortstatehash.get(state_hash)? {
             Some(shortstatehash) => (

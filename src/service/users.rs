@@ -327,12 +327,12 @@ impl Service {
         self.db.set_displayname(user_id, displayname)
     }
 
-    /// Get the avatar_url of a user.
+    /// Get the `avatar_url` of a user.
     pub(crate) fn avatar_url(&self, user_id: &UserId) -> Result<Option<OwnedMxcUri>> {
         self.db.avatar_url(user_id)
     }
 
-    /// Sets a new avatar_url or removes it if avatar_url is None.
+    /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
     pub(crate) fn set_avatar_url(
         &self,
         user_id: &UserId,
@@ -341,12 +341,12 @@ impl Service {
         self.db.set_avatar_url(user_id, avatar_url)
     }
 
-    /// Get the blurhash of a user.
+    /// Get the `blurhash` of a user.
     pub(crate) fn blurhash(&self, user_id: &UserId) -> Result<Option<String>> {
         self.db.blurhash(user_id)
     }
 
-    /// Sets a new avatar_url or removes it if avatar_url is None.
+    /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
     pub(crate) fn set_blurhash(&self, user_id: &UserId, blurhash: Option<String>) -> Result<()> {
         self.db.set_blurhash(user_id, blurhash)
     }

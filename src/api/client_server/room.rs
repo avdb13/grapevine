@@ -34,7 +34,7 @@ use tracing::{info, warn};
 /// Creates a new room.
 ///
 /// - Room ID is randomly generated
-/// - Create alias if room_alias_name is set
+/// - Create alias if `room_alias_name` is set
 /// - Send create event
 /// - Join sender user
 /// - Send power levels event
@@ -543,7 +543,7 @@ pub(crate) async fn get_room_event_route(
 ///
 /// Lists all aliases of the room.
 ///
-/// - Only users joined to the room are allowed to call this TODO: Allow any user to call it if history_visibility is world readable
+/// - Only users joined to the room are allowed to call this TODO: Allow any user to call it if `history_visibility` is world readable
 pub(crate) async fn get_room_aliases_route(
     body: Ruma<aliases::v3::Request>,
 ) -> Result<aliases::v3::Response> {

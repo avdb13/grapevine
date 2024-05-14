@@ -12,7 +12,7 @@ pub(crate) struct Service {
 }
 
 impl Service {
-    /// Sets a user as typing until the timeout timestamp is reached or roomtyping_remove is
+    /// Sets a user as typing until the timeout timestamp is reached or `roomtyping_remove` is
     /// called.
     pub(crate) async fn typing_add(
         &self,

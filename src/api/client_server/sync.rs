@@ -46,8 +46,8 @@ use tracing::{debug, error, info};
 ///
 /// Calling this endpoint with a `since` parameter from a previous `next_batch` returns:
 /// For joined rooms:
-/// - Some of the most recent events of each timeline that happened after since
-/// - If user joined the room after since: All state events (unless lazy loading is activated) and
+/// - Some of the most recent events of each timeline that happened after `since`
+/// - If user joined the room after `since`: All state events (unless lazy loading is activated) and
 /// all device list updates in that room
 /// - If the user was already in the room: A list of all events that are in the state now, but were
 /// not in the state at `since`
@@ -61,7 +61,7 @@ use tracing::{debug, error, info};
 /// - If the user was invited after `since`: A subset of the state of the room at the point of the invite
 ///
 /// For left rooms:
-/// - If the user left after `since`: prev_batch token, empty state (TODO: subset of the state at the point of the leave)
+/// - If the user left after `since`: `prev_batch` token, empty state (TODO: subset of the state at the point of the leave)
 ///
 /// - Sync is handled in an async task, multiple requests from the same device with the same
 /// `since` will be cached

@@ -61,8 +61,8 @@ use tracing::{debug, error, warn};
 /// Wraps either an literal IP address plus port, or a hostname plus complement
 /// (colon-plus-port if it was specified).
 ///
-/// Note: A `FedDest::Named` might contain an IP address in string form if there
-/// was no port specified to construct a SocketAddr with.
+/// Note: A [`FedDest::Named`] might contain an IP address in string form if there
+/// was no port specified to construct a [`SocketAddr`] with.
 ///
 /// # Examples:
 /// ```rust
@@ -340,7 +340,7 @@ fn add_port_to_hostname(destination_str: &str) -> FedDest {
     FedDest::Named(host.to_owned(), port.to_owned())
 }
 
-/// Returns: actual_destination, host header
+/// Returns: `actual_destination`, `Host` header
 /// Implemented according to the specification at <https://matrix.org/docs/spec/server_server/r0.1.4#resolving-server-names>
 /// Numbers in comments below refer to bullet points in linked section of specification
 async fn find_actual_destination(destination: &'_ ServerName) -> (FedDest, FedDest) {

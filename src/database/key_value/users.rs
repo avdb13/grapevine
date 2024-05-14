@@ -118,7 +118,7 @@ impl service::users::Data for KeyValueDatabase {
         }
     }
 
-    /// Returns the displayname of a user on this homeserver.
+    /// Returns the `displayname` of a user on this homeserver.
     fn displayname(&self, user_id: &UserId) -> Result<Option<String>> {
         self.userid_displayname
             .get(user_id.as_bytes())?
@@ -129,7 +129,7 @@ impl service::users::Data for KeyValueDatabase {
             })
     }
 
-    /// Sets a new displayname or removes it if displayname is None. You still need to nofify all rooms of this change.
+    /// Sets a new `displayname` or removes it if `displayname` is `None`. You still need to nofify all rooms of this change.
     fn set_displayname(&self, user_id: &UserId, displayname: Option<String>) -> Result<()> {
         if let Some(displayname) = displayname {
             self.userid_displayname
@@ -141,7 +141,7 @@ impl service::users::Data for KeyValueDatabase {
         Ok(())
     }
 
-    /// Get the avatar_url of a user.
+    /// Get the `avatar_url` of a user.
     fn avatar_url(&self, user_id: &UserId) -> Result<Option<OwnedMxcUri>> {
         self.userid_avatarurl
             .get(user_id.as_bytes())?
@@ -153,7 +153,7 @@ impl service::users::Data for KeyValueDatabase {
             .transpose()
     }
 
-    /// Sets a new avatar_url or removes it if avatar_url is None.
+    /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
     fn set_avatar_url(&self, user_id: &UserId, avatar_url: Option<OwnedMxcUri>) -> Result<()> {
         if let Some(avatar_url) = avatar_url {
             self.userid_avatarurl
@@ -165,7 +165,7 @@ impl service::users::Data for KeyValueDatabase {
         Ok(())
     }
 
-    /// Get the blurhash of a user.
+    /// Get the `blurhash` of a user.
     fn blurhash(&self, user_id: &UserId) -> Result<Option<String>> {
         self.userid_blurhash
             .get(user_id.as_bytes())?
@@ -178,7 +178,7 @@ impl service::users::Data for KeyValueDatabase {
             .transpose()
     }
 
-    /// Sets a new avatar_url or removes it if avatar_url is None.
+    /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
     fn set_blurhash(&self, user_id: &UserId, blurhash: Option<String>) -> Result<()> {
         if let Some(blurhash) = blurhash {
             self.userid_blurhash
@@ -954,7 +954,7 @@ impl service::users::Data for KeyValueDatabase {
 
 /// Will only return with Some(username) if the password was not empty and the
 /// username could be successfully parsed.
-/// If utils::string_from_bytes(...) returns an error that username will be skipped
+/// If [`utils::string_from_bytes`] returns an error that username will be skipped
 /// and the error will be logged.
 fn get_username_with_valid_password(username: &[u8], password: &[u8]) -> Option<String> {
     // A valid password is not empty
