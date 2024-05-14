@@ -214,7 +214,7 @@ impl Service {
         if let Some(state_key) = &pdu.state_key {
             if let CanonicalJsonValue::Object(unsigned) = pdu_json
                 .entry("unsigned".to_owned())
-                .or_insert_with(|| CanonicalJsonValue::Object(Default::default()))
+                .or_insert_with(|| CanonicalJsonValue::Object(CanonicalJsonObject::default()))
             {
                 if let Some(shortstatehash) = services()
                     .rooms

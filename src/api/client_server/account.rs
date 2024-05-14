@@ -151,7 +151,7 @@ pub(crate) async fn register_route(
                 stages: vec![AuthType::RegistrationToken],
             }],
             completed: Vec::new(),
-            params: Default::default(),
+            params: Box::default(),
             session: None,
             auth_error: None,
         };
@@ -163,7 +163,7 @@ pub(crate) async fn register_route(
                 stages: vec![AuthType::Dummy],
             }],
             completed: Vec::new(),
-            params: Default::default(),
+            params: Box::default(),
             session: None,
             auth_error: None,
         };
@@ -320,7 +320,7 @@ pub(crate) async fn change_password_route(
             stages: vec![AuthType::Password],
         }],
         completed: Vec::new(),
-        params: Default::default(),
+        params: Box::default(),
         session: None,
         auth_error: None,
     };
@@ -407,7 +407,7 @@ pub(crate) async fn deactivate_route(
             stages: vec![AuthType::Password],
         }],
         completed: Vec::new(),
-        params: Default::default(),
+        params: Box::default(),
         session: None,
         auth_error: None,
     };

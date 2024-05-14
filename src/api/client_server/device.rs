@@ -83,7 +83,7 @@ pub(crate) async fn delete_device_route(
             stages: vec![AuthType::Password],
         }],
         completed: Vec::new(),
-        params: Default::default(),
+        params: Box::default(),
         session: None,
         auth_error: None,
     };
@@ -137,7 +137,7 @@ pub(crate) async fn delete_devices_route(
             stages: vec![AuthType::Password],
         }],
         completed: Vec::new(),
-        params: Default::default(),
+        params: Box::default(),
         session: None,
         auth_error: None,
     };

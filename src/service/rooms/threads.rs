@@ -4,7 +4,7 @@ pub(crate) use data::Data;
 use ruma::{
     api::client::{error::ErrorKind, threads::get_threads::v1::IncludeThreads},
     events::relation::BundledThread,
-    uint, CanonicalJsonValue, EventId, RoomId, UserId,
+    uint, CanonicalJsonObject, CanonicalJsonValue, EventId, RoomId, UserId,
 };
 
 use serde_json::json;
@@ -56,7 +56,7 @@ impl Service {
 
         if let CanonicalJsonValue::Object(unsigned) = root_pdu_json
             .entry("unsigned".to_owned())
-            .or_insert_with(|| CanonicalJsonValue::Object(Default::default()))
+            .or_insert_with(|| CanonicalJsonValue::Object(CanonicalJsonObject::default()))
         {
             if let Some(mut relations) = unsigned
                 .get("m.relations")

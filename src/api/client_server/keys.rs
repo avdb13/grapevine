@@ -108,7 +108,7 @@ pub(crate) async fn upload_signing_keys_route(
             stages: vec![AuthType::Password],
         }],
         completed: Vec::new(),
-        params: Default::default(),
+        params: Box::default(),
         session: None,
         auth_error: None,
     };
