@@ -175,7 +175,6 @@ pub(crate) async fn upload_signatures_route(
                     "Invalid signature.",
                 ))?
                 .clone()
-                .into_iter()
             {
                 // Signature validation?
                 let signature = (
