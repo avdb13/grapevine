@@ -1559,7 +1559,7 @@ pub(crate) async fn sync_events_v4_route(
 
         let required_state = required_state_request
             .iter()
-            .flat_map(|state| {
+            .filter_map(|state| {
                 services()
                     .rooms
                     .state_accessor
@@ -1577,7 +1577,7 @@ pub(crate) async fn sync_events_v4_route(
             .room_members(room_id)
             .filter_map(|r| r.ok())
             .filter(|member| member != &sender_user)
-            .flat_map(|member| {
+            .filter_map(|member| {
                 services()
                     .rooms
                     .state_accessor
