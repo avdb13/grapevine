@@ -239,11 +239,13 @@ fn default_pdu_cache_capacity() -> u32 {
 }
 
 fn default_cleanup_second_interval() -> u32 {
-    60 // every minute
+    // every minute
+    60
 }
 
 fn default_max_request_size() -> u32 {
-    20 * 1024 * 1024 // Default to 20 MB
+    // Default to 20 MB
+    20 * 1024 * 1024
 }
 
 fn default_max_concurrent_requests() -> u16 {

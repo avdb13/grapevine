@@ -123,7 +123,8 @@ impl service::rooms::user::Data for KeyValueDatabase {
                         .find(|(_, &b)| b == 0xff)
                         .ok_or_else(|| Error::bad_database("Invalid userroomid_joined in db."))?
                         .0
-                        + 1; // +1 because the room id starts AFTER the separator
+                        // +1 because the room id starts AFTER the separator
+                        + 1;
 
                     let room_id = key[roomid_index..].to_vec();
 

@@ -28,7 +28,8 @@ use crate::{services, Error, Result};
 pub(crate) struct SlidingSyncCache {
     lists: BTreeMap<String, SyncRequestList>,
     subscriptions: BTreeMap<OwnedRoomId, sync_events::v4::RoomSubscription>,
-    known_rooms: BTreeMap<String, BTreeMap<OwnedRoomId, u64>>, // For every room, the roomsince number
+    // For every room, the roomsince number
+    known_rooms: BTreeMap<String, BTreeMap<OwnedRoomId, u64>>,
     extensions: ExtensionsConfig,
 }
 

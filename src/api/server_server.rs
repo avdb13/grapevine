@@ -260,10 +260,11 @@ where
             );
 
             debug!("Getting response bytes from {destination}");
+            // TODO: handle timeout
             let body = response.bytes().await.unwrap_or_else(|e| {
                 warn!("server error {}", e);
                 Vec::new().into()
-            }); // TODO: handle timeout
+            });
             debug!("Got response bytes from {destination}");
 
             if status != 200 {
@@ -1555,7 +1556,8 @@ async fn create_join_event(
             .filter_map(|(_, id)| services().rooms.timeline.get_pdu_json(id).ok().flatten())
             .map(PduEvent::convert_to_outgoing_federation_event)
             .collect(),
-        event: None, // TODO: handle restricted joins
+        // TODO: handle restricted joins
+        event: None,
     })
 }
 

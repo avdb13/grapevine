@@ -12,7 +12,8 @@ pub(crate) trait Data: Send + Sync {
         &self,
         room_id: &RoomId,
         new_shortstatehash: u64,
-        _mutex_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()>;
 
     /// Associates a state with an event.
@@ -26,6 +27,7 @@ pub(crate) trait Data: Send + Sync {
         &self,
         room_id: &RoomId,
         event_ids: Vec<OwnedEventId>,
-        _mutex_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()>;
 }

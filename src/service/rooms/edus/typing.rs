@@ -6,8 +6,10 @@ use tracing::trace;
 use crate::{services, utils, Result};
 
 pub(crate) struct Service {
-    pub(crate) typing: RwLock<BTreeMap<OwnedRoomId, BTreeMap<OwnedUserId, u64>>>, // u64 is unix timestamp of timeout
-    pub(crate) last_typing_update: RwLock<BTreeMap<OwnedRoomId, u64>>, // timestamp of the last change to typing users
+    // u64 is unix timestamp of timeout
+    pub(crate) typing: RwLock<BTreeMap<OwnedRoomId, BTreeMap<OwnedUserId, u64>>>,
+    // timestamp of the last change to typing users
+    pub(crate) last_typing_update: RwLock<BTreeMap<OwnedRoomId, u64>>,
     pub(crate) typing_update_sender: broadcast::Sender<OwnedRoomId>,
 }
 

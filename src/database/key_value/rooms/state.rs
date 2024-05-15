@@ -21,7 +21,8 @@ impl service::rooms::state::Data for KeyValueDatabase {
         &self,
         room_id: &RoomId,
         new_shortstatehash: u64,
-        _mutex_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         self.roomid_shortstatehash
             .insert(room_id.as_bytes(), &new_shortstatehash.to_be_bytes())?;
@@ -53,7 +54,8 @@ impl service::rooms::state::Data for KeyValueDatabase {
         &self,
         room_id: &RoomId,
         event_ids: Vec<OwnedEventId>,
-        _mutex_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         let mut prefix = room_id.as_bytes().to_vec();
         prefix.push(0xff);

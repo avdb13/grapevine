@@ -209,7 +209,8 @@ async fn sync_helper(
         .unwrap_or(0);
     let sincecount = PduCount::Normal(since);
 
-    let mut left_encrypted_users = HashSet::new(); // Users that have left any encrypted rooms the sender was in
+    // Users that have left any encrypted rooms the sender was in
+    let mut left_encrypted_users = HashSet::new();
     let mut device_list_updates = HashSet::new();
     let mut device_list_left = HashSet::new();
 
@@ -492,7 +493,8 @@ async fn sync_helper(
             leave: left_rooms,
             join: joined_rooms,
             invite: invited_rooms,
-            knock: BTreeMap::new(), // TODO
+            // TODO
+            knock: BTreeMap::new(),
         },
         presence: Presence::default(),
         account_data: GlobalAccountData {
@@ -543,7 +545,8 @@ async fn sync_helper(
         };
         Ok((response, false))
     } else {
-        Ok((response, since != next_batch)) // Only cache if we made progress
+        // Only cache if we made progress
+        Ok((response, since != next_batch))
     }
 }
 
@@ -1201,7 +1204,8 @@ pub(crate) async fn sync_events_v4_route(
             .remove_to_device_events(&sender_user, &sender_device, globalsince)?;
     }
 
-    let mut left_encrypted_users = HashSet::new(); // Users that have left any encrypted rooms the sender was in
+    // Users that have left any encrypted rooms the sender was in
+    let mut left_encrypted_users = HashSet::new();
     let mut device_list_changes = HashSet::new();
     let mut device_list_left = HashSet::new();
 
@@ -1381,7 +1385,8 @@ pub(crate) async fn sync_events_v4_route(
     }
 
     let mut lists = BTreeMap::new();
-    let mut todo_rooms = BTreeMap::new(); // and required state
+    // and required state
+    let mut todo_rooms = BTreeMap::new();
 
     for (list_id, list) in body.lists {
         if list.filters.and_then(|f| f.is_invite).unwrap_or(false) {
@@ -1646,7 +1651,8 @@ pub(crate) async fn sync_events_v4_route(
                         .map(UInt::new_saturating)
                         .unwrap_or(uint!(0)),
                 ),
-                num_live: None, // Count events in timeline greater than global sync counter
+                // Count events in timeline greater than global sync counter
+                num_live: None,
                 timestamp: None,
             },
         );

@@ -215,7 +215,8 @@ impl service::users::Data for KeyValueDatabase {
             &serde_json::to_vec(&Device {
                 device_id: device_id.into(),
                 display_name: initial_device_display_name,
-                last_seen_ip: None, // TODO
+                // TODO
+                last_seen_ip: None,
                 last_seen_ts: Some(MilliSecondsSinceUnixEpoch::now()),
             })
             .expect("Device::to_string never fails."),
@@ -365,7 +366,8 @@ impl service::users::Data for KeyValueDatabase {
         prefix.push(0xff);
         prefix.extend_from_slice(device_id.as_bytes());
         prefix.push(0xff);
-        prefix.push(b'"'); // Annoying quotation mark
+        // Annoying quotation mark
+        prefix.push(b'"');
         prefix.extend_from_slice(key_algorithm.as_ref().as_bytes());
         prefix.push(b':');
 
@@ -828,7 +830,8 @@ impl service::users::Data for KeyValueDatabase {
 
         for (key, _) in self
             .todeviceid_events
-            .iter_from(&last, true) // this includes last
+            // this includes last
+            .iter_from(&last, true)
             .take_while(move |(k, _)| k.starts_with(&prefix))
             .map(|(key, _)| {
                 Ok::<_, Error>((

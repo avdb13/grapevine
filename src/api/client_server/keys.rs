@@ -138,7 +138,8 @@ pub(crate) async fn upload_signing_keys_route(
             master_key,
             &body.self_signing_key,
             &body.user_signing_key,
-            true, // notify so that other users see the new keys
+            // notify so that other users see the new keys
+            true,
         )?;
     }
 
@@ -196,7 +197,8 @@ pub(crate) async fn upload_signatures_route(
     }
 
     Ok(upload_signatures::v3::Response {
-        failures: BTreeMap::new(), // TODO: integrate
+        // TODO: integrate
+        failures: BTreeMap::new(),
     })
 }
 
@@ -252,7 +254,8 @@ pub(crate) async fn get_key_changes_route(
     }
     Ok(get_key_changes::v3::Response {
         changed: device_list_updates.into_iter().collect(),
-        left: Vec::new(), // TODO
+        // TODO
+        left: Vec::new(),
     })
 }
 
@@ -422,7 +425,8 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
                 let raw = serde_json::from_value(json).expect("Raw::from_value always works");
                 services().users.add_cross_signing_keys(
                     &user, &raw, &None, &None,
-                    false, // Dont notify. A notification would trigger another key request resulting in an endless loop
+                    // Dont notify. A notification would trigger another key request resulting in an endless loop
+                    false,
                 )?;
                 master_keys.insert(user, raw);
             }

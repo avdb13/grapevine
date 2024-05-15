@@ -93,10 +93,11 @@ impl Service {
                         .expect("http::response::Builder is usable"),
                 );
 
+                // TODO: handle timeout
                 let body = response.bytes().await.unwrap_or_else(|e| {
                     warn!("server error {}", e);
                     Vec::new().into()
-                }); // TODO: handle timeout
+                });
 
                 if status != 200 {
                     info!(
@@ -201,7 +202,8 @@ impl Service {
 
         let ctx = PushConditionRoomCtx {
             room_id: room_id.to_owned(),
-            member_count: 10_u32.into(), // TODO: get member count efficiently
+            // TODO: get member count efficiently
+            member_count: 10_u32.into(),
             user_id: user.to_owned(),
             user_display_name: services()
                 .users

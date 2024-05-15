@@ -163,7 +163,8 @@ pub(crate) async fn create_room_route(
                         })?,
                     );
                 }
-                RoomVersionId::V11 => {} // V11 removed the "creator" key
+                // V11 removed the "creator" key
+                RoomVersionId::V11 => {}
                 _ => unreachable!("Validity of room version already checked"),
             }
 
@@ -790,7 +791,8 @@ pub(crate) async fn upgrade_room_route(
                 .room_state_get(&body.room_id, &event_type, "")?
             {
                 Some(v) => v.content.clone(),
-                None => continue, // Skipping missing events.
+                // Skipping missing events.
+                None => continue,
             };
 
         services()

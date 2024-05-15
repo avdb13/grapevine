@@ -446,7 +446,8 @@ impl Service {
             if !state_res::event_auth::auth_check(
                 &room_version,
                 &incoming_pdu,
-                None::<PduEvent>, // TODO: third party invite
+                // TODO: third party invite
+                None::<PduEvent>,
                 |k, s| auth_events.get(&(k.to_string().into(), s.to_owned())),
             )
             .map_err(|_e| Error::BadRequest(ErrorKind::InvalidParam, "Auth check failed"))?
@@ -748,7 +749,8 @@ impl Service {
         let check_result = state_res::event_auth::auth_check(
             &room_version,
             &incoming_pdu,
-            None::<PduEvent>, // TODO: third party invite
+            // TODO: third party invite
+            None::<PduEvent>,
             |k, s| {
                 services()
                     .rooms

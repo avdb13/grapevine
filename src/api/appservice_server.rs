@@ -80,10 +80,11 @@ where
             .expect("http::response::Builder is usable"),
     );
 
+    // TODO: handle timeout
     let body = response.bytes().await.unwrap_or_else(|e| {
         warn!("server error: {}", e);
         Vec::new().into()
-    }); // TODO: handle timeout
+    });
 
     if status != 200 {
         warn!(

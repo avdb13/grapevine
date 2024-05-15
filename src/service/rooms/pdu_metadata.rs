@@ -64,7 +64,8 @@ impl Service {
                 let events_after: Vec<_> = services()
                     .rooms
                     .pdu_metadata
-                    .relations_until(sender_user, room_id, target, from)? // TODO: should be relations_after
+                    // TODO: should be relations_after
+                    .relations_until(sender_user, room_id, target, from)?
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
                             filter_event_type.as_ref().map_or(true, |t| &&pdu.kind == t)
@@ -90,14 +91,16 @@ impl Service {
                             .user_can_see_event(sender_user, room_id, &pdu.event_id)
                             .unwrap_or(false)
                     })
-                    .take_while(|&(k, _)| Some(k) != to) // Stop at `to`
+                    // Stop at `to`
+                    .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 
                 next_token = events_after.last().map(|(count, _)| count).copied();
 
                 let events_after: Vec<_> = events_after
                     .into_iter()
-                    .rev() // relations are always most recent first
+                    // relations are always most recent first
+                    .rev()
                     .map(|(_, pdu)| pdu.to_message_like_event())
                     .collect();
 
@@ -137,7 +140,8 @@ impl Service {
                             .user_can_see_event(sender_user, room_id, &pdu.event_id)
                             .unwrap_or(false)
                     })
-                    .take_while(|&(k, _)| Some(k) != to) // Stop at `to`
+                    // Stop at `to`
+                    .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 
                 next_token = events_before.last().map(|(count, _)| count).copied();
@@ -167,7 +171,8 @@ impl Service {
         let target = match services().rooms.timeline.get_pdu_count(target)? {
             Some(PduCount::Normal(c)) => c,
             // TODO: Support backfilled relations
-            _ => 0, // This will result in an empty iterator
+            // This will result in an empty iterator
+            _ => 0,
         };
         self.db.relations_until(user_id, room_id, target, until)
     }

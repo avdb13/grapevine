@@ -21,10 +21,14 @@ pub(crate) struct Service {
         LruCache<
             u64,
             Vec<(
-                u64,                                // shortstatehash
-                Arc<HashSet<CompressedStateEvent>>, // full state
-                Arc<HashSet<CompressedStateEvent>>, // added
-                Arc<HashSet<CompressedStateEvent>>, // removed
+                // shortstatehash
+                u64,
+                // full state
+                Arc<HashSet<CompressedStateEvent>>,
+                // added
+                Arc<HashSet<CompressedStateEvent>>,
+                // removed
+                Arc<HashSet<CompressedStateEvent>>,
             )>,
         >,
     >,
@@ -41,10 +45,14 @@ impl Service {
         shortstatehash: u64,
     ) -> Result<
         Vec<(
-            u64,                                // shortstatehash
-            Arc<HashSet<CompressedStateEvent>>, // full state
-            Arc<HashSet<CompressedStateEvent>>, // added
-            Arc<HashSet<CompressedStateEvent>>, // removed
+            // shortstatehash
+            u64,
+            // full state
+            Arc<HashSet<CompressedStateEvent>>,
+            // added
+            Arc<HashSet<CompressedStateEvent>>,
+            // removed
+            Arc<HashSet<CompressedStateEvent>>,
         )>,
     > {
         if let Some(r) = self
@@ -152,10 +160,14 @@ impl Service {
         statediffremoved: Arc<HashSet<CompressedStateEvent>>,
         diff_to_sibling: usize,
         mut parent_states: Vec<(
-            u64,                                // shortstatehash
-            Arc<HashSet<CompressedStateEvent>>, // full state
-            Arc<HashSet<CompressedStateEvent>>, // added
-            Arc<HashSet<CompressedStateEvent>>, // removed
+            // shortstatehash
+            u64,
+            // full state
+            Arc<HashSet<CompressedStateEvent>>,
+            // added
+            Arc<HashSet<CompressedStateEvent>>,
+            // removed
+            Arc<HashSet<CompressedStateEvent>>,
         )>,
     ) -> Result<()> {
         let diffsum = statediffnew.len() + statediffremoved.len();
@@ -318,7 +330,8 @@ impl Service {
                 new_shortstatehash,
                 statediffnew.clone(),
                 statediffremoved.clone(),
-                2, // every state change is 2 event changes on average
+                // every state change is 2 event changes on average
+                2,
                 states_parents,
             )?;
         };

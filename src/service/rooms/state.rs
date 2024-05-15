@@ -35,7 +35,8 @@ impl Service {
         shortstatehash: u64,
         statediffnew: Arc<HashSet<CompressedStateEvent>>,
         _statediffremoved: Arc<HashSet<CompressedStateEvent>>,
-        state_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        state_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         for event_id in statediffnew.iter().filter_map(|new| {
             services()
@@ -169,7 +170,8 @@ impl Service {
                 shortstatehash,
                 statediffnew,
                 statediffremoved,
-                1_000_000, // high number because no state will be based on this one
+                // high number because no state will be based on this one
+                1_000_000,
                 states_parents,
             )?;
         }
@@ -315,7 +317,8 @@ impl Service {
         &self,
         room_id: &RoomId,
         shortstatehash: u64,
-        mutex_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         self.db.set_room_state(room_id, shortstatehash, mutex_lock)
     }
@@ -358,7 +361,8 @@ impl Service {
         &self,
         room_id: &RoomId,
         event_ids: Vec<OwnedEventId>,
-        state_lock: &MutexGuard<'_, ()>, // Take mutex guard to make sure users get the room state mutex
+        // Take mutex guard to make sure users get the room state mutex
+        state_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         self.db
             .set_forward_extremities(room_id, event_ids, state_lock)

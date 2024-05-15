@@ -79,10 +79,11 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         userroom_id.push(0xff);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
+        // TODO
         self.userroomid_leftstate.insert(
             &userroom_id,
             &serde_json::to_vec(&Vec::<Raw<AnySyncStateEvent>>::new()).unwrap(),
-        )?; // TODO
+        )?;
         self.roomuserid_leftcount.insert(
             &roomuser_id,
             &services().globals.next_count()?.to_be_bytes(),

@@ -275,7 +275,8 @@ impl KvTree for SqliteTable {
         backwards: bool,
     ) -> Box<dyn Iterator<Item = TupleOfBytes> + 'a> {
         let guard = self.engine.read_lock_iterator();
-        let from = from.to_vec(); // TODO change interface?
+        // TODO change interface?
+        let from = from.to_vec();
 
         if backwards {
             let statement = Box::leak(Box::new(

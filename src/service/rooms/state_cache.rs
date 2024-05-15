@@ -151,8 +151,10 @@ impl Service {
                 let is_ignored = services()
                     .account_data
                     .get(
-                        None,    // Ignored users are in global account data
-                        user_id, // Receiver
+                        // Ignored users are in global account data
+                        None,
+                        // Receiver
+                        user_id,
                         GlobalAccountDataEventType::IgnoredUserList
                             .to_string()
                             .into(),

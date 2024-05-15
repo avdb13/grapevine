@@ -113,8 +113,9 @@ impl Service {
         width: u32,
         height: u32,
     ) -> Result<Option<FileMeta>> {
+        // 0, 0 because that's the original file
         let (width, height, crop) =
-            Self::thumbnail_properties(width, height).unwrap_or((0, 0, false)); // 0, 0 because that's the original file
+            Self::thumbnail_properties(width, height).unwrap_or((0, 0, false));
 
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc.clone(), width, height)

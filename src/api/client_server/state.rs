@@ -30,7 +30,8 @@ pub(crate) async fn send_state_event_for_key_route(
         sender_user,
         &body.room_id,
         &body.event_type,
-        &body.body.body, // Yes, I hate it too
+        // Yes, I hate it too
+        &body.body.body,
         body.state_key.clone(),
     )
     .await?;
@@ -210,7 +211,8 @@ async fn send_state_event_for_key_helper(
                     .rooms
                     .alias
                     .resolve_local_alias(&alias)?
-                    .filter(|room| room == room_id) // Make sure it's the right room
+                    // Make sure it's the right room
+                    .filter(|room| room == room_id)
                     .is_none()
             {
                 return Err(Error::BadRequest(

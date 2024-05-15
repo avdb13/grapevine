@@ -74,7 +74,8 @@ pub(crate) async fn search_events_route(
                 "Invalid next_batch token.",
             ))
         }
-        None => 0, // Default to the start
+        // Default to the start
+        None => 0,
     };
 
     let mut results = Vec::new();
@@ -133,10 +134,12 @@ pub(crate) async fn search_events_route(
     Ok(search_events::v3::Response::new(ResultCategories {
         room_events: ResultRoomEvents {
             count: None,
-            groups: BTreeMap::new(), // TODO
+            // TODO
+            groups: BTreeMap::new(),
             next_batch,
             results,
-            state: BTreeMap::new(), // TODO
+            // TODO
+            state: BTreeMap::new(),
             highlights: search_criteria
                 .search_term
                 .split_terminator(|c: char| !c.is_alphanumeric())

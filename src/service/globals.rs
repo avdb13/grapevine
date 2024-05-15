@@ -43,16 +43,20 @@ use base64::{engine::general_purpose, Engine as _};
 
 type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
-type RateLimitState = (Instant, u32); // Time if last failed try, number of failed tries
+// Time if last failed try, number of failed tries
+type RateLimitState = (Instant, u32);
 type SyncHandle = (
-    Option<String>,                                      // since
-    Receiver<Option<Result<sync_events::v3::Response>>>, // rx
+    // since
+    Option<String>,
+    // rx
+    Receiver<Option<Result<sync_events::v3::Response>>>,
 );
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
 
-    pub(crate) actual_destination_cache: Arc<RwLock<WellKnownMap>>, // actual_destination, host
+    // actual_destination, host
+    pub(crate) actual_destination_cache: Arc<RwLock<WellKnownMap>>,
     pub(crate) tls_name_override: Arc<StdRwLock<TlsNameMap>>,
     pub(crate) config: Config,
     keypair: Arc<ruma::signatures::Ed25519KeyPair>,
@@ -69,7 +73,9 @@ pub(crate) struct Service {
     pub(crate) sync_receivers: RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
     pub(crate) roomid_mutex_insert: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
     pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
-    pub(crate) roomid_mutex_federation: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>, // this lock will be held longer
+
+    // this lock will be held longer
+    pub(crate) roomid_mutex_federation: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
     pub(crate) roomid_federationhandletime: RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
     pub(crate) stateres_mutex: Arc<Mutex<()>>,
     pub(crate) rotate: RotationHandler,

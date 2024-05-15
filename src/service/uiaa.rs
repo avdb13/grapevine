@@ -29,7 +29,8 @@ impl Service {
         self.db.set_uiaa_request(
             user_id,
             device_id,
-            uiaainfo.session.as_ref().expect("session should be set"), // TODO: better session error handling (why is it optional in ruma?)
+            // TODO: better session error handling (why is it optional in ruma?)
+            uiaainfo.session.as_ref().expect("session should be set"),
             json_body,
         )?;
         self.db.update_uiaa_session(

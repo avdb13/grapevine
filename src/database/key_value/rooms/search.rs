@@ -14,7 +14,8 @@ impl service::rooms::search::Data for KeyValueDatabase {
                 let mut key = shortroomid.to_be_bytes().to_vec();
                 key.extend_from_slice(word.as_bytes());
                 key.push(0xff);
-                key.extend_from_slice(pdu_id); // TODO: currently we save the room id a second time here
+                // TODO: currently we save the room id a second time here
+                key.extend_from_slice(pdu_id);
                 (key, Vec::new())
             });
 
@@ -52,7 +53,8 @@ impl service::rooms::search::Data for KeyValueDatabase {
             last_possible_id.extend_from_slice(&u64::MAX.to_be_bytes());
 
             self.tokenids
-                .iter_from(&last_possible_id, true) // Newest pdus first
+                // Newest pdus first
+                .iter_from(&last_possible_id, true)
                 .take_while(move |(k, _)| k.starts_with(&prefix2))
                 .map(move |(key, _)| key[prefix3.len()..].to_vec())
         });

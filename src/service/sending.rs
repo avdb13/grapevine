@@ -47,7 +47,8 @@ use tracing::{debug, error, warn};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum OutgoingKind {
     Appservice(String),
-    Push(OwnedUserId, String), // user and pushkey
+    // user and pushkey
+    Push(OwnedUserId, String),
     Normal(OwnedServerName),
 }
 
@@ -81,8 +82,10 @@ impl OutgoingKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum SendingEventType {
-    Pdu(Vec<u8>), // pduid
-    Edu(Vec<u8>), // pdu json
+    // pduid
+    Pdu(Vec<u8>),
+    // pdu json
+    Edu(Vec<u8>),
 }
 
 pub(crate) struct Service {
@@ -96,8 +99,10 @@ pub(crate) struct Service {
 
 enum TransactionStatus {
     Running,
-    Failed(u32, Instant), // number of times failed, time of last failure
-    Retrying(u32),        // number of times failed
+    // number of times failed, time of last failure
+    Failed(u32, Instant),
+    // number of times failed
+    Retrying(u32),
 }
 
 impl Service {
@@ -203,7 +208,8 @@ impl Service {
     fn select_events(
         &self,
         outgoing_kind: &OutgoingKind,
-        new_events: Vec<(SendingEventType, Vec<u8>)>, // Events we want to send: event and full key
+        // Events we want to send: event and full key
+        new_events: Vec<(SendingEventType, Vec<u8>)>,
         current_transaction_status: &mut HashMap<OutgoingKind, TransactionStatus>,
     ) -> Result<Option<Vec<SendingEventType>>> {
         let mut retry = false;
@@ -214,7 +220,8 @@ impl Service {
         entry
             .and_modify(|e| match e {
                 TransactionStatus::Running | TransactionStatus::Retrying(_) => {
-                    allow = false; // already running
+                    // already running
+                    allow = false;
                 }
                 TransactionStatus::Failed(tries, time) => {
                     // Fail if a request has failed recently (exponential backoff)
@@ -444,7 +451,6 @@ impl Service {
 
     /// Cleanup event data
     /// Used for instance after we remove an appservice registration
-    ///
     #[tracing::instrument(skip(self))]
     pub(crate) fn cleanup_events(&self, appservice_id: String) -> Result<()> {
         self.db
@@ -543,9 +549,8 @@ impl Service {
                                     })?,
                             );
                         }
-                        SendingEventType::Edu(_) => {
-                            // Push gateways don't need EDUs (?)
-                        }
+                        // Push gateways don't need EDUs (?)
+                        SendingEventType::Edu(_) => {}
                     }
                 }
 

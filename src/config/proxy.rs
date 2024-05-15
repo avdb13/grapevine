@@ -45,7 +45,8 @@ impl ProxyConfig {
             ProxyConfig::None => None,
             ProxyConfig::Global { url } => Some(Proxy::all(url)?),
             ProxyConfig::ByDomain(proxies) => Some(Proxy::custom(move |url| {
-                proxies.iter().find_map(|proxy| proxy.for_url(url)).cloned() // first matching proxy
+                // first matching proxy
+                proxies.iter().find_map(|proxy| proxy.for_url(url)).cloned()
             })),
         })
     }
@@ -63,8 +64,10 @@ pub(crate) struct PartialProxyConfig {
 impl PartialProxyConfig {
     pub(crate) fn for_url(&self, url: &Url) -> Option<&Url> {
         let domain = url.domain()?;
-        let mut included_because = None; // most specific reason it was included
-        let mut excluded_because = None; // most specific reason it was excluded
+        // most specific reason it was included
+        let mut included_because = None;
+        // most specific reason it was excluded
+        let mut excluded_because = None;
         if self.include.is_empty() {
             // treat empty include list as `*`
             included_because = Some(&WildCardedDomain::WildCard);
@@ -86,7 +89,8 @@ impl PartialProxyConfig {
             }
         }
         match (included_because, excluded_because) {
-            (Some(a), Some(b)) if a.more_specific_than(b) => Some(&self.url), // included for a more specific reason than excluded
+            // included for a more specific reason than excluded
+            (Some(a), Some(b)) if a.more_specific_than(b) => Some(&self.url),
             (Some(_), None) => Some(&self.url),
             _ => None,
         }

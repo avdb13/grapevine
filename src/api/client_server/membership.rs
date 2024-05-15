@@ -49,7 +49,8 @@ pub(crate) async fn join_room_by_id_route(
 ) -> Result<join_room_by_id::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    let mut servers = Vec::new(); // There is no body.server_name for /roomId/join
+    // There is no body.server_name for /roomId/join
+    let mut servers = Vec::new();
     servers.extend(
         services()
             .rooms
@@ -1012,7 +1013,8 @@ async fn join_room_by_id_helper(
         let authenticated = state_res::event_auth::auth_check(
             &state_res::RoomVersion::new(&room_version_id).expect("room version is supported"),
             &parsed_join_pdu,
-            None::<PduEvent>, // TODO: third party invite
+            // TODO: third party invite
+            None::<PduEvent>,
             |k, s| {
                 services()
                     .rooms

@@ -27,7 +27,8 @@ pub(crate) fn increment(old: Option<&[u8]>) -> Vec<u8> {
             let number = u64::from_be_bytes(bytes);
             number + 1
         }
-        _ => 1, // Start at one. since 0 should return the first event in the db
+        // Start at one. since 0 should return the first event in the db
+        _ => 1,
     };
 
     number.to_be_bytes().to_vec()
@@ -97,10 +98,12 @@ where
         other_iterators.iter_mut().all(|it| {
             while let Some(element) = it.peek() {
                 match check_order(element, target) {
-                    Ordering::Greater => return false, // We went too far
-                    Ordering::Equal => return true,    // Element is in both iters
+                    // We went too far
+                    Ordering::Greater => return false,
+                    // Element is in both iters
+                    Ordering::Equal => return true,
+                    // Keep searching
                     Ordering::Less => {
-                        // Keep searching
                         it.next();
                     }
                 }

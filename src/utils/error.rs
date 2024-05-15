@@ -63,8 +63,9 @@ pub(crate) enum Error {
     Uiaa(UiaaInfo),
     #[error("{0}: {1}")]
     BadRequest(ErrorKind, &'static str),
+    // This is only needed for when a room alias already exists
     #[error("{0}")]
-    Conflict(&'static str), // This is only needed for when a room alias already exists
+    Conflict(&'static str),
     #[error("{0}")]
     Extension(#[from] axum::extract::rejection::ExtensionRejection),
     #[error("{0}")]

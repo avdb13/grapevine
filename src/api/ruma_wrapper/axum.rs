@@ -334,7 +334,8 @@ where
 
 struct XMatrix {
     origin: OwnedServerName,
-    key: String, // KeyName?
+    // KeyName?
+    key: String,
     sig: String,
 }
 
