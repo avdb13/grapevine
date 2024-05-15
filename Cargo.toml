@@ -96,6 +96,7 @@ used_underscore_binding = "warn"
 verbose_file_reads = "warn"
 wildcard_dependencies = "warn"
 wildcard_imports = "warn"
+zero_sized_map_values = "warn"
 
 [package]
 name = "grapevine"

@@ -80,6 +80,8 @@ pub(crate) struct Config {
     pub(crate) emergency_password: Option<String>,
 
     #[serde(flatten)]
+    // This has special meaning to `serde`
+    #[allow(clippy::zero_sized_map_values)]
     pub(crate) catchall: BTreeMap<String, IgnoredAny>,
 }
 
