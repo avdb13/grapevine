@@ -770,7 +770,6 @@ pub(crate) async fn send_transaction_message_route(
         .filter_map(|edu| serde_json::from_str::<Edu>(edu.json().get()).ok())
     {
         match edu {
-            Edu::Presence(_) => {}
             Edu::Receipt(receipt) => {
                 for (room_id, room_updates) in receipt.receipts {
                     for (user_id, user_updates) in room_updates.read {
@@ -922,7 +921,7 @@ pub(crate) async fn send_transaction_message_route(
                     )?;
                 }
             }
-            Edu::_Custom(_) => {}
+            Edu::_Custom(_) | Edu::Presence(_) => {}
         }
     }
 

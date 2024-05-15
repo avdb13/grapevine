@@ -283,7 +283,6 @@ impl Service {
                 Ok(())
             }
             // TODO: Handle email
-            PusherKind::Email(_) => Ok(()),
             _ => Ok(()),
         }
     }

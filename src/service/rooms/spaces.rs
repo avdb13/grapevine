@@ -453,8 +453,7 @@ impl Service {
         room_id: &RoomId,
     ) -> Result<bool> {
         let allowed = match join_rule {
-            SpaceRoomJoinRule::Public => true,
-            SpaceRoomJoinRule::Knock => true,
+            SpaceRoomJoinRule::Knock | SpaceRoomJoinRule::Public => true,
             SpaceRoomJoinRule::Invite => services()
                 .rooms
                 .state_cache

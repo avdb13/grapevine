@@ -271,7 +271,7 @@ pub(crate) async fn create_room_route(
     let preset = body.preset.clone().unwrap_or(match &body.visibility {
         room::Visibility::Private => RoomPreset::PrivateChat,
         room::Visibility::Public => RoomPreset::PublicChat,
-        _ => RoomPreset::PrivateChat, // Room visibility should not be custom
+        _ => unimplemented!("unknown room visibility"),
     });
 
     let mut users = BTreeMap::new();
