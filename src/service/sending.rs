@@ -581,8 +581,10 @@ impl Service {
                         )
                         .unwrap_or_default()
                         .and_then(|event| serde_json::from_str::<PushRulesEvent>(event.get()).ok())
-                        .map(|ev: PushRulesEvent| ev.content.global)
-                        .unwrap_or_else(|| push::Ruleset::server_default(userid));
+                        .map_or_else(
+                            || push::Ruleset::server_default(userid),
+                            |ev: PushRulesEvent| ev.content.global,
+                        );
 
                     let unread: UInt = services()
                         .rooms

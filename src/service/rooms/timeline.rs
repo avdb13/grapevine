@@ -338,8 +338,10 @@ impl Service {
                         .map_err(|_| Error::bad_database("Invalid push rules event in db."))
                 })
                 .transpose()?
-                .map(|ev: PushRulesEvent| ev.content.global)
-                .unwrap_or_else(|| Ruleset::server_default(user));
+                .map_or_else(
+                    || Ruleset::server_default(user),
+                    |ev: PushRulesEvent| ev.content.global,
+                );
 
             let mut highlight = false;
             let mut notify = false;

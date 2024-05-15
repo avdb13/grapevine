@@ -47,10 +47,10 @@ impl Service {
         auth: &AuthData,
         uiaainfo: &UiaaInfo,
     ) -> Result<(bool, UiaaInfo)> {
-        let mut uiaainfo = auth
-            .session()
-            .map(|session| self.db.get_uiaa_session(user_id, device_id, session))
-            .unwrap_or_else(|| Ok(uiaainfo.clone()))?;
+        let mut uiaainfo = auth.session().map_or_else(
+            || Ok(uiaainfo.clone()),
+            |session| self.db.get_uiaa_session(user_id, device_id, session),
+        )?;
 
         if uiaainfo.session.is_none() {
             uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));

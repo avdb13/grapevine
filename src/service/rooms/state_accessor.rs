@@ -363,41 +363,46 @@ impl Service {
         federation: bool,
     ) -> Result<bool> {
         self.room_state_get(room_id, &StateEventType::RoomPowerLevels, "")?
-            .map(|e| {
-                serde_json::from_str(e.content.get())
-                    .map(|c: RoomPowerLevelsEventContent| c.into())
-                    .map(|e: RoomPowerLevels| {
-                        e.user_can_redact_event_of_other(sender)
-                            || e.user_can_redact_own_event(sender)
-                                && if let Ok(Some(pdu)) = services().rooms.timeline.get_pdu(redacts)
-                                {
-                                    if federation {
-                                        pdu.sender().server_name() == sender.server_name()
+            .map_or_else(
+                // Falling back on m.room.create to judge power levels
+                || {
+                    if let Some(pdu) =
+                        self.room_state_get(room_id, &StateEventType::RoomCreate, "")?
+                    {
+                        Ok(pdu.sender == sender
+                            || if let Ok(Some(pdu)) = services().rooms.timeline.get_pdu(redacts) {
+                                pdu.sender == sender
+                            } else {
+                                false
+                            })
+                    } else {
+                        Err(Error::bad_database(
+                            "No m.room.power_levels or m.room.create events in database for room",
+                        ))
+                    }
+                },
+                |e| {
+                    serde_json::from_str(e.content.get())
+                        .map(|c: RoomPowerLevelsEventContent| c.into())
+                        .map(|e: RoomPowerLevels| {
+                            e.user_can_redact_event_of_other(sender)
+                                || e.user_can_redact_own_event(sender)
+                                    && if let Ok(Some(pdu)) =
+                                        services().rooms.timeline.get_pdu(redacts)
+                                    {
+                                        if federation {
+                                            pdu.sender().server_name() == sender.server_name()
+                                        } else {
+                                            pdu.sender == sender
+                                        }
                                     } else {
-                                        pdu.sender == sender
+                                        false
                                     }
-                                } else {
-                                    false
-                                }
-                    })
-                    .map_err(|_| {
-                        Error::bad_database("Invalid m.room.power_levels event in database")
-                    })
-            })
-            // Falling back on m.room.create to judge power levels
-            .unwrap_or_else(|| {
-                if let Some(pdu) = self.room_state_get(room_id, &StateEventType::RoomCreate, "")? {
-                    Ok(pdu.sender == sender
-                        || if let Ok(Some(pdu)) = services().rooms.timeline.get_pdu(redacts) {
-                            pdu.sender == sender
-                        } else {
-                            false
                         })
-                } else {
-                    Err(Error::bad_database(
-                        "No m.room.power_levels or m.room.create events in database for room",
-                    ))
-                }
-            })
+                        .map_err(|_| {
+                            Error::bad_database("Invalid m.room.power_levels event in database")
+                        })
+                },
+            )
     }
 }

@@ -348,12 +348,11 @@ impl service::users::Data for KeyValueDatabase {
     fn last_one_time_keys_update(&self, user_id: &UserId) -> Result<u64> {
         self.userid_lastonetimekeyupdate
             .get(user_id.as_bytes())?
-            .map(|bytes| {
+            .map_or(Ok(0), |bytes| {
                 utils::u64_from_bytes(&bytes).map_err(|_| {
                     Error::bad_database("Count in roomid_lastroomactiveupdate is invalid.")
                 })
             })
-            .unwrap_or(Ok(0))
     }
 
     fn take_one_time_key(

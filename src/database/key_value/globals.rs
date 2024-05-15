@@ -276,7 +276,7 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
                 );
                 tree
             })
-            .unwrap_or_else(BTreeMap::new);
+            .unwrap_or_default();
 
         Ok(signingkeys)
     }
