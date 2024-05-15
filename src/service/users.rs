@@ -260,6 +260,8 @@ impl Service {
     }
 
     /// Check if a user is an admin
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn is_admin(&self, user_id: &UserId) -> Result<bool> {
         let admin_room_alias_id =
             RoomAliasId::parse(format!("#admins:{}", services().globals.server_name()))

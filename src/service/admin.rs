@@ -277,12 +277,12 @@ impl Service {
         let command_line = lines.next().expect("each string has at least one line");
         let body: Vec<_> = lines.collect();
 
-        let admin_command = match self.parse_admin_command(command_line) {
+        let admin_command = match Self::parse_admin_command(command_line) {
             Ok(command) => command,
             Err(error) => {
                 let server_name = services().globals.server_name();
                 let message = error.replace("server.name", server_name.as_str());
-                let html_message = self.usage_to_html(&message, server_name);
+                let html_message = Self::usage_to_html(&message, server_name);
 
                 return RoomMessageEventContent::text_html(message, html_message);
             }
@@ -306,7 +306,7 @@ impl Service {
     }
 
     // Parse chat messages from the admin room into an AdminCommand object
-    fn parse_admin_command(&self, command_line: &str) -> std::result::Result<AdminCommand, String> {
+    fn parse_admin_command(command_line: &str) -> std::result::Result<AdminCommand, String> {
         // Note: argv[0] is `@grapevine:servername:`, which is treated as the main command
         let mut argv: Vec<_> = command_line.split_whitespace().collect();
 
@@ -864,7 +864,7 @@ impl Service {
     }
 
     // Utility to turn clap's `--help` text to HTML.
-    fn usage_to_html(&self, text: &str, server_name: &ServerName) -> String {
+    fn usage_to_html(text: &str, server_name: &ServerName) -> String {
         // Replace `@grapevine:servername:-subcmdname` with `@grapevine:servername: subcmdname`
         let text = text.replace(
             &format!("@grapevine:{server_name}:-"),
@@ -1183,6 +1183,8 @@ impl Service {
     /// Gets the room ID of the admin room
     ///
     /// Errors are propagated from the database, and will have None if there is no admin room
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn get_admin_room(&self) -> Result<Option<OwnedRoomId>> {
         let admin_room_alias: Box<RoomAliasId> =
             format!("#admins:{}", services().globals.server_name())

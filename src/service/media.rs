@@ -86,7 +86,7 @@ impl Service {
 
     /// Returns width, height of the thumbnail and whether it should be cropped. Returns None when
     /// the server should send the original file.
-    pub(crate) fn thumbnail_properties(&self, width: u32, height: u32) -> Option<(u32, u32, bool)> {
+    fn thumbnail_properties(width: u32, height: u32) -> Option<(u32, u32, bool)> {
         match (width, height) {
             (0..=32, 0..=32) => Some((32, 32, true)),
             (0..=96, 0..=96) => Some((96, 96, true)),
@@ -113,9 +113,8 @@ impl Service {
         width: u32,
         height: u32,
     ) -> Result<Option<FileMeta>> {
-        let (width, height, crop) = self
-            .thumbnail_properties(width, height)
-            .unwrap_or((0, 0, false)); // 0, 0 because that's the original file
+        let (width, height, crop) =
+            Self::thumbnail_properties(width, height).unwrap_or((0, 0, false)); // 0, 0 because that's the original file
 
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc.clone(), width, height)

@@ -132,7 +132,7 @@ impl Service {
                 pub_key_map,
             )
             .await?;
-        self.check_room_id(room_id, &incoming_pdu)?;
+        Self::check_room_id(room_id, &incoming_pdu)?;
 
         // 8. if not timeline event: stop
         if !is_timeline_event {
@@ -375,7 +375,7 @@ impl Service {
             )
             .map_err(|_| Error::bad_database("Event is not a valid PDU."))?;
 
-            self.check_room_id(room_id, &incoming_pdu)?;
+            Self::check_room_id(room_id, &incoming_pdu)?;
 
             if !auth_events_known {
                 // 4. fetch any missing auth events doing all checks listed here starting at 1. These are not timeline events
@@ -411,7 +411,7 @@ impl Service {
                     continue;
                 };
 
-                self.check_room_id(room_id, &auth_event)?;
+                Self::check_room_id(room_id, &auth_event)?;
 
                 match auth_events.entry((
                     auth_event.kind.to_string().into(),
@@ -1287,7 +1287,7 @@ impl Service {
                 .await
                 .pop()
             {
-                self.check_room_id(room_id, &pdu)?;
+                Self::check_room_id(room_id, &pdu)?;
 
                 if amount > services().globals.max_fetch_prev_events() {
                     // Max limit reached
@@ -1612,6 +1612,8 @@ impl Service {
     }
 
     /// Returns Ok if the acl allows the server
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn acl_check(&self, server_name: &ServerName, room_id: &RoomId) -> Result<()> {
         let Some(acl_event) = services().rooms.state_accessor.room_state_get(
             room_id,
@@ -1815,7 +1817,7 @@ impl Service {
         ))
     }
 
-    fn check_room_id(&self, room_id: &RoomId, pdu: &PduEvent) -> Result<()> {
+    fn check_room_id(room_id: &RoomId, pdu: &PduEvent) -> Result<()> {
         if pdu.room_id != room_id {
             warn!("Found event from room {} in room {}", pdu.room_id, room_id);
             return Err(Error::BadRequest(

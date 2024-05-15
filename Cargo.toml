@@ -91,6 +91,7 @@ unnested_or_patterns = "warn"
 unreadable_literal = "warn"
 unseparated_literal_suffix = "warn"
 unused_async = "warn"
+unused_self = "warn"
 verbose_file_reads = "warn"
 wildcard_dependencies = "warn"
 

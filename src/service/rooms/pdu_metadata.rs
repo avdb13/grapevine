@@ -40,7 +40,11 @@ impl Service {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        // Allowed because this function uses `services()`
+        clippy::unused_self,
+    )]
     pub(crate) fn paginate_relations_with_filter(
         &self,
         sender_user: &UserId,

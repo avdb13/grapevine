@@ -282,10 +282,7 @@ impl Service {
     }
 
     pub(crate) fn get_name(&self, room_id: &RoomId) -> Result<Option<String>> {
-        services()
-            .rooms
-            .state_accessor
-            .room_state_get(room_id, &StateEventType::RoomName, "")?
+        self.room_state_get(room_id, &StateEventType::RoomName, "")?
             .map_or(Ok(None), |s| {
                 serde_json::from_str(s.content.get())
                     .map(|c: RoomNameEventContent| Some(c.name))
@@ -300,16 +297,15 @@ impl Service {
     }
 
     pub(crate) fn get_avatar(&self, room_id: &RoomId) -> Result<JsOption<RoomAvatarEventContent>> {
-        services()
-            .rooms
-            .state_accessor
-            .room_state_get(room_id, &StateEventType::RoomAvatar, "")?
+        self.room_state_get(room_id, &StateEventType::RoomAvatar, "")?
             .map_or(Ok(JsOption::Undefined), |s| {
                 serde_json::from_str(s.content.get())
                     .map_err(|_| Error::bad_database("Invalid room avatar event in database."))
             })
     }
 
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn user_can_invite(
         &self,
         room_id: &RoomId,
@@ -340,10 +336,7 @@ impl Service {
         room_id: &RoomId,
         user_id: &UserId,
     ) -> Result<Option<RoomMemberEventContent>> {
-        services()
-            .rooms
-            .state_accessor
-            .room_state_get(room_id, &StateEventType::RoomMember, user_id.as_str())?
+        self.room_state_get(room_id, &StateEventType::RoomMember, user_id.as_str())?
             .map_or(Ok(None), |s| {
                 serde_json::from_str(s.content.get())
                     .map_err(|_| Error::bad_database("Invalid room member event in database."))

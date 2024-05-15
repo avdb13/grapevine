@@ -662,7 +662,7 @@ impl Service {
         // Our depth is the maximum depth of prev_events + 1
         let depth = prev_events
             .iter()
-            .filter_map(|event_id| Some(services().rooms.timeline.get_pdu(event_id).ok()??.depth))
+            .filter_map(|event_id| Some(self.get_pdu(event_id).ok()??.depth))
             .max()
             .unwrap_or_else(|| uint!(0))
             + uint!(1);

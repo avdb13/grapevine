@@ -89,6 +89,8 @@ impl Service {
         }
     }
 
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn compress_state_event(
         &self,
         shortstatekey: u64,
@@ -106,6 +108,8 @@ impl Service {
     }
 
     /// Returns shortstatekey, event id
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     pub(crate) fn parse_compressed_state_event(
         &self,
         compressed_event: &CompressedStateEvent,

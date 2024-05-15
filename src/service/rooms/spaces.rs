@@ -415,7 +415,7 @@ impl Service {
                     ));
                 }
 
-                self.translate_joinrule(&join_rule)?
+                Self::translate_joinrule(&join_rule)?
             },
             room_type: services()
                 .rooms
@@ -436,7 +436,7 @@ impl Service {
         })
     }
 
-    fn translate_joinrule(&self, join_rule: &JoinRule) -> Result<SpaceRoomJoinRule> {
+    fn translate_joinrule(join_rule: &JoinRule) -> Result<SpaceRoomJoinRule> {
         match join_rule {
             JoinRule::Invite => Ok(SpaceRoomJoinRule::Invite),
             JoinRule::Knock => Ok(SpaceRoomJoinRule::Knock),
@@ -448,6 +448,8 @@ impl Service {
         }
     }
 
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
     fn handle_simplified_join_rule(
         &self,
         join_rule: &SpaceRoomJoinRule,
@@ -473,7 +475,7 @@ impl Service {
         room_id: &RoomId,
     ) -> Result<bool> {
         if self.handle_simplified_join_rule(
-            &self.translate_joinrule(join_rule)?,
+            &Self::translate_joinrule(join_rule)?,
             sender_user,
             room_id,
         )? {
