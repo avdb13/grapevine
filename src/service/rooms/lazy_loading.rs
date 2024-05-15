@@ -70,8 +70,6 @@ impl Service {
                 room_id,
                 &mut user_ids.iter().map(|u| &**u),
             )?;
-        } else {
-            // Ignore
         }
 
         Ok(())
