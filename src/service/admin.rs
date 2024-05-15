@@ -983,7 +983,7 @@ impl Service {
                     event_type: TimelineEventType::RoomCreate,
                     content: to_raw_value(&content).expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1036,7 +1036,7 @@ impl Service {
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1055,7 +1055,7 @@ impl Service {
                     content: to_raw_value(&RoomJoinRulesEventContent::new(JoinRule::Invite))
                         .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1076,7 +1076,7 @@ impl Service {
                     ))
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1097,7 +1097,7 @@ impl Service {
                     ))
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1117,7 +1117,7 @@ impl Service {
                     content: to_raw_value(&RoomNameEventContent::new(room_name))
                         .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1137,7 +1137,7 @@ impl Service {
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1163,7 +1163,7 @@ impl Service {
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 &grapevine_user,
@@ -1288,7 +1288,7 @@ impl Service {
                         })
                         .expect("event is valid, we just created it"),
                         unsigned: None,
-                        state_key: Some("".to_owned()),
+                        state_key: Some(String::new()),
                         redacts: None,
                     },
                     &grapevine_user,

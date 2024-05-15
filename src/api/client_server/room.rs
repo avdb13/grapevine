@@ -228,7 +228,7 @@ pub(crate) async fn create_room_route(
                 event_type: TimelineEventType::RoomCreate,
                 content: to_raw_value(&content).expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -309,7 +309,7 @@ pub(crate) async fn create_room_route(
                 content: to_raw_value(&power_levels_content)
                     .expect("to_raw_value always works on serde_json::Value"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -332,7 +332,7 @@ pub(crate) async fn create_room_route(
                     })
                     .expect("We checked that alias earlier, it must be fine"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 sender_user,
@@ -358,7 +358,7 @@ pub(crate) async fn create_room_route(
                 }))
                 .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -379,7 +379,7 @@ pub(crate) async fn create_room_route(
                 ))
                 .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -401,7 +401,7 @@ pub(crate) async fn create_room_route(
                 }))
                 .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -418,7 +418,7 @@ pub(crate) async fn create_room_route(
         })?;
 
         // Implicit state key defaults to ""
-        pdu_builder.state_key.get_or_insert_with(|| "".to_owned());
+        pdu_builder.state_key.get_or_insert_with(String::new);
 
         // Silently skip encryption events if they are not allowed
         if pdu_builder.event_type == TimelineEventType::RoomEncryption
@@ -445,7 +445,7 @@ pub(crate) async fn create_room_route(
                     content: to_raw_value(&RoomNameEventContent::new(name.clone()))
                         .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 sender_user,
@@ -467,7 +467,7 @@ pub(crate) async fn create_room_route(
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 sender_user,
@@ -628,7 +628,7 @@ pub(crate) async fn upgrade_room_route(
                 })
                 .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -729,7 +729,7 @@ pub(crate) async fn upgrade_room_route(
                 content: to_raw_value(&create_event_content)
                     .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
@@ -799,7 +799,7 @@ pub(crate) async fn upgrade_room_route(
                     event_type: event_type.to_string().into(),
                     content: event_content,
                     unsigned: None,
-                    state_key: Some("".to_owned()),
+                    state_key: Some(String::new()),
                     redacts: None,
                 },
                 sender_user,
@@ -849,7 +849,7 @@ pub(crate) async fn upgrade_room_route(
                 content: to_raw_value(&power_levels_event_content)
                     .expect("event is valid, we just created it"),
                 unsigned: None,
-                state_key: Some("".to_owned()),
+                state_key: Some(String::new()),
                 redacts: None,
             },
             sender_user,
