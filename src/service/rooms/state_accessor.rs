@@ -310,13 +310,13 @@ impl Service {
             })
     }
 
-    pub(crate) async fn user_can_invite(
+    pub(crate) fn user_can_invite(
         &self,
         room_id: &RoomId,
         sender: &UserId,
         target_user: &UserId,
         state_lock: &MutexGuard<'_, ()>,
-    ) -> Result<bool> {
+    ) -> bool {
         let content = to_raw_value(&RoomMemberEventContent::new(MembershipState::Invite))
             .expect("Event content always serializes");
 
@@ -328,11 +328,11 @@ impl Service {
             redacts: None,
         };
 
-        Ok(services()
+        services()
             .rooms
             .timeline
             .create_hash_and_sign_event(new_event, sender, room_id, state_lock)
-            .is_ok())
+            .is_ok()
     }
 
     pub(crate) fn get_member(

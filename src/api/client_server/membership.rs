@@ -599,12 +599,12 @@ async fn join_room_by_id_helper(
                 .collect::<Vec<_>>()
             {
                 if user.server_name() == services().globals.server_name()
-                    && services()
-                        .rooms
-                        .state_accessor
-                        .user_can_invite(room_id, &user, sender_user, &state_lock)
-                        .await
-                        .unwrap_or(false)
+                    && services().rooms.state_accessor.user_can_invite(
+                        room_id,
+                        &user,
+                        sender_user,
+                        &state_lock,
+                    )
                 {
                     auth_user = Some(user);
                     break;
