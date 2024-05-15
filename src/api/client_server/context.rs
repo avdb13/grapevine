@@ -23,7 +23,7 @@ pub(crate) async fn get_context_route(
         LazyLoadOptions::Enabled {
             include_redundant_members,
         } => (true, *include_redundant_members),
-        _ => (false, false),
+        LazyLoadOptions::Disabled => (false, false),
     };
 
     let mut lazy_loaded = HashSet::new();

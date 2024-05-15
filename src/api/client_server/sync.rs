@@ -195,7 +195,7 @@ async fn sync_helper(
         LazyLoadOptions::Enabled {
             include_redundant_members: redundant,
         } => (true, redundant),
-        _ => (false, false),
+        LazyLoadOptions::Disabled => (false, false),
     };
 
     let full_state = body.full_state;
