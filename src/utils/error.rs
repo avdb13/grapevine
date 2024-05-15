@@ -89,6 +89,12 @@ impl Error {
     }
 
     pub(crate) fn to_response(&self) -> RumaResponse<UiaaResponse> {
+        use ErrorKind::{
+            Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken, NotFound,
+            ThreepidAuthFailed, ThreepidDenied, TooLarge, Unauthorized, Unknown, UnknownToken,
+            Unrecognized, UserDeactivated, WrongRoomKeysVersion,
+        };
+
         if let Self::Uiaa(uiaainfo) = self {
             return RumaResponse(UiaaResponse::AuthResponse(uiaainfo.clone()));
         }
@@ -104,11 +110,6 @@ impl Error {
 
         let message = format!("{self}");
 
-        use ErrorKind::{
-            Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken, NotFound,
-            ThreepidAuthFailed, ThreepidDenied, TooLarge, Unauthorized, Unknown, UnknownToken,
-            Unrecognized, UserDeactivated, WrongRoomKeysVersion,
-        };
         let (kind, status_code) = match self {
             Self::BadRequest(kind, _) => (
                 kind.clone(),
