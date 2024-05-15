@@ -39,7 +39,7 @@ use serde_json::value::RawValue as RawJsonValue;
 use tokio::sync::{RwLock, RwLockWriteGuard, Semaphore};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::{service::*, services, Error, PduEvent, Result};
+use crate::{service::pdu, services, Error, PduEvent, Result};
 
 use super::state_compressor::CompressedStateEvent;
 
