@@ -82,7 +82,7 @@ pub(crate) async fn get_context_route(
         .timeline
         .pdus_until(sender_user, &room_id, base_token)?
         .take(half_limit)
-        .filter_map(Result::ok) // Remove buggy events
+        .filter_map(Result::ok)
         .filter(|(_, pdu)| {
             services()
                 .rooms
@@ -118,7 +118,7 @@ pub(crate) async fn get_context_route(
         .timeline
         .pdus_after(sender_user, &room_id, base_token)?
         .take(half_limit)
-        .filter_map(Result::ok) // Remove buggy events
+        .filter_map(Result::ok)
         .filter(|(_, pdu)| {
             services()
                 .rooms

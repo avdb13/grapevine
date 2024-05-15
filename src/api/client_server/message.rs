@@ -157,7 +157,7 @@ pub(crate) async fn get_message_events_route(
                 .timeline
                 .pdus_after(sender_user, &body.room_id, from)?
                 .take(limit)
-                .filter_map(Result::ok) // Filter out buggy events
+                .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
                         .rooms
@@ -206,7 +206,7 @@ pub(crate) async fn get_message_events_route(
                 .timeline
                 .pdus_until(sender_user, &body.room_id, from)?
                 .take(limit)
-                .filter_map(Result::ok) // Filter out buggy events
+                .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
                         .rooms

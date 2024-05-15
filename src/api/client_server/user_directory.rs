@@ -20,7 +20,6 @@ pub(crate) async fn search_users_route(
     let limit = body.limit.try_into().unwrap_or(usize::MAX);
 
     let mut users = services().users.iter().filter_map(|user_id| {
-        // Filter out buggy users (they should not exist, but you never know...)
         let user_id = user_id.ok()?;
 
         let user = search_users::v3::User {

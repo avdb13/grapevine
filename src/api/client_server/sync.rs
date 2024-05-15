@@ -640,7 +640,7 @@ async fn load_joined_room(
                         .rooms
                         .timeline
                         .all_pdus(sender_user, room_id)?
-                        .filter_map(Result::ok) // Ignore all broken pdus
+                        .filter_map(Result::ok)
                         .filter(|(_, pdu)| pdu.kind == TimelineEventType::RoomMember)
                         .map(|(_, pdu)| {
                             let content: RoomMemberEventContent =
@@ -674,7 +674,6 @@ async fn load_joined_room(
                                 Ok(None)
                             }
                         })
-                        // Filter out buggy users
                         .filter_map(Result::ok)
                         // Filter for possible heroes
                         .flatten()
@@ -1019,7 +1018,7 @@ async fn load_joined_room(
         .edus
         .read_receipt
         .readreceipts_since(room_id, since)
-        .filter_map(Result::ok) // Filter out buggy events
+        .filter_map(Result::ok)
         .map(|(_, _, v)| v)
         .collect();
 
@@ -1104,7 +1103,6 @@ fn load_timeline(
             .timeline
             .pdus_until(sender_user, room_id, PduCount::MAX)?
             .filter_map(|r| {
-                // Filter out buggy events
                 if r.is_err() {
                     error!("Bad pdu in pdus_since: {:?}", r);
                 }

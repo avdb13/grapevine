@@ -18,7 +18,7 @@ pub(crate) async fn get_devices_route(
     let devices: Vec<device::Device> = services()
         .users
         .all_devices_metadata(sender_user)
-        .filter_map(Result::ok) // Filter out buggy devices
+        .filter_map(Result::ok)
         .collect();
 
     Ok(get_devices::v3::Response { devices })

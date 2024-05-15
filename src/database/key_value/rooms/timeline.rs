@@ -21,7 +21,6 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
                 if let Some(last_count) = self
                     .pdus_until(sender_user, room_id, PduCount::MAX)?
                     .find_map(|r| {
-                        // Filter out buggy events
                         if r.is_err() {
                             error!("Bad pdu in pdus_since: {:?}", r);
                         }
