@@ -46,8 +46,8 @@ impl Service {
         sender_user: &UserId,
         room_id: &RoomId,
         target: &EventId,
-        filter_event_type: Option<TimelineEventType>,
-        filter_rel_type: Option<RelationType>,
+        filter_event_type: Option<&TimelineEventType>,
+        filter_rel_type: Option<&RelationType>,
         from: PduCount,
         to: Option<PduCount>,
         limit: usize,
@@ -63,7 +63,7 @@ impl Service {
                     .relations_until(sender_user, room_id, target, from)? // TODO: should be relations_after
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
-                            filter_event_type.as_ref().map_or(true, |t| &pdu.kind == t)
+                            filter_event_type.as_ref().map_or(true, |t| &&pdu.kind == t)
                                 && if let Ok(content) =
                                     serde_json::from_str::<ExtractRelatesToEventId>(
                                         pdu.content.get(),
@@ -71,7 +71,7 @@ impl Service {
                                 {
                                     filter_rel_type
                                         .as_ref()
-                                        .map_or(true, |r| &content.relates_to.rel_type == r)
+                                        .map_or(true, |r| &&content.relates_to.rel_type == r)
                                 } else {
                                     false
                                 }
@@ -110,7 +110,7 @@ impl Service {
                     .relations_until(sender_user, room_id, target, from)?
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
-                            filter_event_type.as_ref().map_or(true, |t| &pdu.kind == t)
+                            filter_event_type.as_ref().map_or(true, |t| &&pdu.kind == t)
                                 && if let Ok(content) =
                                     serde_json::from_str::<ExtractRelatesToEventId>(
                                         pdu.content.get(),
@@ -118,7 +118,7 @@ impl Service {
                                 {
                                     filter_rel_type
                                         .as_ref()
-                                        .map_or(true, |r| &content.relates_to.rel_type == r)
+                                        .map_or(true, |r| &&content.relates_to.rel_type == r)
                                 } else {
                                     false
                                 }
