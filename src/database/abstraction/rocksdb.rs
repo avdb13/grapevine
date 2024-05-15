@@ -41,7 +41,7 @@ fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::O
     // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning
     db_opts.set_level_compaction_dynamic_level_bytes(true);
     db_opts.set_max_background_jobs(6);
-    db_opts.set_bytes_per_sync(1048576);
+    db_opts.set_bytes_per_sync(1_048_576);
 
     // https://github.com/facebook/rocksdb/issues/849
     db_opts.set_keep_log_file_num(100);
