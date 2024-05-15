@@ -605,28 +605,6 @@ impl KeyValueDatabase {
                             states_parents,
                         )?;
 
-                        /*
-                        let mut tmp = services().rooms.load_shortstatehash_info(&current_sstatehash)?;
-                        let state = tmp.pop().unwrap();
-                        println!(
-                            "{}\t{}{:?}: {:?} + {:?} - {:?}",
-                            current_room,
-                            "  ".repeat(tmp.len()),
-                            utils::u64_from_bytes(&current_sstatehash).unwrap(),
-                            tmp.last().map(|b| utils::u64_from_bytes(&b.0).unwrap()),
-                            state
-                                .2
-                                .iter()
-                                .map(|b| utils::u64_from_bytes(&b[size_of::<u64>()..]).unwrap())
-                                .collect::<Vec<_>>(),
-                            state
-                                .3
-                                .iter()
-                                .map(|b| utils::u64_from_bytes(&b[size_of::<u64>()..]).unwrap())
-                                .collect::<Vec<_>>()
-                        );
-                        */
-
                         Ok::<_, Error>(())
                     };
 

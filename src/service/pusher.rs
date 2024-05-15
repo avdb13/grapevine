@@ -72,9 +72,6 @@ impl Service {
 
         let reqwest_request = reqwest::Request::try_from(http_request)?;
 
-        // TODO: we could keep this very short and let expo backoff do it's thing...
-        //*reqwest_request.timeout_mut() = Some(Duration::from_secs(5));
-
         let url = reqwest_request.url().clone();
         let response = services()
             .globals

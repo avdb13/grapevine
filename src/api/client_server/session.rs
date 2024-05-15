@@ -20,7 +20,6 @@ use tracing::{info, warn};
 #[derive(Debug, Deserialize)]
 struct Claims {
     sub: String,
-    //exp: usize,
 }
 
 /// # `GET /_matrix/client/r0/login`

@@ -426,7 +426,6 @@ fn routes(config: &Config) -> Router {
         .ruma_route(client_server::get_key_changes_route)
         .ruma_route(client_server::get_pushers_route)
         .ruma_route(client_server::set_pushers_route)
-        // .ruma_route(client_server::third_party_route)
         .ruma_route(client_server::upgrade_room_route)
         .ruma_route(client_server::get_threads_route)
         .ruma_route(client_server::get_relating_events_with_rel_type_and_event_type_route)

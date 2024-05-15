@@ -195,8 +195,6 @@ impl SqliteTable {
 
         let statement_ref = AliasableBox(statement);
 
-        //let name = self.name.clone();
-
         let iterator = Box::new(
             statement
                 .query_map([], |row| Ok((row.get_unwrap(0), row.get_unwrap(1))))
@@ -278,8 +276,6 @@ impl KvTree for SqliteTable {
     ) -> Box<dyn Iterator<Item = TupleOfBytes> + 'a> {
         let guard = self.engine.read_lock_iterator();
         let from = from.to_vec(); // TODO change interface?
-
-        //let name = self.name.clone();
 
         if backwards {
             let statement = Box::leak(Box::new(

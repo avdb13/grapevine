@@ -327,13 +327,6 @@ impl PduEvent {
 
         pdu_json.remove("event_id");
 
-        // TODO: another option would be to convert it to a canonical string to validate size
-        // and return a Result<Raw<...>>
-        // serde_json::from_str::<Raw<_>>(
-        //     ruma::serde::to_canonical_json_string(pdu_json).expect("CanonicalJson is valid serde_json::Value"),
-        // )
-        // .expect("Raw::from_value always works")
-
         to_raw_value(&pdu_json).expect("CanonicalJson is valid serde_json::Value")
     }
 

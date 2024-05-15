@@ -210,7 +210,6 @@ impl Service {
     async fn handler(&self) {
         let mut receiver = self.receiver.lock().await;
         // TODO: Use futures when we have long admin commands
-        //let mut futures = FuturesUnordered::new();
 
         let grapevine_user = UserId::parse(format!(
             "@{}:{}",

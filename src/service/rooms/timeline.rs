@@ -114,29 +114,6 @@ impl Service {
         self.db.get_pdu_count(event_id)
     }
 
-    // TODO Is this the same as the function above?
-    /*
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn latest_pdu_count(&self, room_id: &RoomId) -> Result<u64> {
-        let prefix = self
-            .get_shortroomid(room_id)?
-            .expect("room exists")
-            .to_be_bytes()
-            .to_vec();
-
-        let mut last_possible_key = prefix.clone();
-        last_possible_key.extend_from_slice(&u64::MAX.to_be_bytes());
-
-        self.pduid_pdu
-            .iter_from(&last_possible_key, true)
-            .take_while(move |(k, _)| k.starts_with(&prefix))
-            .next()
-            .map(|b| self.pdu_count(&b.0))
-            .transpose()
-            .map(|op| op.unwrap_or_default())
-    }
-    */
-
     /// Returns the json of a pdu.
     pub(crate) fn get_pdu_json(&self, event_id: &EventId) -> Result<Option<CanonicalJsonObject>> {
         self.db.get_pdu_json(event_id)

@@ -32,7 +32,6 @@ use tracing::{debug, error, warn};
 use crate::{services, Error, PduEvent, Result};
 
 pub(crate) enum CachedJoinRule {
-    //Simplified(SpaceRoomJoinRule),
     Full(JoinRule),
 }
 
@@ -87,9 +86,6 @@ impl Service {
             {
                 if let Some(cached) = cached {
                     let allowed = match &cached.join_rule {
-                        //CachedJoinRule::Simplified(s) => {
-                        //self.handle_simplified_join_rule(s, sender_user, &current_room)?
-                        //}
                         CachedJoinRule::Full(f) => {
                             self.handle_join_rule(f, sender_user, &current_room)?
                         }
@@ -275,19 +271,6 @@ impl Service {
                             join_rule: CachedJoinRule::Full(join_rule),
                         }),
                     );
-
-                    /* TODO:
-                    for child in response.children {
-                        roomid_spacechunk_cache.insert(
-                            current_room.clone(),
-                            CachedSpaceChunk {
-                                chunk: child.chunk,
-                                children,
-                                join_rule,
-                            },
-                        );
-                    }
-                    */
                 } else {
                     self.roomid_spacechunk_cache
                         .lock()
