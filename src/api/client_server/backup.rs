@@ -144,7 +144,7 @@ pub(crate) async fn add_backup_keys_route(
                 room_id,
                 session_id,
                 key_data,
-            )?
+            )?;
         }
     }
 
@@ -191,7 +191,7 @@ pub(crate) async fn add_backup_keys_for_room_route(
             &body.room_id,
             session_id,
             key_data,
-        )?
+        )?;
     }
 
     Ok(add_backup_keys_for_room::v3::Response {

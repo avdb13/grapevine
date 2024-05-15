@@ -256,7 +256,7 @@ impl Service {
                         .iter()
                         .any(|t| matches!(t, Tweak::Highlight(true) | Tweak::Sound(_)))
                 {
-                    notifi.prio = NotificationPriority::High
+                    notifi.prio = NotificationPriority::High;
                 }
 
                 if event_id_only {

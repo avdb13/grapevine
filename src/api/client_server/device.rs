@@ -162,7 +162,7 @@ pub(crate) async fn delete_devices_route(
     }
 
     for device_id in &body.devices {
-        services().users.remove_device(sender_user, device_id)?
+        services().users.remove_device(sender_user, device_id)?;
     }
 
     Ok(delete_devices::v3::Response {})

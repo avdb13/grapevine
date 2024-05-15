@@ -199,7 +199,7 @@ impl Service {
                         e.insert((Instant::now(), 1));
                     }
                     hash_map::Entry::Occupied(mut e) => {
-                        *e.get_mut() = (Instant::now(), e.get().1 + 1)
+                        *e.get_mut() = (Instant::now(), e.get().1 + 1);
                     }
                 }
                 continue;
@@ -243,7 +243,7 @@ impl Service {
                             e.insert((Instant::now(), 1));
                         }
                         hash_map::Entry::Occupied(mut e) => {
-                            *e.get_mut() = (Instant::now(), e.get().1 + 1)
+                            *e.get_mut() = (Instant::now(), e.get().1 + 1);
                         }
                     }
                 }
@@ -1094,7 +1094,7 @@ impl Service {
                         e.insert((Instant::now(), 1));
                     }
                     hash_map::Entry::Occupied(mut e) => {
-                        *e.get_mut() = (Instant::now(), e.get().1 + 1)
+                        *e.get_mut() = (Instant::now(), e.get().1 + 1);
                     }
                 }
             };

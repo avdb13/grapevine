@@ -699,11 +699,11 @@ impl Service {
                         match <&UserId>::try_from(user) {
                             Ok(user_id) => {
                                 if user_id.server_name() != services().globals.server_name() {
-                                    remote_ids.push(user_id)
+                                    remote_ids.push(user_id);
                                 } else if !services().users.exists(user_id)? {
-                                    non_existant_ids.push(user_id)
+                                    non_existant_ids.push(user_id);
                                 } else {
-                                    user_ids.push(user_id)
+                                    user_ids.push(user_id);
                                 }
                             }
                             Err(_) => {
@@ -773,12 +773,12 @@ impl Service {
                                 }
                             }
                             Err(_) => false,
-                        })
+                        });
                     }
 
                     for &user_id in &user_ids {
                         if services().users.deactivate_account(user_id).is_ok() {
-                            deactivation_count += 1
+                            deactivation_count += 1;
                         }
                     }
 

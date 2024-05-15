@@ -230,7 +230,7 @@ async fn run_server() -> io::Result<()> {
             sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
                 .expect("should be able to notify systemd");
 
-            server.await?
+            server.await?;
         }
         None => {
             let server = bind(addr).handle(handle).serve(app);
@@ -239,7 +239,7 @@ async fn run_server() -> io::Result<()> {
             sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
                 .expect("should be able to notify systemd");
 
-            server.await?
+            server.await?;
         }
     }
 

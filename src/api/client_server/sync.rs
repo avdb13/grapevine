@@ -1177,7 +1177,7 @@ pub(crate) async fn sync_events_v4_route(
                 sender_user.clone(),
                 sender_device.clone(),
                 conn_id.clone(),
-            )
+            );
         }
     }
 

@@ -964,7 +964,7 @@ impl KeyValueDatabase {
                 error!(
                     "Could not set the configured emergency password for the grapevine user: {}",
                     e
-                )
+                );
             }
         };
 

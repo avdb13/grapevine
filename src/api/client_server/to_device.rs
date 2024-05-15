@@ -63,7 +63,7 @@ pub(crate) async fn send_event_to_device_route(
                         event.deserialize_as().map_err(|_| {
                             Error::BadRequest(ErrorKind::InvalidParam, "Event is invalid")
                         })?,
-                    )?
+                    )?;
                 }
 
                 DeviceIdOrAllDevices::AllDevices => {

@@ -479,7 +479,7 @@ impl Service {
                                         ),
                                     )
                                 })?
-                                .to_room_event())
+                                .to_room_event());
                         }
                         SendingEventType::Edu(_) => {
                             // Appservices don't need EDUs (?)

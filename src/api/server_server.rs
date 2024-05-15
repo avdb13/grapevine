@@ -873,7 +873,7 @@ pub(crate) async fn send_transaction_message_route(
                                             "Event is invalid",
                                         )
                                     })?,
-                                )?
+                                )?;
                             }
 
                             DeviceIdOrAllDevices::AllDevices => {
@@ -1830,11 +1830,11 @@ pub(crate) async fn get_profile_information_route(
 
     match &body.field {
         Some(ProfileField::DisplayName) => {
-            displayname = services().users.displayname(&body.user_id)?
+            displayname = services().users.displayname(&body.user_id)?;
         }
         Some(ProfileField::AvatarUrl) => {
             avatar_url = services().users.avatar_url(&body.user_id)?;
-            blurhash = services().users.blurhash(&body.user_id)?
+            blurhash = services().users.blurhash(&body.user_id)?;
         }
         // TODO: what to do with custom
         Some(_) => {}
@@ -1938,7 +1938,7 @@ mod tests {
         assert_eq!(
             add_port_to_hostname("example.com"),
             FedDest::Named(String::from("example.com"), String::from(":8448"))
-        )
+        );
     }
 
     #[test]
@@ -1946,6 +1946,6 @@ mod tests {
         assert_eq!(
             add_port_to_hostname("example.com:1337"),
             FedDest::Named(String::from("example.com"), String::from(":1337"))
-        )
+        );
     }
 }
