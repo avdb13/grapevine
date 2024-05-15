@@ -118,7 +118,7 @@ impl service::globals::Data for KeyValueDatabase {
     }
 
     fn cleanup(&self) -> Result<()> {
-        self._db.cleanup()
+        self.db.cleanup()
     }
 
     fn memory_usage(&self) -> String {
@@ -142,7 +142,7 @@ our_real_users_cache: {our_real_users_cache}
 appservice_in_room_cache: {appservice_in_room_cache}
 lasttimelinecount_cache: {lasttimelinecount_cache}\n"
         );
-        if let Ok(db_stats) = self._db.memory_usage() {
+        if let Ok(db_stats) = self.db.memory_usage() {
             response += &db_stats;
         }
 

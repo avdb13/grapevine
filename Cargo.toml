@@ -92,6 +92,7 @@ unreadable_literal = "warn"
 unseparated_literal_suffix = "warn"
 unused_async = "warn"
 unused_self = "warn"
+used_underscore_binding = "warn"
 verbose_file_reads = "warn"
 wildcard_dependencies = "warn"
 

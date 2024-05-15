@@ -30,7 +30,7 @@ use std::{
 use tracing::{debug, error, info, warn};
 
 pub(crate) struct KeyValueDatabase {
-    _db: Arc<dyn KeyValueDatabaseEngine>,
+    db: Arc<dyn KeyValueDatabaseEngine>,
 
     //pub(crate) globals: globals::Globals,
     pub(super) global: Arc<dyn KvTree>,
@@ -246,7 +246,7 @@ impl KeyValueDatabase {
         }
 
         let db_raw = Box::new(Self {
-            _db: builder.clone(),
+            db: builder.clone(),
             userid_password: builder.open_tree("userid_password")?,
             userid_displayname: builder.open_tree("userid_displayname")?,
             userid_avatarurl: builder.open_tree("userid_avatarurl")?,
@@ -614,7 +614,7 @@ impl KeyValueDatabase {
                         Ok::<_, Error>(())
                     };
 
-                for (k, seventid) in db._db.open_tree("stateid_shorteventid")?.iter() {
+                for (k, seventid) in db.db.open_tree("stateid_shorteventid")?.iter() {
                     let sstatehash = utils::u64_from_bytes(&k[0..size_of::<u64>()])
                         .expect("number of bytes is correct");
                     let sstatekey = k[size_of::<u64>()..].to_vec();
@@ -791,7 +791,7 @@ impl KeyValueDatabase {
             }
 
             if services().globals.database_version()? < 11 {
-                db._db
+                db.db
                     .open_tree("userdevicesessionid_uiaarequest")?
                     .clear()?;
                 services().globals.bump_database_version(11)?;
@@ -980,7 +980,7 @@ impl KeyValueDatabase {
     pub(crate) fn flush(&self) -> Result<()> {
         let start = std::time::Instant::now();
 
-        let res = self._db.flush();
+        let res = self.db.flush();
 
         debug!("flush: took {:?}", start.elapsed());
 
