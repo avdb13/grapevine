@@ -763,7 +763,7 @@ impl Service {
             &mut pdu_json,
             &room_version_id,
         ) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(e) => {
                 return match e {
                     ruma::signatures::Error::PduSize => Err(Error::BadRequest(

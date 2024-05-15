@@ -486,8 +486,8 @@ async fn shutdown_signal(handle: ServerHandle) {
     let sig: &str;
 
     tokio::select! {
-        _ = ctrl_c => { sig = "Ctrl+C"; },
-        _ = terminate => { sig = "SIGTERM"; },
+        () = ctrl_c => { sig = "Ctrl+C"; },
+        () = terminate => { sig = "SIGTERM"; },
     }
 
     warn!("Received {}, shutting down...", sig);

@@ -842,7 +842,7 @@ impl Service {
 
                             let pub_key_map = pub_key_map.read().await;
                             match ruma::signatures::verify_json(&pub_key_map, &value) {
-                                Ok(_) => RoomMessageEventContent::text_plain("Signature correct"),
+                                Ok(()) => RoomMessageEventContent::text_plain("Signature correct"),
                                 Err(e) => RoomMessageEventContent::text_plain(format!(
                                     "Signature verification failed: {e}"
                                 )),
