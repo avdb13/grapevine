@@ -764,13 +764,14 @@ impl Service {
 
                     if !force {
                         user_ids.retain(|&user_id| match services().users.is_admin(user_id) {
-                            Ok(is_admin) => match is_admin {
-                                true => {
+                            Ok(is_admin) => {
+                                if is_admin {
                                     admins.push(user_id.localpart());
                                     false
+                                } else {
+                                    true
                                 }
-                                false => true,
-                            },
+                            }
                             Err(_) => false,
                         })
                     }
