@@ -305,7 +305,7 @@ pub(crate) async fn get_public_rooms_filtered_helper(
             };
             Ok(chunk)
         })
-        .filter_map(|r: Result<_>| r.ok()) // Filter out buggy rooms
+        .filter_map(Result::<_>::ok) // Filter out buggy rooms
         .filter(|chunk| {
             if let Some(query) = filter
                 .generic_search_term
