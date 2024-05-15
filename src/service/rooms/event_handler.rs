@@ -1153,7 +1153,7 @@ impl Service {
                     }
 
                     info!("Fetching {} over federation.", next_id);
-                    match services()
+                    if let Ok(res) = services()
                         .sending
                         .send_federation_request(
                             origin,
@@ -1163,44 +1163,41 @@ impl Service {
                         )
                         .await
                     {
-                        Ok(res) => {
-                            info!("Got {} over federation", next_id);
-                            let Ok((calculated_event_id, value)) =
-                                pdu::gen_event_id_canonical_json(&res.pdu, room_version_id)
-                            else {
-                                back_off((*next_id).to_owned()).await;
-                                continue;
-                            };
-
-                            if calculated_event_id != *next_id {
-                                warn!("Server didn't return event id we requested: requested: {}, we got {}. Event: {:?}",
-                                    next_id, calculated_event_id, &res.pdu);
-                            }
-
-                            if let Some(auth_events) =
-                                value.get("auth_events").and_then(|c| c.as_array())
-                            {
-                                for auth_event in auth_events {
-                                    if let Ok(auth_event) =
-                                        serde_json::from_value(auth_event.clone().into())
-                                    {
-                                        let a: Arc<EventId> = auth_event;
-                                        todo_auth_events.push(a);
-                                    } else {
-                                        warn!("Auth event id is not valid");
-                                    }
-                                }
-                            } else {
-                                warn!("Auth event list invalid");
-                            }
-
-                            events_in_reverse_order.push((next_id.clone(), value));
-                            events_all.insert(next_id);
-                        }
-                        Err(_) => {
-                            warn!("Failed to fetch event: {}", next_id);
+                        info!("Got {} over federation", next_id);
+                        let Ok((calculated_event_id, value)) =
+                            pdu::gen_event_id_canonical_json(&res.pdu, room_version_id)
+                        else {
                             back_off((*next_id).to_owned()).await;
+                            continue;
+                        };
+
+                        if calculated_event_id != *next_id {
+                            warn!("Server didn't return event id we requested: requested: {}, we got {}. Event: {:?}",
+                                next_id, calculated_event_id, &res.pdu);
                         }
+
+                        if let Some(auth_events) =
+                            value.get("auth_events").and_then(|c| c.as_array())
+                        {
+                            for auth_event in auth_events {
+                                if let Ok(auth_event) =
+                                    serde_json::from_value(auth_event.clone().into())
+                                {
+                                    let a: Arc<EventId> = auth_event;
+                                    todo_auth_events.push(a);
+                                } else {
+                                    warn!("Auth event id is not valid");
+                                }
+                            }
+                        } else {
+                            warn!("Auth event list invalid");
+                        }
+
+                        events_in_reverse_order.push((next_id.clone(), value));
+                        events_all.insert(next_id);
+                    } else {
+                        warn!("Failed to fetch event: {}", next_id);
+                        back_off((*next_id).to_owned()).await;
                     }
                 }
 
@@ -1670,18 +1667,17 @@ impl Service {
             .get(origin)
             .map(|s| Arc::clone(s).acquire_owned());
 
-        let permit = match permit {
-            Some(p) => p,
-            None => {
-                let mut write = services().globals.servername_ratelimiter.write().await;
-                let s = Arc::clone(
-                    write
-                        .entry(origin.to_owned())
-                        .or_insert_with(|| Arc::new(Semaphore::new(1))),
-                );
+        let permit = if let Some(p) = permit {
+            p
+        } else {
+            let mut write = services().globals.servername_ratelimiter.write().await;
+            let s = Arc::clone(
+                write
+                    .entry(origin.to_owned())
+                    .or_insert_with(|| Arc::new(Semaphore::new(1))),
+            );
 
-                s.acquire_owned()
-            }
+            s.acquire_owned()
         }
         .await;
 
