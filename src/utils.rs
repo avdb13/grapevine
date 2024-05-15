@@ -21,7 +21,7 @@ pub(crate) fn millis_since_unix_epoch() -> u64 {
 }
 
 #[cfg(any(feature = "rocksdb", feature = "sqlite"))]
-pub(crate) fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
+pub(crate) fn increment(old: Option<&[u8]>) -> Vec<u8> {
     let number = match old.map(TryInto::try_into) {
         Some(Ok(bytes)) => {
             let number = u64::from_be_bytes(bytes);
@@ -30,7 +30,7 @@ pub(crate) fn increment(old: Option<&[u8]>) -> Option<Vec<u8>> {
         _ => 1, // Start at one. since 0 should return the first event in the db
     };
 
-    Some(number.to_be_bytes().to_vec())
+    number.to_be_bytes().to_vec()
 }
 
 pub(crate) fn generate_keypair() -> Vec<u8> {

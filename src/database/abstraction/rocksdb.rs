@@ -227,7 +227,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         let lock = self.write_lock.write().unwrap();
 
         let old = self.db.rocks.get_cf_opt(&self.cf(), key, &readoptions)?;
-        let new = utils::increment(old.as_deref()).unwrap();
+        let new = utils::increment(old.as_deref());
         self.db
             .rocks
             .put_cf_opt(&self.cf(), key, &new, &writeoptions)?;
@@ -244,7 +244,7 @@ impl KvTree for RocksDbEngineTree<'_> {
 
         for key in iter {
             let old = self.db.rocks.get_cf_opt(&self.cf(), &key, &readoptions)?;
-            let new = utils::increment(old.as_deref()).unwrap();
+            let new = utils::increment(old.as_deref());
             self.db
                 .rocks
                 .put_cf_opt(&self.cf(), key, new, &writeoptions)?;

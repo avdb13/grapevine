@@ -237,8 +237,7 @@ impl KvTree for SqliteTable {
         guard.execute("BEGIN", [])?;
         for key in iter {
             let old = self.get_with_guard(&guard, &key)?;
-            let new = crate::utils::increment(old.as_deref())
-                .expect("utils::increment always returns Some");
+            let new = crate::utils::increment(old.as_deref());
             self.insert_with_guard(&guard, &key, &new)?;
         }
         guard.execute("COMMIT", [])?;
@@ -328,8 +327,7 @@ impl KvTree for SqliteTable {
 
         let old = self.get_with_guard(&guard, key)?;
 
-        let new =
-            crate::utils::increment(old.as_deref()).expect("utils::increment always returns Some");
+        let new = crate::utils::increment(old.as_deref());
 
         self.insert_with_guard(&guard, key, &new)?;
 
