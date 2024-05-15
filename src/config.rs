@@ -13,6 +13,7 @@ mod proxy;
 
 use self::proxy::ProxyConfig;
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Config {
     #[serde(default = "default_address")]
