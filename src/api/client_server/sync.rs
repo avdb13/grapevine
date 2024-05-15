@@ -337,28 +337,23 @@ async fn sync_helper(
             None => HashMap::new(),
         };
 
-        let left_event_id = match services().rooms.state_accessor.room_state_get_id(
+        let Some(left_event_id) = services().rooms.state_accessor.room_state_get_id(
             &room_id,
             &StateEventType::RoomMember,
             sender_user.as_str(),
-        )? {
-            Some(e) => e,
-            None => {
-                error!("Left room but no left state event");
-                continue;
-            }
+        )?
+        else {
+            error!("Left room but no left state event");
+            continue;
         };
 
-        let left_shortstatehash = match services()
+        let Some(left_shortstatehash) = services()
             .rooms
             .state_accessor
             .pdu_shortstatehash(&left_event_id)?
-        {
-            Some(s) => s,
-            None => {
-                error!("Leave event has no state");
-                continue;
-            }
+        else {
+            error!("Leave event has no state");
+            continue;
         };
 
         let mut left_state_ids = services()
@@ -386,12 +381,9 @@ async fn sync_helper(
                     // TODO: Delete the following line when this is resolved: https://github.com/vector-im/element-web/issues/22565
                     || *sender_user == state_key
                 {
-                    let pdu = match services().rooms.timeline.get_pdu(&id)? {
-                        Some(pdu) => pdu,
-                        None => {
-                            error!("Pdu in state not found: {}", id);
-                            continue;
-                        }
+                    let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
+                        error!("Pdu in state not found: {}", id);
+                        continue;
                     };
 
                     left_state_events.push(pdu.to_sync_state_event());
@@ -607,13 +599,11 @@ async fn load_joined_room(
 
     // Database queries:
 
-    let current_shortstatehash =
-        if let Some(s) = services().rooms.state.get_room_shortstatehash(room_id)? {
-            s
-        } else {
-            error!("Room {} has no state", room_id);
-            return Err(Error::BadDatabase("Room has no state"));
-        };
+    let Some(current_shortstatehash) = services().rooms.state.get_room_shortstatehash(room_id)?
+    else {
+        error!("Room {} has no state", room_id);
+        return Err(Error::BadDatabase("Room has no state"));
+    };
 
     let since_shortstatehash = services()
         .rooms
@@ -747,12 +737,9 @@ async fn load_joined_room(
                         .get_statekey_from_short(shortstatekey)?;
 
                     if event_type != StateEventType::RoomMember {
-                        let pdu = match services().rooms.timeline.get_pdu(&id)? {
-                            Some(pdu) => pdu,
-                            None => {
-                                error!("Pdu in state not found: {}", id);
-                                continue;
-                            }
+                        let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
+                            error!("Pdu in state not found: {}", id);
+                            continue;
                         };
                         state_events.push(pdu);
 
@@ -766,12 +753,9 @@ async fn load_joined_room(
                 // TODO: Delete the following line when this is resolved: https://github.com/vector-im/element-web/issues/22565
                 || *sender_user == state_key
                     {
-                        let pdu = match services().rooms.timeline.get_pdu(&id)? {
-                            Some(pdu) => pdu,
-                            None => {
-                                error!("Pdu in state not found: {}", id);
-                                continue;
-                            }
+                        let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
+                            error!("Pdu in state not found: {}", id);
+                            continue;
                         };
 
                         // This check is in case a bad user ID made it into the database
@@ -836,12 +820,9 @@ async fn load_joined_room(
 
                     for (key, id) in current_state_ids {
                         if full_state || since_state_ids.get(&key) != Some(&id) {
-                            let pdu = match services().rooms.timeline.get_pdu(&id)? {
-                                Some(pdu) => pdu,
-                                None => {
-                                    error!("Pdu in state not found: {}", id);
-                                    continue;
-                                }
+                            let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
+                                error!("Pdu in state not found: {}", id);
+                                continue;
                             };
 
                             if pdu.kind == TimelineEventType::RoomMember {
@@ -1234,13 +1215,12 @@ pub(crate) async fn sync_events_v4_route(
         );
 
         for room_id in &all_joined_rooms {
-            let current_shortstatehash =
-                if let Some(s) = services().rooms.state.get_room_shortstatehash(room_id)? {
-                    s
-                } else {
-                    error!("Room {} has no state", room_id);
-                    continue;
-                };
+            let Some(current_shortstatehash) =
+                services().rooms.state.get_room_shortstatehash(room_id)?
+            else {
+                error!("Room {} has no state", room_id);
+                continue;
+            };
 
             let since_shortstatehash = services()
                 .rooms
@@ -1302,12 +1282,9 @@ pub(crate) async fn sync_events_v4_route(
 
                     for (key, id) in current_state_ids {
                         if since_state_ids.get(&key) != Some(&id) {
-                            let pdu = match services().rooms.timeline.get_pdu(&id)? {
-                                Some(pdu) => pdu,
-                                None => {
-                                    error!("Pdu in state not found: {}", id);
-                                    continue;
-                                }
+                            let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
+                                error!("Pdu in state not found: {}", id);
+                                continue;
                             };
                             if pdu.kind == TimelineEventType::RoomMember {
                                 if let Some(state_key) = &pdu.state_key {

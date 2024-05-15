@@ -564,13 +564,12 @@ impl Service {
                         }
                     }
 
-                    let pusher = match services()
+                    let Some(pusher) = services()
                         .pusher
                         .get_pusher(userid, pushkey)
                         .map_err(|e| (OutgoingKind::Push(userid.clone(), pushkey.clone()), e))?
-                    {
-                        Some(pusher) => pusher,
-                        None => continue,
+                    else {
+                        continue;
                     };
 
                     let rules_for_user = services()

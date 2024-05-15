@@ -656,15 +656,12 @@ pub(crate) fn parse_incoming_pdu(
 
     let room_version_id = services().rooms.state.get_room_version(&room_id)?;
 
-    let (event_id, value) = match gen_event_id_canonical_json(pdu, &room_version_id) {
-        Ok(t) => t,
-        Err(_) => {
-            // Event could not be converted to canonical json
-            return Err(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Could not convert event to canonical json.",
-            ));
-        }
+    let Ok((event_id, value)) = gen_event_id_canonical_json(pdu, &room_version_id) else {
+        // Event could not be converted to canonical json
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "Could not convert event to canonical json.",
+        ));
     };
     Ok((event_id, value, room_id))
 }
@@ -1514,15 +1511,12 @@ async fn create_join_event(
 
     // We do not add the event_id field to the pdu here because of signature and hashes checks
     let room_version_id = services().rooms.state.get_room_version(room_id)?;
-    let (event_id, value) = match gen_event_id_canonical_json(pdu, &room_version_id) {
-        Ok(t) => t,
-        Err(_) => {
-            // Event could not be converted to canonical json
-            return Err(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Could not convert event to canonical json.",
-            ));
-        }
+    let Ok((event_id, value)) = gen_event_id_canonical_json(pdu, &room_version_id) else {
+        // Event could not be converted to canonical json
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "Could not convert event to canonical json.",
+        ));
     };
 
     let origin: OwnedServerName = serde_json::from_value(

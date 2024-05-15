@@ -63,14 +63,11 @@ impl Service {
                 password,
                 ..
             }) => {
-                let username = match identifier {
-                    UserIdentifier::UserIdOrLocalpart(username) => username,
-                    _ => {
-                        return Err(Error::BadRequest(
-                            ErrorKind::Unrecognized,
-                            "Identifier type not recognized.",
-                        ))
-                    }
+                let UserIdentifier::UserIdOrLocalpart(username) = identifier else {
+                    return Err(Error::BadRequest(
+                        ErrorKind::Unrecognized,
+                        "Identifier type not recognized.",
+                    ));
                 };
 
                 let user_id = UserId::parse_with_server_name(

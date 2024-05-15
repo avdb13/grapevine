@@ -109,9 +109,8 @@ impl Service {
         room_id: &RoomId,
         event_id: &EventId,
     ) -> Result<bool> {
-        let shortstatehash = match self.pdu_shortstatehash(event_id)? {
-            Some(shortstatehash) => shortstatehash,
-            None => return Ok(true),
+        let Some(shortstatehash) = self.pdu_shortstatehash(event_id)? else {
+            return Ok(true);
         };
 
         if let Some(visibility) = self
@@ -173,9 +172,8 @@ impl Service {
         room_id: &RoomId,
         event_id: &EventId,
     ) -> Result<bool> {
-        let shortstatehash = match self.pdu_shortstatehash(event_id)? {
-            Some(shortstatehash) => shortstatehash,
-            None => return Ok(true),
+        let Some(shortstatehash) = self.pdu_shortstatehash(event_id)? else {
+            return Ok(true);
         };
 
         if let Some(visibility) = self

@@ -166,14 +166,11 @@ pub(crate) async fn get_alias_helper(
         }
     };
 
-    let room_id = match room_id {
-        Some(room_id) => room_id,
-        None => {
-            return Err(Error::BadRequest(
-                ErrorKind::NotFound,
-                "Room with alias not found.",
-            ))
-        }
+    let Some(room_id) = room_id else {
+        return Err(Error::BadRequest(
+            ErrorKind::NotFound,
+            "Room with alias not found.",
+        ));
     };
 
     Ok(get_alias::v3::Response::new(

@@ -424,12 +424,9 @@ impl KeyValueDatabase {
                 for (roomserverid, _) in db.roomserverids.iter() {
                     let mut parts = roomserverid.split(|&b| b == 0xff);
                     let room_id = parts.next().expect("split always returns one element");
-                    let servername = match parts.next() {
-                        Some(s) => s,
-                        None => {
-                            error!("Migration: Invalid roomserverid in db.");
-                            continue;
-                        }
+                    let Some(servername) = parts.next() else {
+                        error!("Migration: Invalid roomserverid in db.");
+                        continue;
                     };
                     let mut serverroomid = servername.to_vec();
                     serverroomid.push(0xff);

@@ -342,14 +342,11 @@ impl Service {
                 Ok(ruma::signatures::Verified::Signatures) => {
                     // Redact
                     warn!("Calculated hash does not match: {}", event_id);
-                    let obj = match ruma::canonical_json::redact(value, room_version_id, None) {
-                        Ok(obj) => obj,
-                        Err(_) => {
-                            return Err(Error::BadRequest(
-                                ErrorKind::InvalidParam,
-                                "Redaction failed",
-                            ))
-                        }
+                    let Ok(obj) = ruma::canonical_json::redact(value, room_version_id, None) else {
+                        return Err(Error::BadRequest(
+                            ErrorKind::InvalidParam,
+                            "Redaction failed",
+                        ));
                     };
 
                     // Skip the PDU if it is redacted and we already have it as an outlier event
@@ -409,12 +406,9 @@ impl Service {
             // Build map of auth events
             let mut auth_events = HashMap::new();
             for id in &incoming_pdu.auth_events {
-                let auth_event = match services().rooms.timeline.get_pdu(id)? {
-                    Some(e) => e,
-                    None => {
-                        warn!("Could not find auth event {}", id);
-                        continue;
-                    }
+                let Some(auth_event) = services().rooms.timeline.get_pdu(id)? else {
+                    warn!("Could not find auth event {}", id);
+                    continue;
                 };
 
                 self.check_room_id(room_id, &auth_event)?;
@@ -574,21 +568,16 @@ impl Service {
 
             let mut okay = true;
             for prev_eventid in &incoming_pdu.prev_events {
-                let prev_event =
-                    if let Ok(Some(pdu)) = services().rooms.timeline.get_pdu(prev_eventid) {
-                        pdu
-                    } else {
-                        okay = false;
-                        break;
-                    };
+                let Ok(Some(prev_event)) = services().rooms.timeline.get_pdu(prev_eventid) else {
+                    okay = false;
+                    break;
+                };
 
-                let sstatehash = if let Ok(Some(s)) = services()
+                let Ok(Some(sstatehash)) = services()
                     .rooms
                     .state_accessor
                     .pdu_shortstatehash(prev_eventid)
-                {
-                    s
-                } else {
+                else {
                     okay = false;
                     break;
                 };
@@ -1046,16 +1035,12 @@ impl Service {
         };
 
         let lock = services().globals.stateres_mutex.lock();
-        let state = match state_res::resolve(
-            room_version_id,
-            &fork_states,
-            auth_chain_sets,
-            fetch_event,
-        ) {
-            Ok(new_state) => new_state,
-            Err(_) => {
-                return Err(Error::bad_database("State resolution failed, either an event could not be found or deserialization"));
-            }
+        let Ok(state) =
+            state_res::resolve(room_version_id, &fork_states, auth_chain_sets, fetch_event)
+        else {
+            return Err(Error::bad_database(
+                "State resolution failed, either an event could not be found or deserialization",
+            ));
         };
 
         drop(lock);
@@ -1184,14 +1169,12 @@ impl Service {
                     {
                         Ok(res) => {
                             info!("Got {} over federation", next_id);
-                            let (calculated_event_id, value) =
-                                match pdu::gen_event_id_canonical_json(&res.pdu, room_version_id) {
-                                    Ok(t) => t,
-                                    Err(_) => {
-                                        back_off((*next_id).to_owned()).await;
-                                        continue;
-                                    }
-                                };
+                            let Ok((calculated_event_id, value)) =
+                                pdu::gen_event_id_canonical_json(&res.pdu, room_version_id)
+                            else {
+                                back_off((*next_id).to_owned()).await;
+                                continue;
+                            };
 
                             if calculated_event_id != *next_id {
                                 warn!("Server didn't return event id we requested: requested: {}, we got {}. Event: {:?}",
@@ -1410,12 +1393,9 @@ impl Service {
                 )
                 .await;
 
-            let keys = match fetch_res {
-                Ok(keys) => keys,
-                Err(_) => {
-                    warn!("Signature verification failed: Could not fetch signing key.",);
-                    continue;
-                }
+            let Ok(keys) = fetch_res else {
+                warn!("Signature verification failed: Could not fetch signing key.",);
+                continue;
             };
 
             pub_key_map
@@ -1640,23 +1620,21 @@ impl Service {
 
     /// Returns Ok if the acl allows the server
     pub(crate) fn acl_check(&self, server_name: &ServerName, room_id: &RoomId) -> Result<()> {
-        let acl_event = match services().rooms.state_accessor.room_state_get(
+        let Some(acl_event) = services().rooms.state_accessor.room_state_get(
             room_id,
             &StateEventType::RoomServerAcl,
             "",
-        )? {
-            Some(acl) => acl,
-            None => return Ok(()),
+        )?
+        else {
+            return Ok(());
         };
 
-        let acl_event_content: RoomServerAclEventContent =
-            match serde_json::from_str(acl_event.content.get()) {
-                Ok(content) => content,
-                Err(_) => {
-                    warn!("Invalid ACL event");
-                    return Ok(());
-                }
-            };
+        let Ok(acl_event_content) =
+            serde_json::from_str::<RoomServerAclEventContent>(acl_event.content.get())
+        else {
+            warn!("Invalid ACL event");
+            return Ok(());
+        };
 
         if acl_event_content.allow.is_empty() {
             // Ignore broken acl events
