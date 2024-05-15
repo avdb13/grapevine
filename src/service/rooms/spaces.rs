@@ -47,6 +47,7 @@ pub(crate) struct Service {
 }
 
 impl Service {
+    #[allow(clippy::too_many_lines)]
     pub(crate) async fn get_hierarchy(
         &self,
         sender_user: &UserId,
@@ -306,6 +307,7 @@ impl Service {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn get_room_chunk(
         &self,
         sender_user: &UserId,

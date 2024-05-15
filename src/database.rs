@@ -214,6 +214,7 @@ impl KeyValueDatabase {
         not(any(feature = "rocksdb", feature = "sqlite")),
         allow(unreachable_code)
     )]
+    #[allow(clippy::too_many_lines)]
     pub(crate) async fn load_or_create(config: Config) -> Result<()> {
         Self::check_db_setup(&config)?;
 

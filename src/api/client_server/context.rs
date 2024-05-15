@@ -13,6 +13,7 @@ use tracing::error;
 ///
 /// - Only works if the user is joined (TODO: always allow, but only show events if the user was
 /// joined, depending on `history_visibility`)
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn get_context_route(
     body: Ruma<get_context::v3::Request>,
 ) -> Result<get_context::v3::Response> {

@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 /// Searches rooms for messages.
 ///
 /// - Only works if the user is currently joined to the room (TODO: Respect history visibility)
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn search_events_route(
     body: Ruma<search_events::v3::Request>,
 ) -> Result<search_events::v3::Response> {

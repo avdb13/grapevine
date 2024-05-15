@@ -168,6 +168,7 @@ async fn sync_helper_wrapper(
         .expect("receiver should not be dropped");
 }
 
+#[allow(clippy::too_many_lines)]
 async fn sync_helper(
     sender_user: OwnedUserId,
     sender_device: OwnedDeviceId,
@@ -546,7 +547,7 @@ async fn sync_helper(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn load_joined_room(
     sender_user: &UserId,
     sender_device: &DeviceId,
@@ -1154,6 +1155,7 @@ fn share_encrypted_room(
         .any(|encrypted| encrypted))
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn sync_events_v4_route(
     body: Ruma<sync_events::v4::Request>,
 ) -> Result<sync_events::v4::Response, RumaResponse<UiaaResponse>> {

@@ -57,6 +57,7 @@ impl Service {
             .remove(&(user_id, device_id, conn_id));
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn update_sync_request_with_cache(
         &self,
         user_id: OwnedUserId,

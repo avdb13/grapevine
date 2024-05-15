@@ -112,6 +112,7 @@ pub(crate) async fn send_message_event_route(
 ///
 /// - Only works if the user is joined (TODO: always allow, but only show events where the user was
 /// joined, depending on `history_visibility`)
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn get_message_events_route(
     body: Ruma<get_message_events::v3::Request>,
 ) -> Result<get_message_events::v3::Response> {

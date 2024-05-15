@@ -607,6 +607,7 @@ impl Service {
         Ok(pdu_id)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn create_hash_and_sign_event(
         &self,
         pdu_builder: PduBuilder,

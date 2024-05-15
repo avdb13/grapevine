@@ -327,6 +327,7 @@ impl Service {
         AdminCommand::try_parse_from(argv).map_err(|error| error.to_string())
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn process_admin_command(
         &self,
         command: AdminCommand,
@@ -933,6 +934,7 @@ impl Service {
     ///
     /// Users in this room are considered admins by grapevine, and the room can be
     /// used to issue admin commands by talking to the server user inside it.
+    #[allow(clippy::too_many_lines)]
     pub(crate) async fn create_admin_room(&self) -> Result<()> {
         let room_id = RoomId::new(services().globals.server_name());
 

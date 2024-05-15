@@ -40,6 +40,7 @@ where
 {
     type Rejection = Error;
 
+    #[allow(clippy::too_many_lines)]
     async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
         #[derive(Deserialize)]
         struct QueryParams {

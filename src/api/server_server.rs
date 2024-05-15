@@ -343,6 +343,7 @@ fn add_port_to_hostname(destination_str: &str) -> FedDest {
 /// Returns: `actual_destination`, `Host` header
 /// Implemented according to the specification at <https://matrix.org/docs/spec/server_server/r0.1.4#resolving-server-names>
 /// Numbers in comments below refer to bullet points in linked section of specification
+#[allow(clippy::too_many_lines)]
 async fn find_actual_destination(destination: &'_ ServerName) -> (FedDest, FedDest) {
     debug!("Finding actual destination for {destination}");
     let destination_str = destination.as_str().to_owned();
@@ -653,6 +654,7 @@ pub(crate) fn parse_incoming_pdu(
 /// # `PUT /_matrix/federation/v1/send/{txnId}`
 ///
 /// Push EDUs and PDUs to this server.
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn send_transaction_message_route(
     body: Ruma<send_transaction_message::v1::Request>,
 ) -> Result<send_transaction_message::v1::Response> {
@@ -1432,6 +1434,7 @@ pub(crate) async fn create_join_event_template_route(
     })
 }
 
+#[allow(clippy::too_many_lines)]
 async fn create_join_event(
     sender_servername: &ServerName,
     room_id: &RoomId,

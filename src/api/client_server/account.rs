@@ -74,6 +74,7 @@ pub(crate) async fn get_register_available_route(
 /// - If type is not guest and no username is given: Always fails after UIAA check
 /// - Creates a new account and populates it with default account data
 /// - If `inhibit_login` is false: Creates a device and returns `device_id` and `access_token`
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn register_route(
     body: Ruma<register::v3::Request>,
 ) -> Result<register::v3::Response> {

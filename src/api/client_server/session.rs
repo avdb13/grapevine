@@ -47,6 +47,7 @@ pub(crate) async fn get_login_types_route(
 ///
 /// Note: You can use [`GET /_matrix/client/r0/login`](fn.get_supported_versions_route.html) to see
 /// supported login types.
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Response> {
     // To allow deprecated login methods
     #![allow(deprecated)]

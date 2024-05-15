@@ -45,6 +45,7 @@ use tracing::{info, warn};
 /// - Send events listed in initial state
 /// - Send events implied by `name` and `topic`
 /// - Send invite events
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn create_room_route(
     body: Ruma<create_room::v3::Request>,
 ) -> Result<create_room::v3::Response> {
@@ -580,6 +581,7 @@ pub(crate) async fn get_room_aliases_route(
 /// - Transfers some state events
 /// - Moves local aliases
 /// - Modifies old room power levels to prevent users from speaking
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn upgrade_room_route(
     body: Ruma<upgrade_room::v3::Request>,
 ) -> Result<upgrade_room::v3::Response> {

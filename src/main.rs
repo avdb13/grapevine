@@ -279,6 +279,7 @@ async fn unrecognized_method<B: Send>(
     Ok(inner)
 }
 
+#[allow(clippy::too_many_lines)]
 fn routes(config: &Config) -> Router {
     let router = Router::new()
         .ruma_route(client_server::get_supported_versions_route)

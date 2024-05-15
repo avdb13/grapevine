@@ -518,6 +518,7 @@ pub(crate) async fn joined_members_route(
     Ok(joined_members::v3::Response { joined })
 }
 
+#[allow(clippy::too_many_lines)]
 async fn join_room_by_id_helper(
     sender_user: Option<&UserId>,
     room_id: &RoomId,
@@ -1200,6 +1201,7 @@ async fn validate_and_add_event_id(
     Ok((event_id, value))
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn invite_helper(
     sender_user: &UserId,
     user_id: &UserId,

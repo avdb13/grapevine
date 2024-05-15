@@ -123,6 +123,7 @@ pub(crate) async fn get_room_visibility_route(
     })
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn get_public_rooms_filtered_helper(
     server: Option<&ServerName>,
     limit: Option<UInt>,

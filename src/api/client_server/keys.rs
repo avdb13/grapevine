@@ -256,6 +256,7 @@ pub(crate) async fn get_key_changes_route(
     })
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
     sender_user: Option<&UserId>,
     device_keys_input: &BTreeMap<OwnedUserId, Vec<OwnedDeviceId>>,
