@@ -81,7 +81,7 @@ impl Service {
                 .roomid_spacechunk_cache
                 .lock()
                 .await
-                .get_mut(&current_room.to_owned())
+                .get_mut(&current_room.clone())
                 .as_ref()
             {
                 if let Some(cached) = cached {
@@ -202,7 +202,7 @@ impl Service {
                     .send_federation_request(
                         server,
                         federation::space::get_hierarchy::v1::Request {
-                            room_id: current_room.to_owned(),
+                            room_id: current_room.clone(),
                             suggested_only,
                         },
                     )

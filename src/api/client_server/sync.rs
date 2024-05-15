@@ -82,7 +82,7 @@ pub(crate) async fn sync_events_route(
         Entry::Vacant(v) => {
             let (tx, rx) = tokio::sync::watch::channel(None);
 
-            v.insert((body.since.to_owned(), rx.clone()));
+            v.insert((body.since.clone(), rx.clone()));
 
             tokio::spawn(sync_helper_wrapper(
                 sender_user.clone(),

@@ -191,7 +191,7 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
                 self.global.insert(b"keypair", &keypair)?;
                 Ok::<_, Error>(keypair)
             },
-            |s| Ok(s.to_vec()),
+            |s| Ok(s.clone()),
         )?;
 
         let mut parts = keypair_bytes.splitn(2, |&b| b == 0xff);

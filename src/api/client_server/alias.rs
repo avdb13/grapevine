@@ -121,7 +121,7 @@ pub(crate) async fn get_alias_helper(
             .send_federation_request(
                 room_alias.server_name(),
                 federation::query::get_room_information::v1::Request {
-                    room_alias: room_alias.to_owned(),
+                    room_alias: room_alias.clone(),
                 },
             )
             .await?;

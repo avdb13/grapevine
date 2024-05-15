@@ -1180,7 +1180,7 @@ impl Service {
                 .roomid_mutex_federation
                 .write()
                 .await
-                .entry(room_id.to_owned())
+                .entry(room_id.clone())
                 .or_default(),
         );
         let mutex_lock = mutex.lock().await;

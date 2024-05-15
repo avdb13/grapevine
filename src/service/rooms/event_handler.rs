@@ -99,7 +99,7 @@ impl Service {
 
         // 1. Skip the PDU if we already have it as a timeline event
         if let Some(pdu_id) = services().rooms.timeline.get_pdu_id(event_id)? {
-            return Ok(Some(pdu_id.to_vec()));
+            return Ok(Some(pdu_id.clone()));
         }
 
         let create_event = services()

@@ -91,7 +91,7 @@ pub(crate) async fn get_backup_info_route(
         etag: services()
             .key_backups
             .get_etag(sender_user, &body.version)?,
-        version: body.version.to_owned(),
+        version: body.version.clone(),
     })
 }
 

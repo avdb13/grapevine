@@ -727,7 +727,7 @@ pub(crate) async fn send_transaction_message_route(
                 .roomid_mutex_federation
                 .write()
                 .await
-                .entry(room_id.to_owned())
+                .entry(room_id.clone())
                 .or_default(),
         );
         let mutex_lock = mutex.lock().await;
@@ -1374,7 +1374,7 @@ pub(crate) async fn create_join_event_template_route(
             .roomid_mutex_state
             .write()
             .await
-            .entry(body.room_id.to_owned())
+            .entry(body.room_id.clone())
             .or_default(),
     );
     let state_lock = mutex_state.lock().await;

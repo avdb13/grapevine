@@ -409,7 +409,7 @@ impl Service {
         )?;
         for ((outgoing_kind, event), key) in requests.into_iter().zip(keys) {
             self.sender
-                .send((outgoing_kind.to_owned(), event, key))
+                .send((outgoing_kind.clone(), event, key))
                 .unwrap();
         }
 

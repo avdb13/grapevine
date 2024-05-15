@@ -230,7 +230,7 @@ impl Service {
                                 .roomid_mutex_state
                                 .write()
                                 .await
-                                .entry(grapevine_room.to_owned())
+                                .entry(grapevine_room.clone())
                                 .or_default(),
                         );
 
@@ -1273,7 +1273,7 @@ impl Service {
 
             // Set power level
             let mut users = BTreeMap::new();
-            users.insert(grapevine_user.to_owned(), 100.into());
+            users.insert(grapevine_user.clone(), 100.into());
             users.insert(user_id.to_owned(), 100.into());
 
             services()
