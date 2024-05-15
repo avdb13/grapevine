@@ -353,7 +353,7 @@ pub(crate) async fn change_password_route(
         for id in services()
             .users
             .all_device_ids(sender_user)
-            .filter_map(|id| id.ok())
+            .filter_map(Result::ok)
             .filter(|id| id != sender_device)
         {
             services().users.remove_device(sender_user, &id)?;

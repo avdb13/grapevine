@@ -9,7 +9,7 @@ use ruma::{
         },
     },
     events::{push_rules::PushRulesEvent, GlobalAccountDataEventType},
-    push::{InsertPushRuleError, RemovePushRuleError},
+    push::{AnyPushRuleRef, InsertPushRuleError, RemovePushRuleError},
 };
 
 /// # `GET /_matrix/client/r0/pushrules`
@@ -281,7 +281,7 @@ pub(crate) async fn get_pushrule_enabled_route(
     let global = account_data.content.global;
     let enabled = global
         .get(body.kind.clone(), &body.rule_id)
-        .map(|r| r.enabled())
+        .map(AnyPushRuleRef::enabled)
         .ok_or(Error::BadRequest(
             ErrorKind::NotFound,
             "Push rule not found.",

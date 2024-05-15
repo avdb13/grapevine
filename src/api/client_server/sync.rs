@@ -217,7 +217,7 @@ async fn sync_helper(
         services()
             .users
             .keys_changed(sender_user.as_ref(), since, None)
-            .filter_map(|r| r.ok()),
+            .filter_map(Result::ok),
     );
 
     let all_joined_rooms = services()
@@ -461,7 +461,7 @@ async fn sync_helper(
             .rooms
             .user
             .get_shared_rooms(vec![sender_user.clone(), user_id.clone()])?
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
             .filter_map(|other_room_id| {
                 Some(
                     services()
@@ -639,7 +639,7 @@ async fn load_joined_room(
                         .rooms
                         .timeline
                         .all_pdus(sender_user, room_id)?
-                        .filter_map(|pdu| pdu.ok()) // Ignore all broken pdus
+                        .filter_map(Result::ok) // Ignore all broken pdus
                         .filter(|(_, pdu)| pdu.kind == TimelineEventType::RoomMember)
                         .map(|(_, pdu)| {
                             let content: RoomMemberEventContent =
@@ -674,7 +674,7 @@ async fn load_joined_room(
                             }
                         })
                         // Filter out buggy users
-                        .filter_map(|u| u.ok())
+                        .filter_map(Result::ok)
                         // Filter for possible heroes
                         .flatten()
                     {
@@ -978,7 +978,7 @@ async fn load_joined_room(
         services()
             .users
             .keys_changed(room_id.as_ref(), since, None)
-            .filter_map(|r| r.ok()),
+            .filter_map(Result::ok),
     );
 
     let notification_count = send_notification_counts
@@ -1018,7 +1018,7 @@ async fn load_joined_room(
         .edus
         .read_receipt
         .readreceipts_since(room_id, since)
-        .filter_map(|r| r.ok()) // Filter out buggy events
+        .filter_map(Result::ok) // Filter out buggy events
         .map(|(_, _, v)| v)
         .collect();
 
@@ -1139,7 +1139,7 @@ fn share_encrypted_room(
         .rooms
         .user
         .get_shared_rooms(vec![sender_user.to_owned(), user_id.to_owned()])?
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .filter(|room_id| room_id != ignore_room)
         .filter_map(|other_room_id| {
             Some(
@@ -1192,7 +1192,7 @@ pub(crate) async fn sync_events_v4_route(
         .rooms
         .state_cache
         .rooms_joined(&sender_user)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
     if body.extensions.to_device.enabled.unwrap_or(false) {
@@ -1211,7 +1211,7 @@ pub(crate) async fn sync_events_v4_route(
             services()
                 .users
                 .keys_changed(sender_user.as_ref(), globalsince, None)
-                .filter_map(|r| r.ok()),
+                .filter_map(Result::ok),
         );
 
         for room_id in &all_joined_rooms {
@@ -1352,7 +1352,7 @@ pub(crate) async fn sync_events_v4_route(
                 services()
                     .users
                     .keys_changed(room_id.as_ref(), globalsince, None)
-                    .filter_map(|r| r.ok()),
+                    .filter_map(Result::ok),
             );
         }
         for user_id in left_encrypted_users {
@@ -1360,7 +1360,7 @@ pub(crate) async fn sync_events_v4_route(
                 .rooms
                 .user
                 .get_shared_rooms(vec![sender_user.clone(), user_id.clone()])?
-                .filter_map(|r| r.ok())
+                .filter_map(Result::ok)
                 .filter_map(|other_room_id| {
                     Some(
                         services()
@@ -1552,7 +1552,7 @@ pub(crate) async fn sync_events_v4_route(
             .rooms
             .state_cache
             .room_members(room_id)
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
             .filter(|member| member != &sender_user)
             .filter_map(|member| {
                 services()

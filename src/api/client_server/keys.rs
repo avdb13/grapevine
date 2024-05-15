@@ -226,14 +226,14 @@ pub(crate) async fn get_key_changes_route(
                         .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Invalid `to`."))?,
                 ),
             )
-            .filter_map(|r| r.ok()),
+            .filter_map(Result::ok),
     );
 
     for room_id in services()
         .rooms
         .state_cache
         .rooms_joined(sender_user)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
     {
         device_list_updates.extend(
             services()
@@ -247,7 +247,7 @@ pub(crate) async fn get_key_changes_route(
                         Error::BadRequest(ErrorKind::InvalidParam, "Invalid `to`.")
                     })?),
                 )
-                .filter_map(|r| r.ok()),
+                .filter_map(Result::ok),
         );
     }
     Ok(get_key_changes::v3::Response {

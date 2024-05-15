@@ -55,7 +55,7 @@ pub(crate) async fn search_users_route(
             .rooms
             .state_cache
             .rooms_joined(&user_id)
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
             .any(|room| {
                 services()
                     .rooms

@@ -590,7 +590,7 @@ impl Service {
                     .rooms
                     .alias
                     .local_aliases_for_room(&pdu.room_id)
-                    .filter_map(|r| r.ok())
+                    .filter_map(Result::ok)
                     .any(|room_alias| aliases.is_match(room_alias.as_str()))
             };
 
@@ -838,7 +838,7 @@ impl Service {
                                 .rooms
                                 .state_cache
                                 .room_members(room_id)
-                                .filter_map(|m| m.ok())
+                                .filter_map(Result::ok)
                                 .filter(|m| m.server_name() == server_name)
                                 .filter(|m| m != target)
                                 .count();
@@ -864,7 +864,7 @@ impl Service {
                                 .rooms
                                 .state_cache
                                 .room_members(room_id)
-                                .filter_map(|m| m.ok())
+                                .filter_map(Result::ok)
                                 .filter(|m| m.server_name() == server_name)
                                 .filter(|m| m != target)
                                 .count();
@@ -965,7 +965,7 @@ impl Service {
             .rooms
             .state_cache
             .room_servers(room_id)
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
             .collect();
 
         // In case we are kicking or banning a user, we need to inform their server of the change

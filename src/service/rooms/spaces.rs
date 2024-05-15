@@ -63,13 +63,13 @@ impl Service {
         let mut results = Vec::new();
 
         while let Some(current_room) = {
-            while stack.last().map_or(false, |s| s.is_empty()) {
+            while stack.last().map_or(false, Vec::is_empty) {
                 stack.pop();
             }
             if stack.is_empty() {
                 None
             } else {
-                stack.last_mut().and_then(|s| s.pop())
+                stack.last_mut().and_then(Vec::pop)
             }
         } {
             rooms_in_path.push(current_room.clone());

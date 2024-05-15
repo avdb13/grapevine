@@ -56,7 +56,7 @@ impl service::globals::Data for KeyValueDatabase {
             .rooms
             .state_cache
             .rooms_joined(user_id)
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
         {
             let short_roomid = services()
                 .rooms

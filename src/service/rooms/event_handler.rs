@@ -434,9 +434,7 @@ impl Service {
 
             // The original create event must be in the auth events
             if !matches!(
-                auth_events
-                    .get(&(StateEventType::RoomCreate, String::new()))
-                    .map(|a| a.as_ref()),
+                auth_events.get(&(StateEventType::RoomCreate, String::new())),
                 Some(_) | None
             ) {
                 return Err(Error::BadRequest(
@@ -727,9 +725,7 @@ impl Service {
                         .get_shortstatekey(&StateEventType::RoomCreate, "")?
                         .expect("Room exists");
 
-                    if state.get(&create_shortstatekey).map(|id| id.as_ref())
-                        != Some(&create_event.event_id)
-                    {
+                    if state.get(&create_shortstatekey) != Some(&create_event.event_id) {
                         return Err(Error::bad_database(
                             "Incoming event refers to wrong create event.",
                         ));

@@ -1042,7 +1042,7 @@ pub(crate) async fn get_backfill_route(
         .take(limit.try_into().unwrap());
 
     let events = all_events
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .filter(|(_, e)| {
             matches!(
                 services().rooms.state_accessor.server_can_see_event(
@@ -1563,7 +1563,7 @@ async fn create_join_event(
         .rooms
         .state_cache
         .room_servers(room_id)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .filter(|server| &**server != services().globals.server_name());
 
     services().sending.send_pdu(servers, &pdu_id)?;
@@ -1767,7 +1767,7 @@ pub(crate) async fn get_devices_route(
         devices: services()
             .users
             .all_devices_metadata(&body.user_id)
-            .filter_map(|r| r.ok())
+            .filter_map(Result::ok)
             .filter_map(|metadata| {
                 Some(UserDevice {
                     keys: services()

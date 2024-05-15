@@ -128,7 +128,7 @@ impl Service {
         // Retry requests we could not finish yet
         let mut initial_transactions = HashMap::<OutgoingKind, Vec<SendingEventType>>::new();
 
-        for (key, outgoing_kind, event) in self.db.active_requests().filter_map(|r| r.ok()) {
+        for (key, outgoing_kind, event) in self.db.active_requests().filter_map(Result::ok) {
             let entry = initial_transactions
                 .entry(outgoing_kind.clone())
                 .or_default();
@@ -158,7 +158,7 @@ impl Service {
                             self.db.delete_all_active_requests_for(&outgoing_kind)?;
 
                             // Find events that have been added since starting the last request
-                            let new_events = self.db.queued_requests(&outgoing_kind).filter_map(|r| r.ok()).take(30).collect::<Vec<_>>();
+                            let new_events = self.db.queued_requests(&outgoing_kind).filter_map(Result::ok).take(30).collect::<Vec<_>>();
 
                             if new_events.is_empty() {
                                 current_transaction_status.remove(&outgoing_kind);
@@ -244,7 +244,7 @@ impl Service {
             for (_, e) in self
                 .db
                 .active_requests_for(outgoing_kind)
-                .filter_map(|r| r.ok())
+                .filter_map(Result::ok)
             {
                 events.push(e);
             }
@@ -281,7 +281,7 @@ impl Service {
                 services()
                     .users
                     .keys_changed(room_id.as_ref(), since, None)
-                    .filter_map(|r| r.ok())
+                    .filter_map(Result::ok)
                     .filter(|user_id| user_id.server_name() == services().globals.server_name()),
             );
 

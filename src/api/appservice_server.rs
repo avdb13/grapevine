@@ -30,7 +30,7 @@ where
             &[MatrixVersion::V1_0],
         )
         .unwrap()
-        .map(|body| body.freeze());
+        .map(BytesMut::freeze);
 
     let mut parts = http_request.uri().clone().into_parts();
     let old_path_and_query = parts.path_and_query.unwrap().as_str().to_owned();

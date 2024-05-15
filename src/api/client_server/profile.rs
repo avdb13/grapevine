@@ -34,7 +34,7 @@ pub(crate) async fn set_displayname_route(
         .rooms
         .state_cache
         .rooms_joined(sender_user)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .map(|room_id| {
             Ok::<_, Error>((
                 PduBuilder {
@@ -70,7 +70,7 @@ pub(crate) async fn set_displayname_route(
                 room_id,
             ))
         })
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .collect();
 
     for (pdu_builder, room_id) in all_rooms_joined {
@@ -151,7 +151,7 @@ pub(crate) async fn set_avatar_url_route(
         .rooms
         .state_cache
         .rooms_joined(sender_user)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .map(|room_id| {
             Ok::<_, Error>((
                 PduBuilder {
@@ -187,7 +187,7 @@ pub(crate) async fn set_avatar_url_route(
                 room_id,
             ))
         })
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
         .collect();
 
     for (pdu_builder, room_id) in all_joined_rooms {

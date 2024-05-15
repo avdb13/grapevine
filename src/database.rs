@@ -780,7 +780,7 @@ impl KeyValueDatabase {
                 }
 
                 // Force E2EE device list updates so we can send them over federation
-                for user_id in services().users.iter().filter_map(|r| r.ok()) {
+                for user_id in services().users.iter().filter_map(Result::ok) {
                     services().users.mark_device_key_update(&user_id)?;
                 }
 

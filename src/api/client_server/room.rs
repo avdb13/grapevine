@@ -565,7 +565,7 @@ pub(crate) async fn get_room_aliases_route(
             .rooms
             .alias
             .local_aliases_for_room(&body.room_id)
-            .filter_map(|a| a.ok())
+            .filter_map(Result::ok)
             .collect(),
     })
 }
@@ -814,7 +814,7 @@ pub(crate) async fn upgrade_room_route(
         .rooms
         .alias
         .local_aliases_for_room(&body.room_id)
-        .filter_map(|r| r.ok())
+        .filter_map(Result::ok)
     {
         services()
             .rooms
