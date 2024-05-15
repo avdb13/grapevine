@@ -1853,9 +1853,9 @@ pub(crate) async fn get_profile_information_route(
     }
 
     Ok(get_profile_information::v1::Response {
-        blurhash,
         displayname,
         avatar_url,
+        blurhash,
     })
 }
 

@@ -325,8 +325,8 @@ where
             sender_user,
             sender_device,
             sender_servername,
-            appservice_info,
             json_body,
+            appservice_info,
         })
     }
 }
