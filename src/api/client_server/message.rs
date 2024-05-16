@@ -169,9 +169,11 @@ pub(crate) async fn get_message_events_route(
                 .collect();
 
             for (_, event) in &events_after {
-                /* TODO: Remove this when these are resolved:
-                 * https://github.com/vector-im/element-android/issues/3417
-                 * https://github.com/vector-im/element-web/issues/21034
+                // * https://github.com/vector-im/element-android/issues/3417
+                // * https://github.com/vector-im/element-web/issues/21034
+                //
+                // TODO: When the above issues are resolved, uncomment this:
+                /*
                 if !services().rooms.lazy_loading.lazy_load_was_sent_before(
                     sender_user,
                     sender_device,
@@ -181,6 +183,7 @@ pub(crate) async fn get_message_events_route(
                     lazy_loaded.insert(event.sender.clone());
                 }
                 */
+                // And delete this line:
                 lazy_loaded.insert(event.sender.clone());
             }
 
@@ -218,9 +221,11 @@ pub(crate) async fn get_message_events_route(
                 .collect();
 
             for (_, event) in &events_before {
-                /* TODO: Remove this when these are resolved:
-                 * https://github.com/vector-im/element-android/issues/3417
-                 * https://github.com/vector-im/element-web/issues/21034
+                // * https://github.com/vector-im/element-android/issues/3417
+                // * https://github.com/vector-im/element-web/issues/21034
+                //
+                // TODO: When the above issues are resolved, uncomment this:
+                /*
                 if !services().rooms.lazy_loading.lazy_load_was_sent_before(
                     sender_user,
                     sender_device,
@@ -230,6 +235,7 @@ pub(crate) async fn get_message_events_route(
                     lazy_loaded.insert(event.sender.clone());
                 }
                 */
+                // And delete this line:
                 lazy_loaded.insert(event.sender.clone());
             }
 
@@ -257,7 +263,10 @@ pub(crate) async fn get_message_events_route(
         }
     }
 
-    // TODO: enable again when we are sure clients can handle it
+    // * https://github.com/vector-im/element-android/issues/3417
+    // * https://github.com/vector-im/element-web/issues/21034
+    //
+    // TODO: When the above issues are resolved, uncomment this:
     /*
     if let Some(next_token) = next_token {
         services().rooms.lazy_loading.lazy_load_mark_sent(
