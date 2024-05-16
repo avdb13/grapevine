@@ -186,34 +186,41 @@ pub(crate) async fn sync_events_route(
     }
 
     let mut left_rooms = BTreeMap::new();
-    let mut all_left_rooms = Vec::new();
-    if let AllowDenyList::Allow(allow_set) = room_filter {
-        for &room_id in allow_set {
-            if services().rooms.state_cache.is_left(&sender_user, room_id)? {
-                all_left_rooms.push(room_id.to_owned());
+    if filter.room.include_leave {
+        let mut all_left_rooms = Vec::new();
+        if let AllowDenyList::Allow(allow_set) = room_filter {
+            for &room_id in allow_set {
+                if services()
+                    .rooms
+                    .state_cache
+                    .is_left(&sender_user, room_id)?
+                {
+                    all_left_rooms.push(room_id.to_owned());
+                }
+            }
+        } else {
+            for result in services().rooms.state_cache.rooms_left(&sender_user)
+            {
+                let (room_id, _) = result?;
+                if room_filter.allowed(&room_id) {
+                    all_left_rooms.push(room_id);
+                }
             }
         }
-    } else {
-        for result in services().rooms.state_cache.rooms_left(&sender_user) {
-            let (room_id, _) = result?;
-            if room_filter.allowed(&room_id) {
-                all_left_rooms.push(room_id);
-            }
-        }
-    }
 
-    for room_id in all_left_rooms {
-        handle_left_room(
-            room_id,
-            &sender_user,
-            &mut left_rooms,
-            since,
-            &next_batch_string,
-            full_state,
-            lazy_load_enabled,
-            &compiled_filter,
-        )
-        .await?;
+        for room_id in all_left_rooms {
+            handle_left_room(
+                room_id,
+                &sender_user,
+                &mut left_rooms,
+                since,
+                &next_batch_string,
+                full_state,
+                lazy_load_enabled,
+                &compiled_filter,
+            )
+            .await?;
+        }
     }
 
     let mut invited_rooms = BTreeMap::new();
