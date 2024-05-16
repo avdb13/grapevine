@@ -667,14 +667,6 @@ pub(crate) async fn send_transaction_message_route(
 
     let pub_key_map = RwLock::new(BTreeMap::new());
 
-    // This is all the auth_events that have been recursively fetched so they don't have to be
-    // deserialized over and over again.
-    // TODO: make this persist across requests but not in a DB Tree (in globals?)
-    // TODO: This could potentially also be some sort of trie (suffix tree) like structure so
-    // that once an auth event is known it would know (using indexes maybe) all of the auth
-    // events that it references.
-    // let mut auth_cache = EventMap::new();
-
     for pdu in &body.pdus {
         let value: CanonicalJsonObject = serde_json::from_str(pdu.get()).map_err(|e| {
             warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
@@ -1492,7 +1484,6 @@ async fn create_join_event(
         ))?;
 
     let pub_key_map = RwLock::new(BTreeMap::new());
-    // let mut auth_cache = EventMap::new();
 
     // We do not add the event_id field to the pdu here because of signature and hashes checks
     let room_version_id = services().rooms.state.get_room_version(room_id)?;
