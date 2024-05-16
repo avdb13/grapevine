@@ -211,7 +211,6 @@ async fn send_state_event_for_key_helper(
                     .rooms
                     .alias
                     .resolve_local_alias(&alias)?
-                    // Make sure it's the right room
                     .filter(|room| room == room_id)
                     .is_none()
             {

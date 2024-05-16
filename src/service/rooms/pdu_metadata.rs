@@ -61,10 +61,10 @@ impl Service {
         //TODO: Fix ruma: match body.dir {
         match ruma::api::Direction::Backward {
             ruma::api::Direction::Forward => {
+                // TODO: should be relations_after
                 let events_after: Vec<_> = services()
                     .rooms
                     .pdu_metadata
-                    // TODO: should be relations_after
                     .relations_until(sender_user, room_id, target, from)?
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
@@ -91,15 +91,14 @@ impl Service {
                             .user_can_see_event(sender_user, room_id, &pdu.event_id)
                             .unwrap_or(false)
                     })
-                    // Stop at `to`
                     .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 
                 next_token = events_after.last().map(|(count, _)| count).copied();
 
+                // Reversed because relations are always most recent first
                 let events_after: Vec<_> = events_after
                     .into_iter()
-                    // relations are always most recent first
                     .rev()
                     .map(|(_, pdu)| pdu.to_message_like_event())
                     .collect();
@@ -140,7 +139,6 @@ impl Service {
                             .user_can_see_event(sender_user, room_id, &pdu.event_id)
                             .unwrap_or(false)
                     })
-                    // Stop at `to`
                     .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 

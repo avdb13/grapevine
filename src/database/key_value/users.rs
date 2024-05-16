@@ -828,9 +828,9 @@ impl service::users::Data for KeyValueDatabase {
         let mut last = prefix.clone();
         last.extend_from_slice(&until.to_be_bytes());
 
+        // Include last
         for (key, _) in self
             .todeviceid_events
-            // this includes last
             .iter_from(&last, true)
             .take_while(move |(k, _)| k.starts_with(&prefix))
             .map(|(key, _)| {

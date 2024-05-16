@@ -678,7 +678,6 @@ async fn load_joined_room(
                             }
                         })
                         .filter_map(Result::ok)
-                        // Filter for possible heroes
                         .flatten()
                     {
                         if heroes.contains(&hero) || hero == sender_user.as_str() {

@@ -165,7 +165,7 @@ pub(crate) async fn get_message_events_route(
                         .user_can_see_event(sender_user, &body.room_id, &pdu.event_id)
                         .unwrap_or(false)
                 })
-                .take_while(|&(k, _)| Some(k) != to) // Stop at `to`
+                .take_while(|&(k, _)| Some(k) != to)
                 .collect();
 
             for (_, event) in &events_after {
@@ -217,7 +217,7 @@ pub(crate) async fn get_message_events_route(
                         .user_can_see_event(sender_user, &body.room_id, &pdu.event_id)
                         .unwrap_or(false)
                 })
-                .take_while(|&(k, _)| Some(k) != to) // Stop at `to`
+                .take_while(|&(k, _)| Some(k) != to)
                 .collect();
 
             for (_, event) in &events_before {

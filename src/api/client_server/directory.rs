@@ -266,7 +266,6 @@ pub(crate) async fn get_public_rooms_filtered_helper(
                             })
                     })
                     .transpose()?
-                    // url is now an Option<String> so we must flatten
                     .flatten(),
                 join_rule: services()
                     .rooms
@@ -336,7 +335,6 @@ pub(crate) async fn get_public_rooms_filtered_helper(
                 true
             }
         })
-        // We need to collect all, so we can sort by member count
         .collect();
 
     all_rooms.sort_by(|l, r| r.num_joined_members.cmp(&l.num_joined_members));

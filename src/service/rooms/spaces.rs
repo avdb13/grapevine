@@ -371,7 +371,6 @@ impl Service {
                         .map_err(|_| Error::bad_database("Invalid room avatar event in database."))
                 })
                 .transpose()?
-                // url is now an Option<String> so we must flatten
                 .flatten(),
             join_rule: {
                 let join_rule = services()

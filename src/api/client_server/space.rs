@@ -22,9 +22,9 @@ pub(crate) async fn get_hierarchy_route(
         .try_into()
         .expect("0-100 should fit in usize");
 
+    // Plus one to skip the space room itself
     let max_depth = usize::try_from(body.max_depth.map(|x| x.min(uint!(10))).unwrap_or(uint!(3)))
         .expect("0-10 should fit in usize")
-        // Skip the space room itself
         + 1;
 
     services()
