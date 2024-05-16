@@ -44,7 +44,7 @@ pub(crate) async fn get_login_types_route(
 /// - If `device_id` is unknown: creates a new device
 /// - Returns access token that is associated with the user and device
 ///
-/// Note: You can use [`GET /_matrix/client/r0/login`](fn.get_supported_versions_route.html) to see
+/// Note: You can use [`GET /_matrix/client/r0/login`](get_login_types_route) to see
 /// supported login types.
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Response> {
@@ -255,7 +255,7 @@ pub(crate) async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logo
 /// - Forgets all to-device events
 /// - Triggers device list updates
 ///
-/// Note: This is equivalent to calling [`GET /_matrix/client/r0/logout`](fn.logout_route.html)
+/// Note: This is equivalent to calling [`GET /_matrix/client/r0/logout`](logout_route)
 /// from each device of this user.
 pub(crate) async fn logout_all_route(
     body: Ruma<logout_all::v3::Request>,

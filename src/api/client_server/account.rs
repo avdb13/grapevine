@@ -65,7 +65,7 @@ pub(crate) async fn get_register_available_route(
 ///
 /// Register an account on this homeserver.
 ///
-/// You can use [`GET /_matrix/client/r0/register/available`](fn.get_register_available_route.html)
+/// You can use [`GET /_matrix/client/r0/register/available`](get_register_available_route)
 /// to check if the user id is valid and available.
 ///
 /// - Only works if registration is enabled
