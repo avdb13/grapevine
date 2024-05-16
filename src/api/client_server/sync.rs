@@ -53,7 +53,7 @@ use tracing::{debug, error, info};
 /// not in the state at `since`
 /// - If the state we send contains a member event: Joined and invited member counts, heroes
 /// - Device list updates that happened after `since`
-/// - If there are events in the timeline we send or the user send updated his read mark: Notification counts
+/// - If there are events in the timeline we send or the user send updated their read mark: Notification counts
 /// - EDUs that are active now (read receipts, typing updates, presence)
 /// - TODO: Allow multiple sync streams to support Pantalaimon
 ///
