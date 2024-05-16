@@ -45,8 +45,11 @@ pub(crate) struct PduEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) unsigned: Option<Box<RawJsonValue>>,
     pub(crate) hashes: EventHash,
+
+    // The schema of this `RawJsonValue` is `BTreeMap<Box<ServerName>,
+    // BTreeMap<ServerSigningKeyId, String>>`
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) signatures: Option<Box<RawJsonValue>>, // BTreeMap<Box<ServerName>, BTreeMap<ServerSigningKeyId, String>>
+    pub(crate) signatures: Option<Box<RawJsonValue>>,
 }
 
 impl PduEvent {
