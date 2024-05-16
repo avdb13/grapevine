@@ -32,11 +32,11 @@ use tracing::{debug, error, info, warn};
 pub(crate) struct KeyValueDatabase {
     db: Arc<dyn KeyValueDatabaseEngine>,
 
-    //pub(crate) globals: globals::Globals,
+    // Trees "owned" by `self::key_value::globals`
     pub(super) global: Arc<dyn KvTree>,
     pub(super) server_signingkeys: Arc<dyn KvTree>,
 
-    //pub(crate) users: users::Users,
+    // Trees "owned" by `self::key_value::users`
     pub(super) userid_password: Arc<dyn KvTree>,
     pub(super) userid_displayname: Arc<dyn KvTree>,
     pub(super) userid_avatarurl: Arc<dyn KvTree>,
@@ -58,12 +58,12 @@ pub(crate) struct KeyValueDatabase {
 
     pub(super) todeviceid_events: Arc<dyn KvTree>, // ToDeviceId = UserId + DeviceId + Count
 
-    //pub(crate) uiaa: uiaa::Uiaa,
+    // Trees "owned" by `self::key_value::uiaa`
     pub(super) userdevicesessionid_uiaainfo: Arc<dyn KvTree>, // User-interactive authentication
     pub(super) userdevicesessionid_uiaarequest:
         RwLock<BTreeMap<(OwnedUserId, OwnedDeviceId, String), CanonicalJsonValue>>,
 
-    //pub(crate) edus: RoomEdus,
+    // Trees "owned" by `self::key_value::rooms::edus`
     pub(super) readreceiptid_readreceipt: Arc<dyn KvTree>, // ReadReceiptId = RoomId + Count + UserId
     pub(super) roomuserid_privateread: Arc<dyn KvTree>, // RoomUserId = Room + User, PrivateRead = Count
     pub(super) roomuserid_lastprivatereadupdate: Arc<dyn KvTree>, // LastPrivateReadUpdate = Count
@@ -74,7 +74,7 @@ pub(crate) struct KeyValueDatabase {
     #[allow(dead_code)]
     pub(super) userid_lastpresenceupdate: Arc<dyn KvTree>, // LastPresenceUpdate = Count
 
-    //pub(crate) rooms: rooms::Rooms,
+    // Trees "owned" by `self::key_value::rooms`
     pub(super) pduid_pdu: Arc<dyn KvTree>, // PduId = ShortRoomId + Count
     pub(super) eventid_pduid: Arc<dyn KvTree>,
     pub(super) roomid_pduleaves: Arc<dyn KvTree>,
@@ -137,30 +137,31 @@ pub(crate) struct KeyValueDatabase {
     /// RoomId + EventId -> Parent PDU EventId.
     pub(super) referencedevents: Arc<dyn KvTree>,
 
-    //pub(crate) account_data: account_data::AccountData,
+    // Trees "owned" by `self::key_value::account_data`
     pub(super) roomuserdataid_accountdata: Arc<dyn KvTree>, // RoomUserDataId = Room + User + Count + Type
     pub(super) roomusertype_roomuserdataid: Arc<dyn KvTree>, // RoomUserType = Room + User + Type
 
-    //pub(crate) media: media::Media,
+    // Trees "owned" by `self::key_value::media`
     pub(super) mediaid_file: Arc<dyn KvTree>, // MediaId = MXC + WidthHeight + ContentDisposition + ContentType
-    //pub(crate) key_backups: key_backups::KeyBackups,
+    // Trees "owned" by `self::key_value::key_backups`
     pub(super) backupid_algorithm: Arc<dyn KvTree>, // BackupId = UserId + Version(Count)
     pub(super) backupid_etag: Arc<dyn KvTree>,      // BackupId = UserId + Version(Count)
     pub(super) backupkeyid_backup: Arc<dyn KvTree>, // BackupKeyId = UserId + Version + RoomId + SessionId
 
-    //pub(crate) transaction_ids: transaction_ids::TransactionIds,
+    // Trees "owned" by `self::key_value::transaction_ids`
     pub(super) userdevicetxnid_response: Arc<dyn KvTree>, // Response can be empty (/sendToDevice) or the event id (/send)
-    //pub(crate) sending: sending::Sending,
+    // Trees "owned" by `self::key_value::sending`
     pub(super) servername_educount: Arc<dyn KvTree>, // EduCount: Count of last EDU sync
     pub(super) servernameevent_data: Arc<dyn KvTree>, // ServernameEvent = (+ / $)SenderKey / ServerName / UserId + PduId / Id (for edus), Data = EDU content
     pub(super) servercurrentevent_data: Arc<dyn KvTree>, // ServerCurrentEvents = (+ / $)ServerName / UserId + PduId / Id (for edus), Data = EDU content
 
-    //pub(crate) appservice: appservice::Appservice,
+    // Trees "owned" by `self::key_value::appservice`
     pub(super) id_appserviceregistrations: Arc<dyn KvTree>,
 
-    //pub(crate) pusher: pusher::PushData,
+    // Trees "owned" by `self::key_value::pusher`
     pub(super) senderkey_pusher: Arc<dyn KvTree>,
 
+    // Uncategorized trees
     pub(super) pdu_cache: Mutex<LruCache<OwnedEventId, Arc<PduEvent>>>,
     pub(super) shorteventid_cache: Mutex<LruCache<u64, Arc<EventId>>>,
     pub(super) auth_chain_cache: Mutex<LruCache<Vec<u64>, Arc<HashSet<u64>>>>,
