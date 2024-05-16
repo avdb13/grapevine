@@ -22,9 +22,12 @@ use ruma::{
         uiaa::UiaaResponse,
     },
     events::{
+        receipt::ReceiptEventContent,
         room::member::{MembershipState, RoomMemberEventContent},
-        StateEventType, TimelineEventType,
+        typing::TypingEventContent,
+        StateEventType, StaticEventContent, TimelineEventType,
     },
+    serde::Raw,
     uint, DeviceId, EventId, JsOption, OwnedRoomId, OwnedUserId, RoomId, UInt,
     UserId,
 };
@@ -933,39 +936,38 @@ async fn load_joined_room(
     let room_events: Vec<_> =
         timeline_pdus.iter().map(|(_, pdu)| pdu.to_sync_room_event()).collect();
 
-    let edus = if filter.room.ephemeral.room_allowed(room_id) {
-        let mut edus: Vec<_> = services()
-            .rooms
-            .edus
-            .read_receipt
-            .readreceipts_since(room_id, since)
-            .filter_map(Result::ok)
-            .map(|(_, _, v)| v)
-            .collect();
-
-        if services().rooms.edus.typing.last_typing_update(room_id).await?
-            > since
-        {
-            edus.push(
-                serde_json::from_str(
-                    &serde_json::to_string(
-                        &services()
-                            .rooms
-                            .edus
-                            .typing
-                            .typings_all(room_id)
-                            .await?,
-                    )
-                    .expect("event is valid, we just created it"),
-                )
-                .expect("event is valid, we just created it"),
+    let mut edus = vec![];
+    if filter.room.ephemeral.room_allowed(room_id) {
+        // We only filter on event type for ephemeral events because none of the
+        // other filter parameters apply to the specific ephemeral
+        // events we're generating (m.room.receipt and m.room.typing).
+        // If we add fields to either of these events, or start
+        // generating other event types in the future, we need to
+        // reevaluate this.
+        if filter.room.ephemeral.type_allowed(ReceiptEventContent::TYPE) {
+            edus.extend(
+                services()
+                    .rooms
+                    .edus
+                    .read_receipt
+                    .readreceipts_since(room_id, since)
+                    .filter_map(Result::ok)
+                    .map(|(_, _, v)| v),
             );
         }
 
-        edus
-    } else {
-        vec![]
-    };
+        if filter.room.ephemeral.type_allowed(TypingEventContent::TYPE)
+            && services().rooms.edus.typing.last_typing_update(room_id).await?
+                > since
+        {
+            let edu = services().rooms.edus.typing.typings_all(room_id).await?;
+            edus.push(
+                Raw::new(&edu)
+                    .expect("event is valid, we just created it")
+                    .cast(),
+            );
+        }
+    }
 
     let account_data_events = if filter.room.account_data.room_allowed(room_id)
     {
