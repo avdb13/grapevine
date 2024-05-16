@@ -10,7 +10,9 @@ use ruma::{
     events::{
         room::{
             avatar::RoomAvatarEventContent,
-            history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
+            history_visibility::{
+                HistoryVisibility, RoomHistoryVisibilityEventContent,
+            },
             member::{MembershipState, RoomMemberEventContent},
             name::RoomNameEventContent,
             power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
@@ -18,7 +20,8 @@ use ruma::{
         StateEventType,
     },
     state_res::Event,
-    EventId, JsOption, OwnedServerName, OwnedUserId, RoomId, ServerName, UserId,
+    EventId, JsOption, OwnedServerName, OwnedUserId, RoomId, ServerName,
+    UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::MutexGuard;
@@ -28,7 +31,8 @@ use crate::{service::pdu::PduBuilder, services, Error, PduEvent, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
-    pub(crate) server_visibility_cache: Mutex<LruCache<(OwnedServerName, u64), bool>>,
+    pub(crate) server_visibility_cache:
+        Mutex<LruCache<(OwnedServerName, u64), bool>>,
     pub(crate) user_visibility_cache: Mutex<LruCache<(OwnedUserId, u64), bool>>,
 }
 
@@ -50,7 +54,8 @@ impl Service {
         self.db.state_full(shortstatehash).await
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     #[tracing::instrument(skip(self))]
     pub(crate) fn state_get_id(
         &self,
@@ -61,7 +66,8 @@ impl Service {
         self.db.state_get_id(shortstatehash, event_type, state_key)
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     pub(crate) fn state_get(
         &self,
         shortstatehash: u64,
@@ -72,7 +78,11 @@ impl Service {
     }
 
     /// Get membership for given user in state
-    fn user_membership(&self, shortstatehash: u64, user_id: &UserId) -> Result<MembershipState> {
+    fn user_membership(
+        &self,
+        shortstatehash: u64,
+        user_id: &UserId,
+    ) -> Result<MembershipState> {
         self.state_get(
             shortstatehash,
             &StateEventType::RoomMember,
@@ -81,7 +91,11 @@ impl Service {
         .map_or(Ok(MembershipState::Leave), |s| {
             serde_json::from_str(s.content.get())
                 .map(|c: RoomMemberEventContent| c.membership)
-                .map_err(|_| Error::bad_database("Invalid room membership event in database."))
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Invalid room membership event in database.",
+                    )
+                })
         })
     }
 
@@ -123,12 +137,20 @@ impl Service {
         }
 
         let history_visibility = self
-            .state_get(shortstatehash, &StateEventType::RoomHistoryVisibility, "")?
+            .state_get(
+                shortstatehash,
+                &StateEventType::RoomHistoryVisibility,
+                "",
+            )?
             .map_or(Ok(HistoryVisibility::Shared), |s| {
                 serde_json::from_str(s.content.get())
-                    .map(|c: RoomHistoryVisibilityEventContent| c.history_visibility)
+                    .map(|c: RoomHistoryVisibilityEventContent| {
+                        c.history_visibility
+                    })
                     .map_err(|_| {
-                        Error::bad_database("Invalid history visibility event in database.")
+                        Error::bad_database(
+                            "Invalid history visibility event in database.",
+                        )
                     })
             })?;
 
@@ -140,14 +162,20 @@ impl Service {
             .filter(|member| member.server_name() == origin);
 
         let visibility = match history_visibility {
-            HistoryVisibility::WorldReadable | HistoryVisibility::Shared => true,
+            HistoryVisibility::WorldReadable | HistoryVisibility::Shared => {
+                true
+            }
             HistoryVisibility::Invited => {
-                // Allow if any member on requesting server was AT LEAST invited, else deny
-                current_server_members.any(|member| self.user_was_invited(shortstatehash, &member))
+                // Allow if any member on requesting server was AT LEAST
+                // invited, else deny
+                current_server_members.any(|member| {
+                    self.user_was_invited(shortstatehash, &member)
+                })
             }
             HistoryVisibility::Joined => {
                 // Allow if any member on requested server was joined, else deny
-                current_server_members.any(|member| self.user_was_joined(shortstatehash, &member))
+                current_server_members
+                    .any(|member| self.user_was_joined(shortstatehash, &member))
             }
             _ => {
                 error!("Unknown history visibility {history_visibility}");
@@ -185,15 +213,24 @@ impl Service {
             return Ok(*visibility);
         }
 
-        let currently_member = services().rooms.state_cache.is_joined(user_id, room_id)?;
+        let currently_member =
+            services().rooms.state_cache.is_joined(user_id, room_id)?;
 
         let history_visibility = self
-            .state_get(shortstatehash, &StateEventType::RoomHistoryVisibility, "")?
+            .state_get(
+                shortstatehash,
+                &StateEventType::RoomHistoryVisibility,
+                "",
+            )?
             .map_or(Ok(HistoryVisibility::Shared), |s| {
                 serde_json::from_str(s.content.get())
-                    .map(|c: RoomHistoryVisibilityEventContent| c.history_visibility)
+                    .map(|c: RoomHistoryVisibilityEventContent| {
+                        c.history_visibility
+                    })
                     .map_err(|_| {
-                        Error::bad_database("Invalid history visibility event in database.")
+                        Error::bad_database(
+                            "Invalid history visibility event in database.",
+                        )
                     })
             })?;
 
@@ -201,7 +238,8 @@ impl Service {
             HistoryVisibility::WorldReadable => true,
             HistoryVisibility::Shared => currently_member,
             HistoryVisibility::Invited => {
-                // Allow if any member on requesting server was AT LEAST invited, else deny
+                // Allow if any member on requesting server was AT LEAST
+                // invited, else deny
                 self.user_was_invited(shortstatehash, user_id)
             }
             HistoryVisibility::Joined => {
@@ -230,23 +268,36 @@ impl Service {
         user_id: &UserId,
         room_id: &RoomId,
     ) -> Result<bool> {
-        let currently_member = services().rooms.state_cache.is_joined(user_id, room_id)?;
+        let currently_member =
+            services().rooms.state_cache.is_joined(user_id, room_id)?;
 
         let history_visibility = self
-            .room_state_get(room_id, &StateEventType::RoomHistoryVisibility, "")?
+            .room_state_get(
+                room_id,
+                &StateEventType::RoomHistoryVisibility,
+                "",
+            )?
             .map_or(Ok(HistoryVisibility::Shared), |s| {
                 serde_json::from_str(s.content.get())
-                    .map(|c: RoomHistoryVisibilityEventContent| c.history_visibility)
+                    .map(|c: RoomHistoryVisibilityEventContent| {
+                        c.history_visibility
+                    })
                     .map_err(|_| {
-                        Error::bad_database("Invalid history visibility event in database.")
+                        Error::bad_database(
+                            "Invalid history visibility event in database.",
+                        )
                     })
             })?;
 
-        Ok(currently_member || history_visibility == HistoryVisibility::WorldReadable)
+        Ok(currently_member
+            || history_visibility == HistoryVisibility::WorldReadable)
     }
 
     /// Returns the state hash for this pdu.
-    pub(crate) fn pdu_shortstatehash(&self, event_id: &EventId) -> Result<Option<u64>> {
+    pub(crate) fn pdu_shortstatehash(
+        &self,
+        event_id: &EventId,
+    ) -> Result<Option<u64>> {
         self.db.pdu_shortstatehash(event_id)
     }
 
@@ -259,7 +310,8 @@ impl Service {
         self.db.room_state_full(room_id).await
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     #[tracing::instrument(skip(self))]
     pub(crate) fn room_state_get_id(
         &self,
@@ -270,7 +322,8 @@ impl Service {
         self.db.room_state_get_id(room_id, event_type, state_key)
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     #[tracing::instrument(skip(self))]
     pub(crate) fn room_state_get(
         &self,
@@ -282,26 +335,39 @@ impl Service {
     }
 
     pub(crate) fn get_name(&self, room_id: &RoomId) -> Result<Option<String>> {
-        self.room_state_get(room_id, &StateEventType::RoomName, "")?
-            .map_or(Ok(None), |s| {
+        self.room_state_get(room_id, &StateEventType::RoomName, "")?.map_or(
+            Ok(None),
+            |s| {
                 serde_json::from_str(s.content.get())
                     .map(|c: RoomNameEventContent| Some(c.name))
                     .map_err(|e| {
                         error!(
-                            "Invalid room name event in database for room {}. {}",
+                            "Invalid room name event in database for room {}. \
+                             {}",
                             room_id, e
                         );
-                        Error::bad_database("Invalid room name event in database.")
+                        Error::bad_database(
+                            "Invalid room name event in database.",
+                        )
                     })
-            })
+            },
+        )
     }
 
-    pub(crate) fn get_avatar(&self, room_id: &RoomId) -> Result<JsOption<RoomAvatarEventContent>> {
-        self.room_state_get(room_id, &StateEventType::RoomAvatar, "")?
-            .map_or(Ok(JsOption::Undefined), |s| {
-                serde_json::from_str(s.content.get())
-                    .map_err(|_| Error::bad_database("Invalid room avatar event in database."))
-            })
+    pub(crate) fn get_avatar(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<JsOption<RoomAvatarEventContent>> {
+        self.room_state_get(room_id, &StateEventType::RoomAvatar, "")?.map_or(
+            Ok(JsOption::Undefined),
+            |s| {
+                serde_json::from_str(s.content.get()).map_err(|_| {
+                    Error::bad_database(
+                        "Invalid room avatar event in database.",
+                    )
+                })
+            },
+        )
     }
 
     // Allowed because this function uses `services()`
@@ -313,8 +379,9 @@ impl Service {
         target_user: &UserId,
         state_lock: &MutexGuard<'_, ()>,
     ) -> bool {
-        let content = to_raw_value(&RoomMemberEventContent::new(MembershipState::Invite))
-            .expect("Event content always serializes");
+        let content =
+            to_raw_value(&RoomMemberEventContent::new(MembershipState::Invite))
+                .expect("Event content always serializes");
 
         let new_event = PduBuilder {
             event_type: ruma::events::TimelineEventType::RoomMember,
@@ -336,18 +403,23 @@ impl Service {
         room_id: &RoomId,
         user_id: &UserId,
     ) -> Result<Option<RoomMemberEventContent>> {
-        self.room_state_get(room_id, &StateEventType::RoomMember, user_id.as_str())?
-            .map_or(Ok(None), |s| {
-                serde_json::from_str(s.content.get())
-                    .map_err(|_| Error::bad_database("Invalid room member event in database."))
+        self.room_state_get(
+            room_id,
+            &StateEventType::RoomMember,
+            user_id.as_str(),
+        )?
+        .map_or(Ok(None), |s| {
+            serde_json::from_str(s.content.get()).map_err(|_| {
+                Error::bad_database("Invalid room member event in database.")
             })
+        })
     }
 
     /// Checks if a given user can redact a given event
     ///
-    /// If `federation` is `true`, it allows redaction events from any user of the same server
-    /// as the original event sender, [as required by room versions >=
-    /// v3](https://spec.matrix.org/v1.10/rooms/v11/#handling-redactions)
+    /// If `federation` is `true`, it allows redaction events from any user of
+    /// the same server as the original event sender, [as required by room
+    /// versions >= v3](https://spec.matrix.org/v1.10/rooms/v11/#handling-redactions)
     pub(crate) fn user_can_redact(
         &self,
         redacts: &EventId,
@@ -359,18 +431,23 @@ impl Service {
             .map_or_else(
                 // Falling back on m.room.create to judge power levels
                 || {
-                    if let Some(pdu) =
-                        self.room_state_get(room_id, &StateEventType::RoomCreate, "")?
-                    {
+                    if let Some(pdu) = self.room_state_get(
+                        room_id,
+                        &StateEventType::RoomCreate,
+                        "",
+                    )? {
                         Ok(pdu.sender == sender
-                            || if let Ok(Some(pdu)) = services().rooms.timeline.get_pdu(redacts) {
+                            || if let Ok(Some(pdu)) =
+                                services().rooms.timeline.get_pdu(redacts)
+                            {
                                 pdu.sender == sender
                             } else {
                                 false
                             })
                     } else {
                         Err(Error::bad_database(
-                            "No m.room.power_levels or m.room.create events in database for room",
+                            "No m.room.power_levels or m.room.create events \
+                             in database for room",
                         ))
                     }
                 },
@@ -380,11 +457,14 @@ impl Service {
                         .map(|e: RoomPowerLevels| {
                             e.user_can_redact_event_of_other(sender)
                                 || e.user_can_redact_own_event(sender)
-                                    && if let Ok(Some(pdu)) =
-                                        services().rooms.timeline.get_pdu(redacts)
+                                    && if let Ok(Some(pdu)) = services()
+                                        .rooms
+                                        .timeline
+                                        .get_pdu(redacts)
                                     {
                                         if federation {
-                                            pdu.sender().server_name() == sender.server_name()
+                                            pdu.sender().server_name()
+                                                == sender.server_name()
                                         } else {
                                             pdu.sender == sender
                                         }
@@ -393,7 +473,9 @@ impl Service {
                                     }
                         })
                         .map_err(|_| {
-                            Error::bad_database("Invalid m.room.power_levels event in database")
+                            Error::bad_database(
+                                "Invalid m.room.power_levels event in database",
+                            )
                         })
                 },
             )

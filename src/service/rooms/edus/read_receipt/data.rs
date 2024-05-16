@@ -1,5 +1,8 @@
+use ruma::{
+    events::receipt::ReceiptEvent, serde::Raw, OwnedUserId, RoomId, UserId,
+};
+
 use crate::Result;
-use ruma::{events::receipt::ReceiptEvent, serde::Raw, OwnedUserId, RoomId, UserId};
 
 pub(crate) trait Data: Send + Sync {
     /// Replaces the previous read receipt.
@@ -10,7 +13,8 @@ pub(crate) trait Data: Send + Sync {
         event: ReceiptEvent,
     ) -> Result<()>;
 
-    /// Returns an iterator over the most recent read receipts in a room that happened after the event with id `since`.
+    /// Returns an iterator over the most recent read receipts in a room that
+    /// happened after the event with id `since`.
     #[allow(clippy::type_complexity)]
     fn readreceipts_since<'a>(
         &'a self,
@@ -27,11 +31,24 @@ pub(crate) trait Data: Send + Sync {
     >;
 
     /// Sets a private read marker at `count`.
-    fn private_read_set(&self, room_id: &RoomId, user_id: &UserId, count: u64) -> Result<()>;
+    fn private_read_set(
+        &self,
+        room_id: &RoomId,
+        user_id: &UserId,
+        count: u64,
+    ) -> Result<()>;
 
     /// Returns the private read marker.
-    fn private_read_get(&self, room_id: &RoomId, user_id: &UserId) -> Result<Option<u64>>;
+    fn private_read_get(
+        &self,
+        room_id: &RoomId,
+        user_id: &UserId,
+    ) -> Result<Option<u64>>;
 
     /// Returns the count of the last typing update in this room.
-    fn last_privateread_update(&self, user_id: &UserId, room_id: &RoomId) -> Result<u64>;
+    fn last_privateread_update(
+        &self,
+        user_id: &UserId,
+        room_id: &RoomId,
+    ) -> Result<u64>;
 }

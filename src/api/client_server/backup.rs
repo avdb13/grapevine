@@ -1,14 +1,15 @@
-use crate::{services, Error, Result, Ruma};
 use ruma::api::client::{
     backup::{
         add_backup_keys, add_backup_keys_for_room, add_backup_keys_for_session,
         create_backup_version, delete_backup_keys, delete_backup_keys_for_room,
-        delete_backup_keys_for_session, delete_backup_version, get_backup_info, get_backup_keys,
-        get_backup_keys_for_room, get_backup_keys_for_session, get_latest_backup_info,
-        update_backup_version,
+        delete_backup_keys_for_session, delete_backup_version, get_backup_info,
+        get_backup_keys, get_backup_keys_for_room, get_backup_keys_for_session,
+        get_latest_backup_info, update_backup_version,
     },
     error::ErrorKind,
 };
+
+use crate::{services, Error, Result, Ruma};
 
 /// # `POST /_matrix/client/r0/room_keys/version`
 ///
@@ -17,23 +18,27 @@ pub(crate) async fn create_backup_version_route(
     body: Ruma<create_backup_version::v3::Request>,
 ) -> Result<create_backup_version::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let version = services()
-        .key_backups
-        .create_backup(sender_user, &body.algorithm)?;
+    let version =
+        services().key_backups.create_backup(sender_user, &body.algorithm)?;
 
-    Ok(create_backup_version::v3::Response { version })
+    Ok(create_backup_version::v3::Response {
+        version,
+    })
 }
 
 /// # `PUT /_matrix/client/r0/room_keys/version/{version}`
 ///
-/// Update information about an existing backup. Only `auth_data` can be modified.
+/// Update information about an existing backup. Only `auth_data` can be
+/// modified.
 pub(crate) async fn update_backup_version_route(
     body: Ruma<update_backup_version::v3::Request>,
 ) -> Result<update_backup_version::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    services()
-        .key_backups
-        .update_backup(sender_user, &body.version, &body.algorithm)?;
+    services().key_backups.update_backup(
+        sender_user,
+        &body.version,
+        &body.algorithm,
+    )?;
 
     Ok(update_backup_version::v3::Response {})
 }
@@ -88,9 +93,7 @@ pub(crate) async fn get_backup_info_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
         version: body.version.clone(),
     })
 }
@@ -99,15 +102,14 @@ pub(crate) async fn get_backup_info_route(
 ///
 /// Delete an existing key backup.
 ///
-/// - Deletes both information about the backup, as well as all key data related to the backup
+/// - Deletes both information about the backup, as well as all key data related
+///   to the backup
 pub(crate) async fn delete_backup_version_route(
     body: Ruma<delete_backup_version::v3::Request>,
 ) -> Result<delete_backup_version::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .key_backups
-        .delete_backup(sender_user, &body.version)?;
+    services().key_backups.delete_backup(sender_user, &body.version)?;
 
     Ok(delete_backup_version::v3::Response {})
 }
@@ -116,7 +118,8 @@ pub(crate) async fn delete_backup_version_route(
 ///
 /// Add the received backup keys to the database.
 ///
-/// - Only manipulating the most recently created version of the backup is allowed
+/// - Only manipulating the most recently created version of the backup is
+///   allowed
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_route(
@@ -132,7 +135,8 @@ pub(crate) async fn add_backup_keys_route(
     {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
-            "You may only manipulate the most recently created version of the backup.",
+            "You may only manipulate the most recently created version of the \
+             backup.",
         ));
     }
 
@@ -154,9 +158,7 @@ pub(crate) async fn add_backup_keys_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }
 
@@ -164,7 +166,8 @@ pub(crate) async fn add_backup_keys_route(
 ///
 /// Add the received backup keys to the database.
 ///
-/// - Only manipulating the most recently created version of the backup is allowed
+/// - Only manipulating the most recently created version of the backup is
+///   allowed
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_for_room_route(
@@ -180,7 +183,8 @@ pub(crate) async fn add_backup_keys_for_room_route(
     {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
-            "You may only manipulate the most recently created version of the backup.",
+            "You may only manipulate the most recently created version of the \
+             backup.",
         ));
     }
 
@@ -200,9 +204,7 @@ pub(crate) async fn add_backup_keys_for_room_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }
 
@@ -210,7 +212,8 @@ pub(crate) async fn add_backup_keys_for_room_route(
 ///
 /// Add the received backup key to the database.
 ///
-/// - Only manipulating the most recently created version of the backup is allowed
+/// - Only manipulating the most recently created version of the backup is
+///   allowed
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_for_session_route(
@@ -226,7 +229,8 @@ pub(crate) async fn add_backup_keys_for_session_route(
     {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
-            "You may only manipulate the most recently created version of the backup.",
+            "You may only manipulate the most recently created version of the \
+             backup.",
         ));
     }
 
@@ -244,9 +248,7 @@ pub(crate) async fn add_backup_keys_for_session_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }
 
@@ -260,7 +262,9 @@ pub(crate) async fn get_backup_keys_route(
 
     let rooms = services().key_backups.get_all(sender_user, &body.version)?;
 
-    Ok(get_backup_keys::v3::Response { rooms })
+    Ok(get_backup_keys::v3::Response {
+        rooms,
+    })
 }
 
 /// # `GET /_matrix/client/r0/room_keys/keys/{roomId}`
@@ -271,11 +275,15 @@ pub(crate) async fn get_backup_keys_for_room_route(
 ) -> Result<get_backup_keys_for_room::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    let sessions = services()
-        .key_backups
-        .get_room(sender_user, &body.version, &body.room_id)?;
+    let sessions = services().key_backups.get_room(
+        sender_user,
+        &body.version,
+        &body.room_id,
+    )?;
 
-    Ok(get_backup_keys_for_room::v3::Response { sessions })
+    Ok(get_backup_keys_for_room::v3::Response {
+        sessions,
+    })
 }
 
 /// # `GET /_matrix/client/r0/room_keys/keys/{roomId}/{sessionId}`
@@ -288,13 +296,20 @@ pub(crate) async fn get_backup_keys_for_session_route(
 
     let key_data = services()
         .key_backups
-        .get_session(sender_user, &body.version, &body.room_id, &body.session_id)?
+        .get_session(
+            sender_user,
+            &body.version,
+            &body.room_id,
+            &body.session_id,
+        )?
         .ok_or(Error::BadRequest(
             ErrorKind::NotFound,
             "Backup key not found for this user's session.",
         ))?;
 
-    Ok(get_backup_keys_for_session::v3::Response { key_data })
+    Ok(get_backup_keys_for_session::v3::Response {
+        key_data,
+    })
 }
 
 /// # `DELETE /_matrix/client/r0/room_keys/keys`
@@ -305,9 +320,7 @@ pub(crate) async fn delete_backup_keys_route(
 ) -> Result<delete_backup_keys::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .key_backups
-        .delete_all_keys(sender_user, &body.version)?;
+    services().key_backups.delete_all_keys(sender_user, &body.version)?;
 
     Ok(delete_backup_keys::v3::Response {
         count: services()
@@ -315,9 +328,7 @@ pub(crate) async fn delete_backup_keys_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }
 
@@ -329,9 +340,11 @@ pub(crate) async fn delete_backup_keys_for_room_route(
 ) -> Result<delete_backup_keys_for_room::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .key_backups
-        .delete_room_keys(sender_user, &body.version, &body.room_id)?;
+    services().key_backups.delete_room_keys(
+        sender_user,
+        &body.version,
+        &body.room_id,
+    )?;
 
     Ok(delete_backup_keys_for_room::v3::Response {
         count: services()
@@ -339,9 +352,7 @@ pub(crate) async fn delete_backup_keys_for_room_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }
 
@@ -366,8 +377,6 @@ pub(crate) async fn delete_backup_keys_for_session_route(
             .count_keys(sender_user, &body.version)?
             .try_into()
             .expect("count should fit in UInt"),
-        etag: services()
-            .key_backups
-            .get_etag(sender_user, &body.version)?,
+        etag: services().key_backups.get_etag(sender_user, &body.version)?,
     })
 }

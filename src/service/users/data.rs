@@ -1,13 +1,15 @@
-use crate::Result;
+use std::collections::BTreeMap;
+
 use ruma::{
     api::client::{device::Device, filter::FilterDefinition},
     encryption::{CrossSigningKey, DeviceKeys, OneTimeKey},
     events::AnyToDeviceEvent,
     serde::Raw,
-    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, OwnedDeviceId, OwnedDeviceKeyId, OwnedMxcUri,
-    OwnedUserId, UInt, UserId,
+    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, OwnedDeviceId, OwnedDeviceKeyId,
+    OwnedMxcUri, OwnedUserId, UInt, UserId,
 };
-use std::collections::BTreeMap;
+
+use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
     /// Check if a user has an account on this homeserver.
@@ -20,39 +22,61 @@ pub(crate) trait Data: Send + Sync {
     fn count(&self) -> Result<usize>;
 
     /// Find out which user an access token belongs to.
-    fn find_from_token(&self, token: &str) -> Result<Option<(OwnedUserId, String)>>;
+    fn find_from_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<(OwnedUserId, String)>>;
 
     /// Returns an iterator over all users on this homeserver.
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a>;
+    fn iter<'a>(&'a self)
+        -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a>;
 
     /// Returns a list of local users as list of usernames.
     ///
-    /// A user account is considered `local` if the length of it's password is greater then zero.
+    /// A user account is considered `local` if the length of it's password is
+    /// greater then zero.
     fn list_local_users(&self) -> Result<Vec<String>>;
 
     /// Returns the password hash for the given user.
     fn password_hash(&self, user_id: &UserId) -> Result<Option<String>>;
 
     /// Hash and set the user's password to the Argon2 hash
-    fn set_password(&self, user_id: &UserId, password: Option<&str>) -> Result<()>;
+    fn set_password(
+        &self,
+        user_id: &UserId,
+        password: Option<&str>,
+    ) -> Result<()>;
 
     /// Returns the displayname of a user on this homeserver.
     fn displayname(&self, user_id: &UserId) -> Result<Option<String>>;
 
-    /// Sets a new `displayname` or removes it if `displayname` is `None`. You still need to nofify all rooms of this change.
-    fn set_displayname(&self, user_id: &UserId, displayname: Option<String>) -> Result<()>;
+    /// Sets a new `displayname` or removes it if `displayname` is `None`. You
+    /// still need to nofify all rooms of this change.
+    fn set_displayname(
+        &self,
+        user_id: &UserId,
+        displayname: Option<String>,
+    ) -> Result<()>;
 
     /// Get the `avatar_url` of a user.
     fn avatar_url(&self, user_id: &UserId) -> Result<Option<OwnedMxcUri>>;
 
     /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
-    fn set_avatar_url(&self, user_id: &UserId, avatar_url: Option<OwnedMxcUri>) -> Result<()>;
+    fn set_avatar_url(
+        &self,
+        user_id: &UserId,
+        avatar_url: Option<OwnedMxcUri>,
+    ) -> Result<()>;
 
     /// Get the `blurhash` of a user.
     fn blurhash(&self, user_id: &UserId) -> Result<Option<String>>;
 
     /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
-    fn set_blurhash(&self, user_id: &UserId, blurhash: Option<String>) -> Result<()>;
+    fn set_blurhash(
+        &self,
+        user_id: &UserId,
+        blurhash: Option<String>,
+    ) -> Result<()>;
 
     /// Adds a new device to a user.
     fn create_device(
@@ -64,7 +88,11 @@ pub(crate) trait Data: Send + Sync {
     ) -> Result<()>;
 
     /// Removes a device from a user.
-    fn remove_device(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()>;
+    fn remove_device(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<()>;
 
     /// Returns an iterator over all device ids of this user.
     fn all_device_ids<'a>(
@@ -73,7 +101,12 @@ pub(crate) trait Data: Send + Sync {
     ) -> Box<dyn Iterator<Item = Result<OwnedDeviceId>> + 'a>;
 
     /// Replaces the access token of one device.
-    fn set_token(&self, user_id: &UserId, device_id: &DeviceId, token: &str) -> Result<()>;
+    fn set_token(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+        token: &str,
+    ) -> Result<()>;
 
     fn add_one_time_key(
         &self,
@@ -165,7 +198,10 @@ pub(crate) trait Data: Send + Sync {
         allowed_signatures: &dyn Fn(&UserId) -> bool,
     ) -> Result<Option<Raw<CrossSigningKey>>>;
 
-    fn get_user_signing_key(&self, user_id: &UserId) -> Result<Option<Raw<CrossSigningKey>>>;
+    fn get_user_signing_key(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<Raw<CrossSigningKey>>>;
 
     fn add_to_device_event(
         &self,
@@ -197,8 +233,11 @@ pub(crate) trait Data: Send + Sync {
     ) -> Result<()>;
 
     /// Get device metadata.
-    fn get_device_metadata(&self, user_id: &UserId, device_id: &DeviceId)
-        -> Result<Option<Device>>;
+    fn get_device_metadata(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<Option<Device>>;
 
     fn get_devicelist_version(&self, user_id: &UserId) -> Result<Option<u64>>;
 
@@ -208,7 +247,15 @@ pub(crate) trait Data: Send + Sync {
     ) -> Box<dyn Iterator<Item = Result<Device>> + 'a>;
 
     /// Creates a new sync filter. Returns the filter id.
-    fn create_filter(&self, user_id: &UserId, filter: &FilterDefinition) -> Result<String>;
+    fn create_filter(
+        &self,
+        user_id: &UserId,
+        filter: &FilterDefinition,
+    ) -> Result<String>;
 
-    fn get_filter(&self, user_id: &UserId, filter_id: &str) -> Result<Option<FilterDefinition>>;
+    fn get_filter(
+        &self,
+        user_id: &UserId,
+        filter_id: &str,
+    ) -> Result<Option<FilterDefinition>>;
 }

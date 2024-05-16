@@ -1,22 +1,27 @@
-use crate::{services, Error, Result, Ruma};
+use std::collections::BTreeMap;
+
 use ruma::{
     api::client::{
         error::ErrorKind,
         search::search_events::{
             self,
-            v3::{EventContextResult, ResultCategories, ResultRoomEvents, SearchResult},
+            v3::{
+                EventContextResult, ResultCategories, ResultRoomEvents,
+                SearchResult,
+            },
         },
     },
     uint,
 };
 
-use std::collections::BTreeMap;
+use crate::{services, Error, Result, Ruma};
 
 /// # `POST /_matrix/client/r0/search`
 ///
 /// Searches rooms for messages.
 ///
-/// - Only works if the user is currently joined to the room (TODO: Respect history visibility)
+/// - Only works if the user is currently joined to the room (TODO: Respect
+///   history visibility)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn search_events_route(
     body: Ruma<search_events::v3::Request>,
@@ -46,11 +51,7 @@ pub(crate) async fn search_events_route(
     let mut searches = Vec::new();
 
     for room_id in room_ids {
-        if !services()
-            .rooms
-            .state_cache
-            .is_joined(sender_user, &room_id)?
-        {
+        if !services().rooms.state_cache.is_joined(sender_user, &room_id)? {
             return Err(Error::BadRequest(
                 ErrorKind::Forbidden,
                 "You don't have permission to view this room.",
@@ -102,7 +103,11 @@ pub(crate) async fn search_events_route(
                     services()
                         .rooms
                         .state_accessor
-                        .user_can_see_event(sender_user, &pdu.room_id, &pdu.event_id)
+                        .user_can_see_event(
+                            sender_user,
+                            &pdu.room_id,
+                            &pdu.event_id,
+                        )
                         .unwrap_or(false)
                 })
                 .map(|pdu| pdu.to_room_event())

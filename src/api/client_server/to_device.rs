@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::{services, Error, Result, Ruma};
 use ruma::{
     api::{
         client::{error::ErrorKind, to_device::send_event_to_device},
@@ -8,6 +7,8 @@ use ruma::{
     },
     to_device::DeviceIdOrAllDevices,
 };
+
+use crate::{services, Error, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/sendToDevice/{eventType}/{txnId}`
 ///
@@ -29,7 +30,8 @@ pub(crate) async fn send_event_to_device_route(
 
     for (target_user_id, map) in &body.messages {
         for (target_device_id_maybe, event) in map {
-            if target_user_id.server_name() != services().globals.server_name() {
+            if target_user_id.server_name() != services().globals.server_name()
+            {
                 let mut map = BTreeMap::new();
                 map.insert(target_device_id_maybe.clone(), event.clone());
                 let mut messages = BTreeMap::new();
@@ -38,14 +40,16 @@ pub(crate) async fn send_event_to_device_route(
 
                 services().sending.send_reliable_edu(
                     target_user_id.server_name(),
-                    serde_json::to_vec(&federation::transactions::edu::Edu::DirectToDevice(
-                        DirectDeviceContent {
-                            sender: sender_user.clone(),
-                            ev_type: body.event_type.clone(),
-                            message_id: count.to_string().into(),
-                            messages,
-                        },
-                    ))
+                    serde_json::to_vec(
+                        &federation::transactions::edu::Edu::DirectToDevice(
+                            DirectDeviceContent {
+                                sender: sender_user.clone(),
+                                ev_type: body.event_type.clone(),
+                                message_id: count.to_string().into(),
+                                messages,
+                            },
+                        ),
+                    )
                     .expect("DirectToDevice EDU can be serialized"),
                     count,
                 )?;
@@ -61,20 +65,28 @@ pub(crate) async fn send_event_to_device_route(
                         target_device_id,
                         &body.event_type.to_string(),
                         event.deserialize_as().map_err(|_| {
-                            Error::BadRequest(ErrorKind::InvalidParam, "Event is invalid")
+                            Error::BadRequest(
+                                ErrorKind::InvalidParam,
+                                "Event is invalid",
+                            )
                         })?,
                     )?;
                 }
 
                 DeviceIdOrAllDevices::AllDevices => {
-                    for target_device_id in services().users.all_device_ids(target_user_id) {
+                    for target_device_id in
+                        services().users.all_device_ids(target_user_id)
+                    {
                         services().users.add_to_device_event(
                             sender_user,
                             target_user_id,
                             &target_device_id?,
                             &body.event_type.to_string(),
                             event.deserialize_as().map_err(|_| {
-                                Error::BadRequest(ErrorKind::InvalidParam, "Event is invalid")
+                                Error::BadRequest(
+                                    ErrorKind::InvalidParam,
+                                    "Event is invalid",
+                                )
                             })?,
                         )?;
                     }
@@ -84,9 +96,12 @@ pub(crate) async fn send_event_to_device_route(
     }
 
     // Save transaction id with empty data
-    services()
-        .transaction_ids
-        .add_txnid(sender_user, sender_device, &body.txn_id, &[])?;
+    services().transaction_ids.add_txnid(
+        sender_user,
+        sender_device,
+        &body.txn_id,
+        &[],
+    )?;
 
     Ok(send_event_to_device::v3::Response {})
 }

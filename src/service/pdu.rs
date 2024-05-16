@@ -1,23 +1,30 @@
-use crate::Error;
+use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
+
 use ruma::{
     canonical_json::redact_content_in_place,
     events::{
-        room::{member::RoomMemberEventContent, redaction::RoomRedactionEventContent},
+        room::{
+            member::RoomMemberEventContent,
+            redaction::RoomRedactionEventContent,
+        },
         space::child::HierarchySpaceChildEvent,
-        AnyEphemeralRoomEvent, AnyMessageLikeEvent, AnyStateEvent, AnyStrippedStateEvent,
-        AnySyncStateEvent, AnySyncTimelineEvent, AnyTimelineEvent, StateEvent, TimelineEventType,
+        AnyEphemeralRoomEvent, AnyMessageLikeEvent, AnyStateEvent,
+        AnyStrippedStateEvent, AnySyncStateEvent, AnySyncTimelineEvent,
+        AnyTimelineEvent, StateEvent, TimelineEventType,
     },
     serde::Raw,
-    state_res, CanonicalJsonObject, CanonicalJsonValue, EventId, MilliSecondsSinceUnixEpoch,
-    OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, RoomVersionId, UInt, UserId,
+    state_res, CanonicalJsonObject, CanonicalJsonValue, EventId,
+    MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId,
+    RoomVersionId, UInt, UserId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{
     json,
     value::{to_raw_value, RawValue as RawJsonValue},
 };
-use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
 use tracing::warn;
+
+use crate::Error;
 
 /// Content hashes of a PDU.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -61,10 +68,18 @@ impl PduEvent {
     ) -> crate::Result<()> {
         self.unsigned = None;
 
-        let mut content = serde_json::from_str(self.content.get())
-            .map_err(|_| Error::bad_database("PDU in db has invalid content."))?;
-        redact_content_in_place(&mut content, &room_version_id, self.kind.to_string())
-            .map_err(|e| Error::Redaction(self.sender.server_name().to_owned(), e))?;
+        let mut content =
+            serde_json::from_str(self.content.get()).map_err(|_| {
+                Error::bad_database("PDU in db has invalid content.")
+            })?;
+        redact_content_in_place(
+            &mut content,
+            &room_version_id,
+            self.kind.to_string(),
+        )
+        .map_err(|e| {
+            Error::Redaction(self.sender.server_name().to_owned(), e)
+        })?;
 
         self.unsigned = Some(to_raw_value(&json!({
             "redacted_because": serde_json::to_value(reason).expect("to_value(PduEvent) always works")
@@ -78,10 +93,12 @@ impl PduEvent {
     pub(crate) fn remove_transaction_id(&mut self) -> crate::Result<()> {
         if let Some(unsigned) = &self.unsigned {
             let mut unsigned: BTreeMap<String, Box<RawJsonValue>> =
-                serde_json::from_str(unsigned.get())
-                    .map_err(|_| Error::bad_database("Invalid unsigned in pdu event"))?;
+                serde_json::from_str(unsigned.get()).map_err(|_| {
+                    Error::bad_database("Invalid unsigned in pdu event")
+                })?;
             unsigned.remove("transaction_id");
-            self.unsigned = Some(to_raw_value(&unsigned).expect("unsigned is valid"));
+            self.unsigned =
+                Some(to_raw_value(&unsigned).expect("unsigned is valid"));
         }
 
         Ok(())
@@ -91,31 +108,45 @@ impl PduEvent {
         let mut unsigned: BTreeMap<String, Box<RawJsonValue>> = self
             .unsigned
             .as_ref()
-            .map_or_else(|| Ok(BTreeMap::new()), |u| serde_json::from_str(u.get()))
-            .map_err(|_| Error::bad_database("Invalid unsigned in pdu event"))?;
+            .map_or_else(
+                || Ok(BTreeMap::new()),
+                |u| serde_json::from_str(u.get()),
+            )
+            .map_err(|_| {
+                Error::bad_database("Invalid unsigned in pdu event")
+            })?;
 
         unsigned.insert("age".to_owned(), to_raw_value(&1).unwrap());
-        self.unsigned = Some(to_raw_value(&unsigned).expect("unsigned is valid"));
+        self.unsigned =
+            Some(to_raw_value(&unsigned).expect("unsigned is valid"));
 
         Ok(())
     }
 
-    /// Copies the `redacts` property of the event to the `content` dict and vice-versa.
+    /// Copies the `redacts` property of the event to the `content` dict and
+    /// vice-versa.
     ///
     /// This follows the specification's
     /// [recommendation](https://spec.matrix.org/v1.10/rooms/v11/#moving-the-redacts-property-of-mroomredaction-events-to-a-content-property):
     ///
-    /// > For backwards-compatibility with older clients, servers should add a redacts
-    /// > property to the top level of m.room.redaction events in when serving such events
+    /// > For backwards-compatibility with older clients, servers should add a
+    /// > redacts
+    /// > property to the top level of m.room.redaction events in when serving
+    /// > such events
     /// > over the Client-Server API.
     /// >
-    /// > For improved compatibility with newer clients, servers should add a redacts property
-    /// > to the content of m.room.redaction events in older room versions when serving
+    /// > For improved compatibility with newer clients, servers should add a
+    /// > redacts property
+    /// > to the content of m.room.redaction events in older room versions when
+    /// > serving
     /// > such events over the Client-Server API.
-    pub(crate) fn copy_redacts(&self) -> (Option<Arc<EventId>>, Box<RawJsonValue>) {
+    pub(crate) fn copy_redacts(
+        &self,
+    ) -> (Option<Arc<EventId>>, Box<RawJsonValue>) {
         if self.kind == TimelineEventType::RoomRedaction {
-            if let Ok(mut content) =
-                serde_json::from_str::<RoomRedactionEventContent>(self.content.get())
+            if let Ok(mut content) = serde_json::from_str::<
+                RoomRedactionEventContent,
+            >(self.content.get())
             {
                 if let Some(redacts) = content.redacts {
                     return (Some(redacts.into()), self.content.clone());
@@ -123,7 +154,9 @@ impl PduEvent {
                     content.redacts = Some(redacts.into());
                     return (
                         self.redacts.clone(),
-                        to_raw_value(&content).expect("Must be valid, we only added redacts field"),
+                        to_raw_value(&content).expect(
+                            "Must be valid, we only added redacts field",
+                        ),
                     );
                 }
             }
@@ -281,7 +314,9 @@ impl PduEvent {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn to_stripped_spacechild_state_event(&self) -> Raw<HierarchySpaceChildEvent> {
+    pub(crate) fn to_stripped_spacechild_state_event(
+        &self,
+    ) -> Raw<HierarchySpaceChildEvent> {
         let json = json!({
             "content": self.content,
             "type": self.kind,
@@ -294,7 +329,9 @@ impl PduEvent {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn to_member_event(&self) -> Raw<StateEvent<RoomMemberEventContent>> {
+    pub(crate) fn to_member_event(
+        &self,
+    ) -> Raw<StateEvent<RoomMemberEventContent>> {
         let mut json = json!({
             "content": self.content,
             "type": self.kind,
@@ -318,16 +355,16 @@ impl PduEvent {
     pub(crate) fn convert_to_outgoing_federation_event(
         mut pdu_json: CanonicalJsonObject,
     ) -> Box<RawJsonValue> {
-        if let Some(unsigned) = pdu_json
-            .get_mut("unsigned")
-            .and_then(|val| val.as_object_mut())
+        if let Some(unsigned) =
+            pdu_json.get_mut("unsigned").and_then(|val| val.as_object_mut())
         {
             unsigned.remove("transaction_id");
         }
 
         pdu_json.remove("event_id");
 
-        to_raw_value(&pdu_json).expect("CanonicalJson is valid serde_json::Value")
+        to_raw_value(&pdu_json)
+            .expect("CanonicalJson is valid serde_json::Value")
     }
 
     pub(crate) fn from_id_val(
@@ -374,11 +411,15 @@ impl state_res::Event for PduEvent {
         self.state_key.as_deref()
     }
 
-    fn prev_events(&self) -> Box<dyn DoubleEndedIterator<Item = &Self::Id> + '_> {
+    fn prev_events(
+        &self,
+    ) -> Box<dyn DoubleEndedIterator<Item = &Self::Id> + '_> {
         Box::new(self.prev_events.iter())
     }
 
-    fn auth_events(&self) -> Box<dyn DoubleEndedIterator<Item = &Self::Id> + '_> {
+    fn auth_events(
+        &self,
+    ) -> Box<dyn DoubleEndedIterator<Item = &Self::Id> + '_> {
         Box::new(self.auth_events.iter())
     }
 
@@ -408,15 +449,17 @@ impl Ord for PduEvent {
 
 /// Generates a correct eventId for the incoming pdu.
 ///
-/// Returns a tuple of the new `EventId` and the PDU as a `BTreeMap<String, CanonicalJsonValue>`.
+/// Returns a tuple of the new `EventId` and the PDU as a `BTreeMap<String,
+/// CanonicalJsonValue>`.
 pub(crate) fn gen_event_id_canonical_json(
     pdu: &RawJsonValue,
     room_version_id: &RoomVersionId,
 ) -> crate::Result<(OwnedEventId, CanonicalJsonObject)> {
-    let value: CanonicalJsonObject = serde_json::from_str(pdu.get()).map_err(|e| {
-        warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
-        Error::BadServerResponse("Invalid PDU in server response")
-    })?;
+    let value: CanonicalJsonObject =
+        serde_json::from_str(pdu.get()).map_err(|e| {
+            warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
+            Error::BadServerResponse("Invalid PDU in server response")
+        })?;
 
     let event_id = format!(
         "${}",

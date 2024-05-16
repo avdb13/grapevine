@@ -1,4 +1,3 @@
-use crate::{services, Error, Result, Ruma};
 use rand::seq::SliceRandom;
 use ruma::{
     api::{
@@ -11,6 +10,8 @@ use ruma::{
     },
     OwnedRoomAliasId,
 };
+
+use crate::{services, Error, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/directory/room/{roomAlias}`
 ///
@@ -32,30 +33,18 @@ pub(crate) async fn create_alias_route(
                 "Room alias is not in namespace.",
             ));
         }
-    } else if services()
-        .appservice
-        .is_exclusive_alias(&body.room_alias)
-        .await
-    {
+    } else if services().appservice.is_exclusive_alias(&body.room_alias).await {
         return Err(Error::BadRequest(
             ErrorKind::Exclusive,
             "Room alias reserved by appservice.",
         ));
     }
 
-    if services()
-        .rooms
-        .alias
-        .resolve_local_alias(&body.room_alias)?
-        .is_some()
-    {
+    if services().rooms.alias.resolve_local_alias(&body.room_alias)?.is_some() {
         return Err(Error::Conflict("Alias already exists."));
     }
 
-    services()
-        .rooms
-        .alias
-        .set_alias(&body.room_alias, &body.room_id)?;
+    services().rooms.alias.set_alias(&body.room_alias, &body.room_id)?;
 
     Ok(create_alias::v3::Response::new())
 }
@@ -83,11 +72,7 @@ pub(crate) async fn delete_alias_route(
                 "Room alias is not in namespace.",
             ));
         }
-    } else if services()
-        .appservice
-        .is_exclusive_alias(&body.room_alias)
-        .await
-    {
+    } else if services().appservice.is_exclusive_alias(&body.room_alias).await {
         return Err(Error::BadRequest(
             ErrorKind::Exclusive,
             "Room alias reserved by appservice.",
@@ -157,7 +142,10 @@ pub(crate) async fn get_alias_helper(
                             .alias
                             .resolve_local_alias(&room_alias)?
                             .ok_or_else(|| {
-                                Error::bad_config("Appservice lied to us. Room does not exist.")
+                                Error::bad_config(
+                                    "Appservice lied to us. Room does not \
+                                     exist.",
+                                )
                             })?,
                     );
                     break;

@@ -1,6 +1,5 @@
-use crate::{
-    api::client_server::invite_helper, service::pdu::PduBuilder, services, Error, Result, Ruma,
-};
+use std::{cmp::max, collections::BTreeMap, sync::Arc};
+
 use ruma::{
     api::client::{
         error::ErrorKind,
@@ -11,7 +10,9 @@ use ruma::{
             canonical_alias::RoomCanonicalAliasEventContent,
             create::RoomCreateEventContent,
             guest_access::{GuestAccess, RoomGuestAccessEventContent},
-            history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
+            history_visibility::{
+                HistoryVisibility, RoomHistoryVisibilityEventContent,
+            },
             join_rules::{JoinRule, RoomJoinRulesEventContent},
             member::{MembershipState, RoomMemberEventContent},
             name::RoomNameEventContent,
@@ -26,8 +27,12 @@ use ruma::{
     CanonicalJsonObject, OwnedRoomAliasId, RoomAliasId, RoomId, RoomVersionId,
 };
 use serde_json::{json, value::to_raw_value};
-use std::{cmp::max, collections::BTreeMap, sync::Arc};
 use tracing::{info, warn};
+
+use crate::{
+    api::client_server::invite_helper, service::pdu::PduBuilder, services,
+    Error, Result, Ruma,
+};
 
 /// # `POST /_matrix/client/r0/createRoom`
 ///
@@ -79,31 +84,26 @@ pub(crate) async fn create_room_route(
     }
 
     let alias: Option<OwnedRoomAliasId> =
-        body.room_alias_name
-            .as_ref()
-            .map_or(Ok(None), |localpart| {
-                // TODO: Check for invalid characters and maximum length
-                let alias = RoomAliasId::parse(format!(
-                    "#{}:{}",
-                    localpart,
-                    services().globals.server_name()
-                ))
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Invalid alias."))?;
-
-                if services()
-                    .rooms
-                    .alias
-                    .resolve_local_alias(&alias)?
-                    .is_some()
-                {
-                    Err(Error::BadRequest(
-                        ErrorKind::RoomInUse,
-                        "Room alias already exists.",
-                    ))
-                } else {
-                    Ok(Some(alias))
-                }
+        body.room_alias_name.as_ref().map_or(Ok(None), |localpart| {
+            // TODO: Check for invalid characters and maximum length
+            let alias = RoomAliasId::parse(format!(
+                "#{}:{}",
+                localpart,
+                services().globals.server_name()
+            ))
+            .map_err(|_| {
+                Error::BadRequest(ErrorKind::InvalidParam, "Invalid alias.")
             })?;
+
+            if services().rooms.alias.resolve_local_alias(&alias)?.is_some() {
+                Err(Error::BadRequest(
+                    ErrorKind::RoomInUse,
+                    "Room alias already exists.",
+                ))
+            } else {
+                Ok(Some(alias))
+            }
+        })?;
 
     if let Some(alias) = &alias {
         if let Some(info) = &body.appservice_info {
@@ -159,7 +159,10 @@ pub(crate) async fn create_room_route(
                     content.insert(
                         "creator".into(),
                         json!(&sender_user).try_into().map_err(|_| {
-                            Error::BadRequest(ErrorKind::BadJson, "Invalid creation content")
+                            Error::BadRequest(
+                                ErrorKind::BadJson,
+                                "Invalid creation content",
+                            )
                         })?,
                     );
                 }
@@ -171,7 +174,10 @@ pub(crate) async fn create_room_route(
             content.insert(
                 "room_version".into(),
                 json!(room_version.as_str()).try_into().map_err(|_| {
-                    Error::BadRequest(ErrorKind::BadJson, "Invalid creation content")
+                    Error::BadRequest(
+                        ErrorKind::BadJson,
+                        "Invalid creation content",
+                    )
                 })?,
             );
             content
@@ -187,20 +193,30 @@ pub(crate) async fn create_room_route(
                 | RoomVersionId::V7
                 | RoomVersionId::V8
                 | RoomVersionId::V9
-                | RoomVersionId::V10 => RoomCreateEventContent::new_v1(sender_user.clone()),
+                | RoomVersionId::V10 => {
+                    RoomCreateEventContent::new_v1(sender_user.clone())
+                }
                 RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
                 _ => unreachable!("Validity of room version already checked"),
             };
             let mut content = serde_json::from_str::<CanonicalJsonObject>(
                 to_raw_value(&content)
-                    .map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Invalid creation content"))?
+                    .map_err(|_| {
+                        Error::BadRequest(
+                            ErrorKind::BadJson,
+                            "Invalid creation content",
+                        )
+                    })?
                     .get(),
             )
             .unwrap();
             content.insert(
                 "room_version".into(),
                 json!(room_version.as_str()).try_into().map_err(|_| {
-                    Error::BadRequest(ErrorKind::BadJson, "Invalid creation content")
+                    Error::BadRequest(
+                        ErrorKind::BadJson,
+                        "Invalid creation content",
+                    )
                 })?,
             );
             content
@@ -209,9 +225,7 @@ pub(crate) async fn create_room_route(
 
     // Validate creation content
     let de_result = serde_json::from_str::<CanonicalJsonObject>(
-        to_raw_value(&content)
-            .expect("Invalid creation content")
-            .get(),
+        to_raw_value(&content).expect("Invalid creation content").get(),
     );
 
     if de_result.is_err() {
@@ -228,7 +242,8 @@ pub(crate) async fn create_room_route(
         .build_and_append_pdu(
             PduBuilder {
                 event_type: TimelineEventType::RoomCreate,
-                content: to_raw_value(&content).expect("event is valid, we just created it"),
+                content: to_raw_value(&content)
+                    .expect("event is valid, we just created it"),
                 unsigned: None,
                 state_key: Some(String::new()),
                 redacts: None,
@@ -285,17 +300,24 @@ pub(crate) async fn create_room_route(
         }
     }
 
-    let mut power_levels_content = serde_json::to_value(RoomPowerLevelsEventContent {
-        users,
-        ..Default::default()
-    })
-    .expect("event is valid, we just created it");
+    let mut power_levels_content =
+        serde_json::to_value(RoomPowerLevelsEventContent {
+            users,
+            ..Default::default()
+        })
+        .expect("event is valid, we just created it");
 
-    if let Some(power_level_content_override) = &body.power_level_content_override {
-        let json: JsonObject = serde_json::from_str(power_level_content_override.json().get())
-            .map_err(|_| {
-                Error::BadRequest(ErrorKind::BadJson, "Invalid power_level_content_override.")
-            })?;
+    if let Some(power_level_content_override) =
+        &body.power_level_content_override
+    {
+        let json: JsonObject =
+            serde_json::from_str(power_level_content_override.json().get())
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::BadJson,
+                        "Invalid power_level_content_override.",
+                    )
+                })?;
 
         for (key, value) in json {
             power_levels_content[key] = value;
@@ -353,11 +375,13 @@ pub(crate) async fn create_room_route(
         .build_and_append_pdu(
             PduBuilder {
                 event_type: TimelineEventType::RoomJoinRules,
-                content: to_raw_value(&RoomJoinRulesEventContent::new(match preset {
-                    RoomPreset::PublicChat => JoinRule::Public,
-                    // according to spec "invite" is the default
-                    _ => JoinRule::Invite,
-                }))
+                content: to_raw_value(&RoomJoinRulesEventContent::new(
+                    match preset {
+                        RoomPreset::PublicChat => JoinRule::Public,
+                        // according to spec "invite" is the default
+                        _ => JoinRule::Invite,
+                    },
+                ))
                 .expect("event is valid, we just created it"),
                 unsigned: None,
                 state_key: Some(String::new()),
@@ -397,10 +421,12 @@ pub(crate) async fn create_room_route(
         .build_and_append_pdu(
             PduBuilder {
                 event_type: TimelineEventType::RoomGuestAccess,
-                content: to_raw_value(&RoomGuestAccessEventContent::new(match preset {
-                    RoomPreset::PublicChat => GuestAccess::Forbidden,
-                    _ => GuestAccess::CanJoin,
-                }))
+                content: to_raw_value(&RoomGuestAccessEventContent::new(
+                    match preset {
+                        RoomPreset::PublicChat => GuestAccess::Forbidden,
+                        _ => GuestAccess::CanJoin,
+                    },
+                ))
                 .expect("event is valid, we just created it"),
                 unsigned: None,
                 state_key: Some(String::new()),
@@ -414,10 +440,14 @@ pub(crate) async fn create_room_route(
 
     // 6. Events listed in initial_state
     for event in &body.initial_state {
-        let mut pdu_builder = event.deserialize_as::<PduBuilder>().map_err(|e| {
-            warn!("Invalid initial state event: {:?}", e);
-            Error::BadRequest(ErrorKind::InvalidParam, "Invalid initial state event.")
-        })?;
+        let mut pdu_builder =
+            event.deserialize_as::<PduBuilder>().map_err(|e| {
+                warn!("Invalid initial state event: {:?}", e);
+                Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "Invalid initial state event.",
+                )
+            })?;
 
         // Implicit state key defaults to ""
         pdu_builder.state_key.get_or_insert_with(String::new);
@@ -432,7 +462,12 @@ pub(crate) async fn create_room_route(
         services()
             .rooms
             .timeline
-            .build_and_append_pdu(pdu_builder, sender_user, &room_id, &state_lock)
+            .build_and_append_pdu(
+                pdu_builder,
+                sender_user,
+                &room_id,
+                &state_lock,
+            )
             .await?;
     }
 
@@ -444,8 +479,10 @@ pub(crate) async fn create_room_route(
             .build_and_append_pdu(
                 PduBuilder {
                     event_type: TimelineEventType::RoomName,
-                    content: to_raw_value(&RoomNameEventContent::new(name.clone()))
-                        .expect("event is valid, we just created it"),
+                    content: to_raw_value(&RoomNameEventContent::new(
+                        name.clone(),
+                    ))
+                    .expect("event is valid, we just created it"),
                     unsigned: None,
                     state_key: Some(String::new()),
                     redacts: None,
@@ -483,7 +520,8 @@ pub(crate) async fn create_room_route(
     drop(state_lock);
     for user_id in &body.invite {
         if let Err(error) =
-            invite_helper(sender_user, user_id, &room_id, None, body.is_direct).await
+            invite_helper(sender_user, user_id, &room_id, None, body.is_direct)
+                .await
         {
             warn!(%error, "invite helper failed");
         };
@@ -507,20 +545,19 @@ pub(crate) async fn create_room_route(
 ///
 /// Gets a single event.
 ///
-/// - You have to currently be joined to the room (TODO: Respect history visibility)
+/// - You have to currently be joined to the room (TODO: Respect history
+///   visibility)
 pub(crate) async fn get_room_event_route(
     body: Ruma<get_room_event::v3::Request>,
 ) -> Result<get_room_event::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    let event = services()
-        .rooms
-        .timeline
-        .get_pdu(&body.event_id)?
-        .ok_or_else(|| {
+    let event = services().rooms.timeline.get_pdu(&body.event_id)?.ok_or_else(
+        || {
             warn!("Event not found, event ID: {:?}", &body.event_id);
             Error::BadRequest(ErrorKind::NotFound, "Event not found.")
-        })?;
+        },
+    )?;
 
     if !services().rooms.state_accessor.user_can_see_event(
         sender_user,
@@ -545,17 +582,14 @@ pub(crate) async fn get_room_event_route(
 ///
 /// Lists all aliases of the room.
 ///
-/// - Only users joined to the room are allowed to call this TODO: Allow any user to call it if `history_visibility` is world readable
+/// - Only users joined to the room are allowed to call this TODO: Allow any
+///   user to call it if `history_visibility` is world readable
 pub(crate) async fn get_room_aliases_route(
     body: Ruma<aliases::v3::Request>,
 ) -> Result<aliases::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    if !services()
-        .rooms
-        .state_cache
-        .is_joined(sender_user, &body.room_id)?
-    {
+    if !services().rooms.state_cache.is_joined(sender_user, &body.room_id)? {
         return Err(Error::BadRequest(
             ErrorKind::Forbidden,
             "You don't have permission to view this room.",
@@ -588,10 +622,7 @@ pub(crate) async fn upgrade_room_route(
 ) -> Result<upgrade_room::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    if !services()
-        .globals
-        .supported_room_versions()
-        .contains(&body.new_version)
+    if !services().globals.supported_room_versions().contains(&body.new_version)
     {
         return Err(Error::BadRequest(
             ErrorKind::UnsupportedRoomVersion,
@@ -601,10 +632,7 @@ pub(crate) async fn upgrade_room_route(
 
     // Create a replacement room
     let replacement_room = RoomId::new(services().globals.server_name());
-    services()
-        .rooms
-        .short
-        .get_or_create_shortroomid(&replacement_room)?;
+    services().rooms.short.get_or_create_shortroomid(&replacement_room)?;
 
     let mutex_state = Arc::clone(
         services()
@@ -617,8 +645,9 @@ pub(crate) async fn upgrade_room_route(
     );
     let state_lock = mutex_state.lock().await;
 
-    // Send a m.room.tombstone event to the old room to indicate that it is not intended to be used any further
-    // Fail if the sender does not have the required permissions
+    // Send a m.room.tombstone event to the old room to indicate that it is not
+    // intended to be used any further Fail if the sender does not have the
+    // required permissions
     let tombstone_event_id = services()
         .rooms
         .timeline
@@ -659,7 +688,9 @@ pub(crate) async fn upgrade_room_route(
             .rooms
             .state_accessor
             .room_state_get(&body.room_id, &StateEventType::RoomCreate, "")?
-            .ok_or_else(|| Error::bad_database("Found room without m.room.create event."))?
+            .ok_or_else(|| {
+                Error::bad_database("Found room without m.room.create event.")
+            })?
             .content
             .get(),
     )
@@ -671,7 +702,8 @@ pub(crate) async fn upgrade_room_route(
         (*tombstone_event_id).to_owned(),
     ));
 
-    // Send a m.room.create event containing a predecessor field and the applicable room_version
+    // Send a m.room.create event containing a predecessor field and the
+    // applicable room_version
     match body.new_version {
         RoomVersionId::V1
         | RoomVersionId::V2
@@ -686,7 +718,10 @@ pub(crate) async fn upgrade_room_route(
             create_event_content.insert(
                 "creator".into(),
                 json!(&sender_user).try_into().map_err(|_| {
-                    Error::BadRequest(ErrorKind::BadJson, "Error forming creation event")
+                    Error::BadRequest(
+                        ErrorKind::BadJson,
+                        "Error forming creation event",
+                    )
                 })?,
             );
         }
@@ -698,15 +733,21 @@ pub(crate) async fn upgrade_room_route(
     }
     create_event_content.insert(
         "room_version".into(),
-        json!(&body.new_version)
-            .try_into()
-            .map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Error forming creation event"))?,
+        json!(&body.new_version).try_into().map_err(|_| {
+            Error::BadRequest(
+                ErrorKind::BadJson,
+                "Error forming creation event",
+            )
+        })?,
     );
     create_event_content.insert(
         "predecessor".into(),
-        json!(predecessor)
-            .try_into()
-            .map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Error forming creation event"))?,
+        json!(predecessor).try_into().map_err(|_| {
+            Error::BadRequest(
+                ErrorKind::BadJson,
+                "Error forming creation event",
+            )
+        })?,
     );
 
     // Validate creation event content
@@ -784,16 +825,15 @@ pub(crate) async fn upgrade_room_route(
 
     // Replicate transferable state events to the new room
     for event_type in transferable_state_events {
-        let event_content =
-            match services()
-                .rooms
-                .state_accessor
-                .room_state_get(&body.room_id, &event_type, "")?
-            {
-                Some(v) => v.content.clone(),
-                // Skipping missing events.
-                None => continue,
-            };
+        let event_content = match services()
+            .rooms
+            .state_accessor
+            .room_state_get(&body.room_id, &event_type, "")?
+        {
+            Some(v) => v.content.clone(),
+            // Skipping missing events.
+            None => continue,
+        };
 
         services()
             .rooms
@@ -820,30 +860,39 @@ pub(crate) async fn upgrade_room_route(
         .local_aliases_for_room(&body.room_id)
         .filter_map(Result::ok)
     {
-        services()
-            .rooms
-            .alias
-            .set_alias(&alias, &replacement_room)?;
+        services().rooms.alias.set_alias(&alias, &replacement_room)?;
     }
 
     // Get the old room power levels
-    let mut power_levels_event_content: RoomPowerLevelsEventContent = serde_json::from_str(
-        services()
-            .rooms
-            .state_accessor
-            .room_state_get(&body.room_id, &StateEventType::RoomPowerLevels, "")?
-            .ok_or_else(|| Error::bad_database("Found room without m.room.create event."))?
-            .content
-            .get(),
-    )
-    .map_err(|_| Error::bad_database("Invalid room event in database."))?;
+    let mut power_levels_event_content: RoomPowerLevelsEventContent =
+        serde_json::from_str(
+            services()
+                .rooms
+                .state_accessor
+                .room_state_get(
+                    &body.room_id,
+                    &StateEventType::RoomPowerLevels,
+                    "",
+                )?
+                .ok_or_else(|| {
+                    Error::bad_database(
+                        "Found room without m.room.create event.",
+                    )
+                })?
+                .content
+                .get(),
+        )
+        .map_err(|_| Error::bad_database("Invalid room event in database."))?;
 
-    // Setting events_default and invite to the greater of 50 and users_default + 1
-    let new_level = max(int!(50), power_levels_event_content.users_default + int!(1));
+    // Setting events_default and invite to the greater of 50 and users_default
+    // + 1
+    let new_level =
+        max(int!(50), power_levels_event_content.users_default + int!(1));
     power_levels_event_content.events_default = new_level;
     power_levels_event_content.invite = new_level;
 
-    // Modify the power levels in the old room to prevent sending of events and inviting new users
+    // Modify the power levels in the old room to prevent sending of events and
+    // inviting new users
     let _ = services()
         .rooms
         .timeline
@@ -865,5 +914,7 @@ pub(crate) async fn upgrade_room_route(
     drop(state_lock);
 
     // Return the replacement room id
-    Ok(upgrade_room::v3::Response { replacement_room })
+    Ok(upgrade_room::v3::Response {
+        replacement_room,
+    })
 }

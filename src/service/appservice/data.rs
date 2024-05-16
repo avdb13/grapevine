@@ -15,7 +15,9 @@ pub(crate) trait Data: Send + Sync {
 
     fn get_registration(&self, id: &str) -> Result<Option<Registration>>;
 
-    fn iter_ids<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>>;
+    fn iter_ids<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>>;
 
     fn all(&self) -> Result<Vec<(String, Registration)>>;
 }

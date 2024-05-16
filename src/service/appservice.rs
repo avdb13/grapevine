@@ -3,7 +3,6 @@ mod data;
 use std::collections::BTreeMap;
 
 pub(crate) use data::Data;
-
 use futures_util::Future;
 use regex::RegexSet;
 use ruma::{
@@ -48,6 +47,8 @@ impl NamespaceRegex {
 }
 
 impl TryFrom<Vec<Namespace>> for NamespaceRegex {
+    type Error = regex::Error;
+
     fn try_from(value: Vec<Namespace>) -> Result<Self, regex::Error> {
         let mut exclusive = vec![];
         let mut non_exclusive = vec![];
@@ -73,8 +74,6 @@ impl TryFrom<Vec<Namespace>> for NamespaceRegex {
             },
         })
     }
-
-    type Error = regex::Error;
 }
 
 /// Appservice registration combined with its compiled regular expressions.
@@ -99,6 +98,8 @@ impl RegistrationInfo {
 }
 
 impl TryFrom<Registration> for RegistrationInfo {
+    type Error = regex::Error;
+
     fn try_from(value: Registration) -> Result<RegistrationInfo, regex::Error> {
         Ok(RegistrationInfo {
             users: value.namespaces.users.clone().try_into()?,
@@ -107,8 +108,6 @@ impl TryFrom<Registration> for RegistrationInfo {
             registration: value,
         })
     }
-
-    type Error = regex::Error;
 }
 
 pub(crate) struct Service {
@@ -135,8 +134,12 @@ impl Service {
             registration_info: RwLock::new(registration_info),
         })
     }
+
     /// Registers an appservice and returns the ID to the caller.
-    pub(crate) async fn register_appservice(&self, yaml: Registration) -> Result<String> {
+    pub(crate) async fn register_appservice(
+        &self,
+        yaml: Registration,
+    ) -> Result<String> {
         //TODO: Check for collisions between exclusive appservice namespaces
         self.registration_info
             .write()
@@ -151,19 +154,27 @@ impl Service {
     /// # Arguments
     ///
     /// * `service_name` - the name you send to register the service previously
-    pub(crate) async fn unregister_appservice(&self, service_name: &str) -> Result<()> {
+    pub(crate) async fn unregister_appservice(
+        &self,
+        service_name: &str,
+    ) -> Result<()> {
         services()
             .appservice
             .registration_info
             .write()
             .await
             .remove(service_name)
-            .ok_or_else(|| crate::Error::AdminCommand("Appservice not found"))?;
+            .ok_or_else(|| {
+                crate::Error::AdminCommand("Appservice not found")
+            })?;
 
         self.db.unregister_appservice(service_name)
     }
 
-    pub(crate) async fn get_registration(&self, id: &str) -> Option<Registration> {
+    pub(crate) async fn get_registration(
+        &self,
+        id: &str,
+    ) -> Option<Registration> {
         self.registration_info
             .read()
             .await
@@ -173,15 +184,13 @@ impl Service {
     }
 
     pub(crate) async fn iter_ids(&self) -> Vec<String> {
-        self.registration_info
-            .read()
-            .await
-            .keys()
-            .cloned()
-            .collect()
+        self.registration_info.read().await.keys().cloned().collect()
     }
 
-    pub(crate) async fn find_from_token(&self, token: &str) -> Option<RegistrationInfo> {
+    pub(crate) async fn find_from_token(
+        &self,
+        token: &str,
+    ) -> Option<RegistrationInfo> {
         self.read()
             .await
             .values()
@@ -207,8 +216,12 @@ impl Service {
 
     pub(crate) fn read(
         &self,
-    ) -> impl Future<Output = tokio::sync::RwLockReadGuard<'_, BTreeMap<String, RegistrationInfo>>>
-    {
+    ) -> impl Future<
+        Output = tokio::sync::RwLockReadGuard<
+            '_,
+            BTreeMap<String, RegistrationInfo>,
+        >,
+    > {
         self.registration_info.read()
     }
 }

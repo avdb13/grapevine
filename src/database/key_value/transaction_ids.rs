@@ -11,9 +11,11 @@ impl service::transaction_ids::Data for KeyValueDatabase {
         data: &[u8],
     ) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
-        key.extend_from_slice(device_id.map(DeviceId::as_bytes).unwrap_or_default());
-        key.push(0xff);
+        key.push(0xFF);
+        key.extend_from_slice(
+            device_id.map(DeviceId::as_bytes).unwrap_or_default(),
+        );
+        key.push(0xFF);
         key.extend_from_slice(txn_id.as_bytes());
 
         self.userdevicetxnid_response.insert(&key, data)?;
@@ -28,9 +30,11 @@ impl service::transaction_ids::Data for KeyValueDatabase {
         txn_id: &TransactionId,
     ) -> Result<Option<Vec<u8>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
-        key.extend_from_slice(device_id.map(DeviceId::as_bytes).unwrap_or_default());
-        key.push(0xff);
+        key.push(0xFF);
+        key.extend_from_slice(
+            device_id.map(DeviceId::as_bytes).unwrap_or_default(),
+        );
+        key.push(0xFF);
         key.extend_from_slice(txn_id.as_bytes());
 
         // If there's no entry, this is a new transaction

@@ -1,12 +1,19 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, PduEvent, Result};
 use async_trait::async_trait;
 use ruma::{events::StateEventType, EventId, RoomId};
 
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, PduEvent,
+    Result,
+};
+
 #[async_trait]
 impl service::rooms::state_accessor::Data for KeyValueDatabase {
-    async fn state_full_ids(&self, shortstatehash: u64) -> Result<HashMap<u64, Arc<EventId>>> {
+    async fn state_full_ids(
+        &self,
+        shortstatehash: u64,
+    ) -> Result<HashMap<u64, Arc<EventId>>> {
         let full_state = services()
             .rooms
             .state_compressor
@@ -56,7 +63,11 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
                         pdu.kind.to_string().into(),
                         pdu.state_key
                             .as_ref()
-                            .ok_or_else(|| Error::bad_database("State event has no state key."))?
+                            .ok_or_else(|| {
+                                Error::bad_database(
+                                    "State event has no state key.",
+                                )
+                            })?
                             .clone(),
                     ),
                     pdu,
@@ -72,17 +83,16 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
         Ok(result)
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     fn state_get_id(
         &self,
         shortstatehash: u64,
         event_type: &StateEventType,
         state_key: &str,
     ) -> Result<Option<Arc<EventId>>> {
-        let Some(shortstatekey) = services()
-            .rooms
-            .short
-            .get_shortstatekey(event_type, state_key)?
+        let Some(shortstatekey) =
+            services().rooms.short.get_shortstatekey(event_type, state_key)?
         else {
             return Ok(None);
         };
@@ -106,7 +116,8 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
             }))
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     fn state_get(
         &self,
         shortstatehash: u64,
@@ -121,20 +132,22 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
 
     /// Returns the state hash for this pdu.
     fn pdu_shortstatehash(&self, event_id: &EventId) -> Result<Option<u64>> {
-        self.eventid_shorteventid
-            .get(event_id.as_bytes())?
-            .map_or(Ok(None), |shorteventid| {
+        self.eventid_shorteventid.get(event_id.as_bytes())?.map_or(
+            Ok(None),
+            |shorteventid| {
                 self.shorteventid_shortstatehash
                     .get(&shorteventid)?
                     .map(|bytes| {
                         utils::u64_from_bytes(&bytes).map_err(|_| {
                             Error::bad_database(
-                                "Invalid shortstatehash bytes in shorteventid_shortstatehash",
+                                "Invalid shortstatehash bytes in \
+                                 shorteventid_shortstatehash",
                             )
                         })
                     })
                     .transpose()
-            })
+            },
+        )
     }
 
     /// Returns the full room state.
@@ -151,7 +164,8 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
         }
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     fn room_state_get_id(
         &self,
         room_id: &RoomId,
@@ -167,7 +181,8 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
         }
     }
 
-    /// Returns a single PDU from `room_id` with key (`event_type`, `state_key`).
+    /// Returns a single PDU from `room_id` with key (`event_type`,
+    /// `state_key`).
     fn room_state_get(
         &self,
         room_id: &RoomId,

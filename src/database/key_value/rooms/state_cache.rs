@@ -13,20 +13,24 @@ use crate::{
 };
 
 impl service::rooms::state_cache::Data for KeyValueDatabase {
-    fn mark_as_once_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<()> {
+    fn mark_as_once_joined(
+        &self,
+        user_id: &UserId,
+        room_id: &RoomId,
+    ) -> Result<()> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
         self.roomuseroncejoinedids.insert(&userroom_id, &[])
     }
 
     fn mark_as_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<()> {
         let mut roomuser_id = room_id.as_bytes().to_vec();
-        roomuser_id.push(0xff);
+        roomuser_id.push(0xFF);
         roomuser_id.extend_from_slice(user_id.as_bytes());
 
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         self.userroomid_joined.insert(&userroom_id, &[])?;
@@ -46,11 +50,11 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         last_state: Option<Vec<Raw<AnyStrippedStateEvent>>>,
     ) -> Result<()> {
         let mut roomuser_id = room_id.as_bytes().to_vec();
-        roomuser_id.push(0xff);
+        roomuser_id.push(0xFF);
         roomuser_id.extend_from_slice(user_id.as_bytes());
 
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         self.userroomid_invitestate.insert(
@@ -72,11 +76,11 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
 
     fn mark_as_left(&self, user_id: &UserId, room_id: &RoomId) -> Result<()> {
         let mut roomuser_id = room_id.as_bytes().to_vec();
-        roomuser_id.push(0xff);
+        roomuser_id.push(0xFF);
         roomuser_id.extend_from_slice(user_id.as_bytes());
 
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         // TODO
@@ -112,7 +116,9 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             joinedcount += 1;
         }
 
-        for _invited in self.room_members_invited(room_id).filter_map(Result::ok) {
+        for _invited in
+            self.room_members_invited(room_id).filter_map(Result::ok)
+        {
             invitedcount += 1;
         }
 
@@ -127,15 +133,17 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             .unwrap()
             .insert(room_id.to_owned(), Arc::new(real_users));
 
-        for old_joined_server in self.room_servers(room_id).filter_map(Result::ok) {
+        for old_joined_server in
+            self.room_servers(room_id).filter_map(Result::ok)
+        {
             if !joined_servers.remove(&old_joined_server) {
                 // Server not in room anymore
                 let mut roomserver_id = room_id.as_bytes().to_vec();
-                roomserver_id.push(0xff);
+                roomserver_id.push(0xFF);
                 roomserver_id.extend_from_slice(old_joined_server.as_bytes());
 
                 let mut serverroom_id = old_joined_server.as_bytes().to_vec();
-                serverroom_id.push(0xff);
+                serverroom_id.push(0xFF);
                 serverroom_id.extend_from_slice(room_id.as_bytes());
 
                 self.roomserverids.remove(&roomserver_id)?;
@@ -146,49 +154,45 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         // Now only new servers are in joined_servers anymore
         for server in joined_servers {
             let mut roomserver_id = room_id.as_bytes().to_vec();
-            roomserver_id.push(0xff);
+            roomserver_id.push(0xFF);
             roomserver_id.extend_from_slice(server.as_bytes());
 
             let mut serverroom_id = server.as_bytes().to_vec();
-            serverroom_id.push(0xff);
+            serverroom_id.push(0xFF);
             serverroom_id.extend_from_slice(room_id.as_bytes());
 
             self.roomserverids.insert(&roomserver_id, &[])?;
             self.serverroomids.insert(&serverroom_id, &[])?;
         }
 
-        self.appservice_in_room_cache
-            .write()
-            .unwrap()
-            .remove(room_id);
+        self.appservice_in_room_cache.write().unwrap().remove(room_id);
 
         Ok(())
     }
 
     #[tracing::instrument(skip(self, room_id))]
-    fn get_our_real_users(&self, room_id: &RoomId) -> Result<Arc<HashSet<OwnedUserId>>> {
-        let maybe = self
-            .our_real_users_cache
-            .read()
-            .unwrap()
-            .get(room_id)
-            .cloned();
+    fn get_our_real_users(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<Arc<HashSet<OwnedUserId>>> {
+        let maybe =
+            self.our_real_users_cache.read().unwrap().get(room_id).cloned();
         if let Some(users) = maybe {
             Ok(users)
         } else {
             self.update_joined_count(room_id)?;
             Ok(Arc::clone(
-                self.our_real_users_cache
-                    .read()
-                    .unwrap()
-                    .get(room_id)
-                    .unwrap(),
+                self.our_real_users_cache.read().unwrap().get(room_id).unwrap(),
             ))
         }
     }
 
     #[tracing::instrument(skip(self, room_id, appservice))]
-    fn appservice_in_room(&self, room_id: &RoomId, appservice: &RegistrationInfo) -> Result<bool> {
+    fn appservice_in_room(
+        &self,
+        room_id: &RoomId,
+        appservice: &RegistrationInfo,
+    ) -> Result<bool> {
         let maybe = self
             .appservice_in_room_cache
             .read()
@@ -206,11 +210,13 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             )
             .ok();
 
-            let in_room = bridge_user_id
-                .map_or(false, |id| self.is_joined(&id, room_id).unwrap_or(false))
-                || self.room_members(room_id).any(|userid| {
-                    userid.map_or(false, |userid| appservice.users.is_match(userid.as_str()))
-                });
+            let in_room = bridge_user_id.map_or(false, |id| {
+                self.is_joined(&id, room_id).unwrap_or(false)
+            }) || self.room_members(room_id).any(|userid| {
+                userid.map_or(false, |userid| {
+                    appservice.users.is_match(userid.as_str())
+                })
+            });
 
             self.appservice_in_room_cache
                 .write()
@@ -227,11 +233,11 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
     fn forget(&self, room_id: &RoomId, user_id: &UserId) -> Result<()> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         let mut roomuser_id = room_id.as_bytes().to_vec();
-        roomuser_id.push(0xff);
+        roomuser_id.push(0xFF);
         roomuser_id.extend_from_slice(user_id.as_bytes());
 
         self.userroomid_leftstate.remove(&userroom_id)?;
@@ -247,51 +253,66 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Box<dyn Iterator<Item = Result<OwnedServerName>> + 'a> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         Box::new(self.roomserverids.scan_prefix(prefix).map(|(key, _)| {
             ServerName::parse(
                 utils::string_from_bytes(
-                    key.rsplit(|&b| b == 0xff)
+                    key.rsplit(|&b| b == 0xFF)
                         .next()
                         .expect("rsplit always returns an element"),
                 )
                 .map_err(|_| {
-                    Error::bad_database("Server name in roomserverids is invalid unicode.")
+                    Error::bad_database(
+                        "Server name in roomserverids is invalid unicode.",
+                    )
                 })?,
             )
-            .map_err(|_| Error::bad_database("Server name in roomserverids is invalid."))
+            .map_err(|_| {
+                Error::bad_database("Server name in roomserverids is invalid.")
+            })
         }))
     }
 
     #[tracing::instrument(skip(self))]
-    fn server_in_room(&self, server: &ServerName, room_id: &RoomId) -> Result<bool> {
+    fn server_in_room(
+        &self,
+        server: &ServerName,
+        room_id: &RoomId,
+    ) -> Result<bool> {
         let mut key = server.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
 
         self.serverroomids.get(&key).map(|o| o.is_some())
     }
 
-    /// Returns an iterator of all rooms a server participates in (as far as we know).
+    /// Returns an iterator of all rooms a server participates in (as far as we
+    /// know).
     #[tracing::instrument(skip(self))]
     fn server_rooms<'a>(
         &'a self,
         server: &ServerName,
     ) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
         let mut prefix = server.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         Box::new(self.serverroomids.scan_prefix(prefix).map(|(key, _)| {
             RoomId::parse(
                 utils::string_from_bytes(
-                    key.rsplit(|&b| b == 0xff)
+                    key.rsplit(|&b| b == 0xFF)
                         .next()
                         .expect("rsplit always returns an element"),
                 )
-                .map_err(|_| Error::bad_database("RoomId in serverroomids is invalid unicode."))?,
+                .map_err(|_| {
+                    Error::bad_database(
+                        "RoomId in serverroomids is invalid unicode.",
+                    )
+                })?,
             )
-            .map_err(|_| Error::bad_database("RoomId in serverroomids is invalid."))
+            .map_err(|_| {
+                Error::bad_database("RoomId in serverroomids is invalid.")
+            })
         }))
     }
 
@@ -302,20 +323,24 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         Box::new(self.roomuserid_joined.scan_prefix(prefix).map(|(key, _)| {
             UserId::parse(
                 utils::string_from_bytes(
-                    key.rsplit(|&b| b == 0xff)
+                    key.rsplit(|&b| b == 0xFF)
                         .next()
                         .expect("rsplit always returns an element"),
                 )
                 .map_err(|_| {
-                    Error::bad_database("User ID in roomuserid_joined is invalid unicode.")
+                    Error::bad_database(
+                        "User ID in roomuserid_joined is invalid unicode.",
+                    )
                 })?,
             )
-            .map_err(|_| Error::bad_database("User ID in roomuserid_joined is invalid."))
+            .map_err(|_| {
+                Error::bad_database("User ID in roomuserid_joined is invalid.")
+            })
         }))
     }
 
@@ -324,8 +349,9 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         self.roomid_joinedcount
             .get(room_id.as_bytes())?
             .map(|b| {
-                utils::u64_from_bytes(&b)
-                    .map_err(|_| Error::bad_database("Invalid joinedcount in db."))
+                utils::u64_from_bytes(&b).map_err(|_| {
+                    Error::bad_database("Invalid joinedcount in db.")
+                })
             })
             .transpose()
     }
@@ -335,8 +361,9 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         self.roomid_invitedcount
             .get(room_id.as_bytes())?
             .map(|b| {
-                utils::u64_from_bytes(&b)
-                    .map_err(|_| Error::bad_database("Invalid joinedcount in db."))
+                utils::u64_from_bytes(&b).map_err(|_| {
+                    Error::bad_database("Invalid joinedcount in db.")
+                })
             })
             .transpose()
     }
@@ -348,27 +375,30 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        Box::new(
-            self.roomuseroncejoinedids
-                .scan_prefix(prefix)
-                .map(|(key, _)| {
-                    UserId::parse(
-                        utils::string_from_bytes(
-                            key.rsplit(|&b| b == 0xff)
-                                .next()
-                                .expect("rsplit always returns an element"),
-                        )
-                        .map_err(|_| {
-                            Error::bad_database(
-                                "User ID in room_useroncejoined is invalid unicode.",
-                            )
-                        })?,
+        Box::new(self.roomuseroncejoinedids.scan_prefix(prefix).map(
+            |(key, _)| {
+                UserId::parse(
+                    utils::string_from_bytes(
+                        key.rsplit(|&b| b == 0xFF)
+                            .next()
+                            .expect("rsplit always returns an element"),
                     )
-                    .map_err(|_| Error::bad_database("User ID in room_useroncejoined is invalid."))
-                }),
-        )
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "User ID in room_useroncejoined is invalid \
+                             unicode.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "User ID in room_useroncejoined is invalid.",
+                    )
+                })
+            },
+        ))
     }
 
     /// Returns an iterator over all invited members of a room.
@@ -378,53 +408,64 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        Box::new(
-            self.roomuserid_invitecount
-                .scan_prefix(prefix)
-                .map(|(key, _)| {
-                    UserId::parse(
-                        utils::string_from_bytes(
-                            key.rsplit(|&b| b == 0xff)
-                                .next()
-                                .expect("rsplit always returns an element"),
-                        )
-                        .map_err(|_| {
-                            Error::bad_database("User ID in roomuserid_invited is invalid unicode.")
-                        })?,
+        Box::new(self.roomuserid_invitecount.scan_prefix(prefix).map(
+            |(key, _)| {
+                UserId::parse(
+                    utils::string_from_bytes(
+                        key.rsplit(|&b| b == 0xFF)
+                            .next()
+                            .expect("rsplit always returns an element"),
                     )
-                    .map_err(|_| Error::bad_database("User ID in roomuserid_invited is invalid."))
-                }),
-        )
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "User ID in roomuserid_invited is invalid unicode.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "User ID in roomuserid_invited is invalid.",
+                    )
+                })
+            },
+        ))
     }
 
     #[tracing::instrument(skip(self))]
-    fn get_invite_count(&self, room_id: &RoomId, user_id: &UserId) -> Result<Option<u64>> {
+    fn get_invite_count(
+        &self,
+        room_id: &RoomId,
+        user_id: &UserId,
+    ) -> Result<Option<u64>> {
         let mut key = room_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(user_id.as_bytes());
 
-        self.roomuserid_invitecount
-            .get(&key)?
-            .map_or(Ok(None), |bytes| {
-                Ok(Some(utils::u64_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Invalid invitecount in db.")
-                })?))
-            })
+        self.roomuserid_invitecount.get(&key)?.map_or(Ok(None), |bytes| {
+            Ok(Some(utils::u64_from_bytes(&bytes).map_err(|_| {
+                Error::bad_database("Invalid invitecount in db.")
+            })?))
+        })
     }
 
     #[tracing::instrument(skip(self))]
-    fn get_left_count(&self, room_id: &RoomId, user_id: &UserId) -> Result<Option<u64>> {
+    fn get_left_count(
+        &self,
+        room_id: &RoomId,
+        user_id: &UserId,
+    ) -> Result<Option<u64>> {
         let mut key = room_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(user_id.as_bytes());
 
         self.roomuserid_leftcount
             .get(&key)?
             .map(|bytes| {
-                utils::u64_from_bytes(&bytes)
-                    .map_err(|_| Error::bad_database("Invalid leftcount in db."))
+                utils::u64_from_bytes(&bytes).map_err(|_| {
+                    Error::bad_database("Invalid leftcount in db.")
+                })
             })
             .transpose()
     }
@@ -441,15 +482,22 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
                 .map(|(key, _)| {
                     RoomId::parse(
                         utils::string_from_bytes(
-                            key.rsplit(|&b| b == 0xff)
+                            key.rsplit(|&b| b == 0xFF)
                                 .next()
                                 .expect("rsplit always returns an element"),
                         )
                         .map_err(|_| {
-                            Error::bad_database("Room ID in userroomid_joined is invalid unicode.")
+                            Error::bad_database(
+                                "Room ID in userroomid_joined is invalid \
+                                 unicode.",
+                            )
                         })?,
                     )
-                    .map_err(|_| Error::bad_database("Room ID in userroomid_joined is invalid."))
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "Room ID in userroomid_joined is invalid.",
+                        )
+                    })
                 }),
         )
     }
@@ -460,35 +508,43 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     fn rooms_invited<'a>(
         &'a self,
         user_id: &UserId,
-    ) -> Box<dyn Iterator<Item = Result<(OwnedRoomId, Vec<Raw<AnyStrippedStateEvent>>)>> + 'a> {
+    ) -> Box<
+        dyn Iterator<
+                Item = Result<(OwnedRoomId, Vec<Raw<AnyStrippedStateEvent>>)>,
+            > + 'a,
+    > {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        Box::new(
-            self.userroomid_invitestate
-                .scan_prefix(prefix)
-                .map(|(key, state)| {
-                    let room_id = RoomId::parse(
-                        utils::string_from_bytes(
-                            key.rsplit(|&b| b == 0xff)
-                                .next()
-                                .expect("rsplit always returns an element"),
-                        )
-                        .map_err(|_| {
-                            Error::bad_database("Room ID in userroomid_invited is invalid unicode.")
-                        })?,
+        Box::new(self.userroomid_invitestate.scan_prefix(prefix).map(
+            |(key, state)| {
+                let room_id = RoomId::parse(
+                    utils::string_from_bytes(
+                        key.rsplit(|&b| b == 0xFF)
+                            .next()
+                            .expect("rsplit always returns an element"),
                     )
                     .map_err(|_| {
-                        Error::bad_database("Room ID in userroomid_invited is invalid.")
-                    })?;
+                        Error::bad_database(
+                            "Room ID in userroomid_invited is invalid unicode.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Room ID in userroomid_invited is invalid.",
+                    )
+                })?;
 
-                    let state = serde_json::from_slice(&state).map_err(|_| {
-                        Error::bad_database("Invalid state in userroomid_invitestate.")
-                    })?;
+                let state = serde_json::from_slice(&state).map_err(|_| {
+                    Error::bad_database(
+                        "Invalid state in userroomid_invitestate.",
+                    )
+                })?;
 
-                    Ok((room_id, state))
-                }),
-        )
+                Ok((room_id, state))
+            },
+        ))
     }
 
     #[tracing::instrument(skip(self))]
@@ -498,14 +554,17 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Result<Option<Vec<Raw<AnyStrippedStateEvent>>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
 
         self.userroomid_invitestate
             .get(&key)?
             .map(|state| {
-                let state = serde_json::from_slice(&state)
-                    .map_err(|_| Error::bad_database("Invalid state in userroomid_invitestate."))?;
+                let state = serde_json::from_slice(&state).map_err(|_| {
+                    Error::bad_database(
+                        "Invalid state in userroomid_invitestate.",
+                    )
+                })?;
 
                 Ok(state)
             })
@@ -519,14 +578,17 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Result<Option<Vec<Raw<AnyStrippedStateEvent>>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
 
         self.userroomid_leftstate
             .get(&key)?
             .map(|state| {
-                let state = serde_json::from_slice(&state)
-                    .map_err(|_| Error::bad_database("Invalid state in userroomid_leftstate."))?;
+                let state = serde_json::from_slice(&state).map_err(|_| {
+                    Error::bad_database(
+                        "Invalid state in userroomid_leftstate.",
+                    )
+                })?;
 
                 Ok(state)
             })
@@ -539,41 +601,48 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     fn rooms_left<'a>(
         &'a self,
         user_id: &UserId,
-    ) -> Box<dyn Iterator<Item = Result<(OwnedRoomId, Vec<Raw<AnySyncStateEvent>>)>> + 'a> {
+    ) -> Box<
+        dyn Iterator<Item = Result<(OwnedRoomId, Vec<Raw<AnySyncStateEvent>>)>>
+            + 'a,
+    > {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        Box::new(
-            self.userroomid_leftstate
-                .scan_prefix(prefix)
-                .map(|(key, state)| {
-                    let room_id = RoomId::parse(
-                        utils::string_from_bytes(
-                            key.rsplit(|&b| b == 0xff)
-                                .next()
-                                .expect("rsplit always returns an element"),
-                        )
-                        .map_err(|_| {
-                            Error::bad_database("Room ID in userroomid_invited is invalid unicode.")
-                        })?,
+        Box::new(self.userroomid_leftstate.scan_prefix(prefix).map(
+            |(key, state)| {
+                let room_id = RoomId::parse(
+                    utils::string_from_bytes(
+                        key.rsplit(|&b| b == 0xFF)
+                            .next()
+                            .expect("rsplit always returns an element"),
                     )
                     .map_err(|_| {
-                        Error::bad_database("Room ID in userroomid_invited is invalid.")
-                    })?;
+                        Error::bad_database(
+                            "Room ID in userroomid_invited is invalid unicode.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Room ID in userroomid_invited is invalid.",
+                    )
+                })?;
 
-                    let state = serde_json::from_slice(&state).map_err(|_| {
-                        Error::bad_database("Invalid state in userroomid_leftstate.")
-                    })?;
+                let state = serde_json::from_slice(&state).map_err(|_| {
+                    Error::bad_database(
+                        "Invalid state in userroomid_leftstate.",
+                    )
+                })?;
 
-                    Ok((room_id, state))
-                }),
-        )
+                Ok((room_id, state))
+            },
+        ))
     }
 
     #[tracing::instrument(skip(self))]
     fn once_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         Ok(self.roomuseroncejoinedids.get(&userroom_id)?.is_some())
@@ -582,7 +651,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
     fn is_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         Ok(self.userroomid_joined.get(&userroom_id)?.is_some())
@@ -591,7 +660,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
     fn is_invited(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         Ok(self.userroomid_invitestate.get(&userroom_id)?.is_some())
@@ -600,7 +669,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
     fn is_left(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool> {
         let mut userroom_id = user_id.as_bytes().to_vec();
-        userroom_id.push(0xff);
+        userroom_id.push(0xFF);
         userroom_id.extend_from_slice(room_id.as_bytes());
 
         Ok(self.userroomid_leftstate.get(&userroom_id)?.is_some())

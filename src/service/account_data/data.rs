@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
-use crate::Result;
 use ruma::{
     events::{AnyEphemeralRoomEvent, RoomAccountDataEventType},
     serde::Raw,
     RoomId, UserId,
 };
 
+use crate::Result;
+
 pub(crate) trait Data: Send + Sync {
-    /// Places one event in the account data of the user and removes the previous entry.
+    /// Places one event in the account data of the user and removes the
+    /// previous entry.
     fn update(
         &self,
         room_id: Option<&RoomId>,

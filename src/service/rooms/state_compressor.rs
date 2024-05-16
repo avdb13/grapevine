@@ -9,9 +9,8 @@ pub(crate) use data::Data;
 use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
-use crate::{services, utils, Result};
-
 use self::data::StateDiff;
+use crate::{services, utils, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -37,7 +36,8 @@ pub(crate) struct Service {
 pub(crate) type CompressedStateEvent = [u8; 2 * size_of::<u64>()];
 
 impl Service {
-    /// Returns a stack with info on shortstatehash, full state, added diff and removed diff for the selected shortstatehash and each parent layer.
+    /// Returns a stack with info on shortstatehash, full state, added diff and
+    /// removed diff for the selected shortstatehash and each parent layer.
     #[allow(clippy::type_complexity)]
     #[tracing::instrument(skip(self))]
     pub(crate) fn load_shortstatehash_info(
@@ -55,11 +55,8 @@ impl Service {
             Arc<HashSet<CompressedStateEvent>>,
         )>,
     > {
-        if let Some(r) = self
-            .stateinfo_cache
-            .lock()
-            .unwrap()
-            .get_mut(&shortstatehash)
+        if let Some(r) =
+            self.stateinfo_cache.lock().unwrap().get_mut(&shortstatehash)
         {
             return Ok(r.clone());
         }
@@ -79,7 +76,12 @@ impl Service {
                 state.remove(r);
             }
 
-            response.push((shortstatehash, Arc::new(state), added, Arc::new(removed)));
+            response.push((
+                shortstatehash,
+                Arc::new(state),
+                added,
+                Arc::new(removed),
+            ));
 
             self.stateinfo_cache
                 .lock()
@@ -88,7 +90,8 @@ impl Service {
 
             Ok(response)
         } else {
-            let response = vec![(shortstatehash, added.clone(), added, removed)];
+            let response =
+                vec![(shortstatehash, added.clone(), added, removed)];
             self.stateinfo_cache
                 .lock()
                 .unwrap()
@@ -132,19 +135,24 @@ impl Service {
         ))
     }
 
-    /// Creates a new shortstatehash that often is just a diff to an already existing
-    /// shortstatehash and therefore very efficient.
+    /// Creates a new shortstatehash that often is just a diff to an already
+    /// existing shortstatehash and therefore very efficient.
     ///
-    /// There are multiple layers of diffs. The bottom layer 0 always contains the full state. Layer
-    /// 1 contains diffs to states of layer 0, layer 2 diffs to layer 1 and so on. If layer n > 0
-    /// grows too big, it will be combined with layer n-1 to create a new diff on layer n-1 that's
-    /// based on layer n-2. If that layer is also too big, it will recursively fix above layers too.
+    /// There are multiple layers of diffs. The bottom layer 0 always contains
+    /// the full state. Layer 1 contains diffs to states of layer 0, layer 2
+    /// diffs to layer 1 and so on. If layer n > 0 grows too big, it will be
+    /// combined with layer n-1 to create a new diff on layer n-1 that's
+    /// based on layer n-2. If that layer is also too big, it will recursively
+    /// fix above layers too.
     ///
     /// * `shortstatehash` - Shortstatehash of this state
     /// * `statediffnew` - Added to base. Each vec is shortstatekey+shorteventid
-    /// * `statediffremoved` - Removed from base. Each vec is shortstatekey+shorteventid
-    /// * `diff_to_sibling` - Approximately how much the diff grows each time for this layer
-    /// * `parent_states` - A stack with info on shortstatehash, full state, added diff and removed diff for each parent layer
+    /// * `statediffremoved` - Removed from base. Each vec is
+    ///   shortstatekey+shorteventid
+    /// * `diff_to_sibling` - Approximately how much the diff grows each time
+    ///   for this layer
+    /// * `parent_states` - A stack with info on shortstatehash, full state,
+    ///   added diff and removed diff for each parent layer
     #[allow(clippy::type_complexity)]
     #[tracing::instrument(skip(
         self,
@@ -185,7 +193,8 @@ impl Service {
                     // It was not added in the parent and we removed it
                     parent_removed.insert(*removed);
                 }
-                // Else it was added in the parent and we removed it again. We can forget this change
+                // Else it was added in the parent and we removed it again. We
+                // can forget this change
             }
 
             for new in statediffnew.iter() {
@@ -193,7 +202,8 @@ impl Service {
                     // It was not touched in the parent and we added it
                     parent_new.insert(*new);
                 }
-                // Else it was removed in the parent and we added it again. We can forget this change
+                // Else it was removed in the parent and we added it again. We
+                // can forget this change
             }
 
             self.save_state_from_diff(
@@ -238,7 +248,8 @@ impl Service {
                     // It was not added in the parent and we removed it
                     parent_removed.insert(*removed);
                 }
-                // Else it was added in the parent and we removed it again. We can forget this change
+                // Else it was added in the parent and we removed it again. We
+                // can forget this change
             }
 
             for new in statediffnew.iter() {
@@ -246,7 +257,8 @@ impl Service {
                     // It was not touched in the parent and we added it
                     parent_new.insert(*new);
                 }
-                // Else it was removed in the parent and we added it again. We can forget this change
+                // Else it was removed in the parent and we added it again. We
+                // can forget this change
             }
 
             self.save_state_from_diff(
@@ -271,7 +283,8 @@ impl Service {
         Ok(())
     }
 
-    /// Returns the new shortstatehash, and the state diff from the previous room state
+    /// Returns the new shortstatehash, and the state diff from the previous
+    /// room state
     #[allow(clippy::type_complexity)]
     pub(crate) fn save_state(
         &self,
@@ -282,7 +295,8 @@ impl Service {
         Arc<HashSet<CompressedStateEvent>>,
         Arc<HashSet<CompressedStateEvent>>,
     )> {
-        let previous_shortstatehash = services().rooms.state.get_room_shortstatehash(room_id)?;
+        let previous_shortstatehash =
+            services().rooms.state.get_room_shortstatehash(room_id)?;
 
         let state_hash = utils::calculate_hash(
             &new_state_ids_compressed
@@ -291,10 +305,8 @@ impl Service {
                 .collect::<Vec<_>>(),
         );
 
-        let (new_shortstatehash, already_existed) = services()
-            .rooms
-            .short
-            .get_or_create_shortstatehash(&state_hash)?;
+        let (new_shortstatehash, already_existed) =
+            services().rooms.short.get_or_create_shortstatehash(&state_hash)?;
 
         if Some(new_shortstatehash) == previous_shortstatehash {
             return Ok((
@@ -304,26 +316,28 @@ impl Service {
             ));
         }
 
-        let states_parents = previous_shortstatehash
-            .map_or_else(|| Ok(Vec::new()), |p| self.load_shortstatehash_info(p))?;
+        let states_parents = previous_shortstatehash.map_or_else(
+            || Ok(Vec::new()),
+            |p| self.load_shortstatehash_info(p),
+        )?;
 
-        let (statediffnew, statediffremoved) = if let Some(parent_stateinfo) = states_parents.last()
-        {
-            let statediffnew: HashSet<_> = new_state_ids_compressed
-                .difference(&parent_stateinfo.1)
-                .copied()
-                .collect();
+        let (statediffnew, statediffremoved) =
+            if let Some(parent_stateinfo) = states_parents.last() {
+                let statediffnew: HashSet<_> = new_state_ids_compressed
+                    .difference(&parent_stateinfo.1)
+                    .copied()
+                    .collect();
 
-            let statediffremoved: HashSet<_> = parent_stateinfo
-                .1
-                .difference(&new_state_ids_compressed)
-                .copied()
-                .collect();
+                let statediffremoved: HashSet<_> = parent_stateinfo
+                    .1
+                    .difference(&new_state_ids_compressed)
+                    .copied()
+                    .collect();
 
-            (Arc::new(statediffnew), Arc::new(statediffremoved))
-        } else {
-            (new_state_ids_compressed, Arc::new(HashSet::new()))
-        };
+                (Arc::new(statediffnew), Arc::new(statediffremoved))
+            } else {
+                (new_state_ids_compressed, Arc::new(HashSet::new()))
+            };
 
         if !already_existed {
             self.save_state_from_diff(

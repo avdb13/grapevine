@@ -1,6 +1,8 @@
 use ruma::{OwnedRoomId, RoomId};
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, Result,
+};
 
 impl service::rooms::metadata::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
@@ -19,14 +21,18 @@ impl service::rooms::metadata::Data for KeyValueDatabase {
             .is_some())
     }
 
-    fn iter_ids<'a>(&'a self) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
+    fn iter_ids<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
         Box::new(self.roomid_shortroomid.iter().map(|(bytes, _)| {
-            RoomId::parse(
-                utils::string_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Room ID in publicroomids is invalid unicode.")
-                })?,
-            )
-            .map_err(|_| Error::bad_database("Room ID in roomid_shortroomid is invalid."))
+            RoomId::parse(utils::string_from_bytes(&bytes).map_err(|_| {
+                Error::bad_database(
+                    "Room ID in publicroomids is invalid unicode.",
+                )
+            })?)
+            .map_err(|_| {
+                Error::bad_database("Room ID in roomid_shortroomid is invalid.")
+            })
         }))
     }
 

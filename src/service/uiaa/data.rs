@@ -1,5 +1,6 @@
-use crate::Result;
 use ruma::{api::client::uiaa::UiaaInfo, CanonicalJsonValue, DeviceId, UserId};
+
+use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
     fn set_uiaa_request(

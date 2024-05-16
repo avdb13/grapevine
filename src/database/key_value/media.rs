@@ -12,22 +12,19 @@ impl service::media::Data for KeyValueDatabase {
         content_type: Option<&str>,
     ) -> Result<Vec<u8>> {
         let mut key = mxc.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(&width.to_be_bytes());
         key.extend_from_slice(&height.to_be_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(
             content_disposition
                 .as_ref()
                 .map(|f| f.as_bytes())
                 .unwrap_or_default(),
         );
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(
-            content_type
-                .as_ref()
-                .map(|c| c.as_bytes())
-                .unwrap_or_default(),
+            content_type.as_ref().map(|c| c.as_bytes()).unwrap_or_default(),
         );
 
         self.mediaid_file.insert(&key, &[])?;
@@ -42,24 +39,25 @@ impl service::media::Data for KeyValueDatabase {
         height: u32,
     ) -> Result<(Option<String>, Option<String>, Vec<u8>)> {
         let mut prefix = mxc.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(&width.to_be_bytes());
         prefix.extend_from_slice(&height.to_be_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        let (key, _) = self
-            .mediaid_file
-            .scan_prefix(prefix)
-            .next()
-            .ok_or(Error::BadRequest(ErrorKind::NotFound, "Media not found"))?;
+        let (key, _) =
+            self.mediaid_file.scan_prefix(prefix).next().ok_or(
+                Error::BadRequest(ErrorKind::NotFound, "Media not found"),
+            )?;
 
-        let mut parts = key.rsplit(|&b| b == 0xff);
+        let mut parts = key.rsplit(|&b| b == 0xFF);
 
         let content_type = parts
             .next()
             .map(|bytes| {
                 utils::string_from_bytes(bytes).map_err(|_| {
-                    Error::bad_database("Content type in mediaid_file is invalid unicode.")
+                    Error::bad_database(
+                        "Content type in mediaid_file is invalid unicode.",
+                    )
                 })
             })
             .transpose()?;
@@ -71,11 +69,14 @@ impl service::media::Data for KeyValueDatabase {
         let content_disposition = if content_disposition_bytes.is_empty() {
             None
         } else {
-            Some(
-                utils::string_from_bytes(content_disposition_bytes).map_err(|_| {
-                    Error::bad_database("Content Disposition in mediaid_file is invalid unicode.")
-                })?,
-            )
+            Some(utils::string_from_bytes(content_disposition_bytes).map_err(
+                |_| {
+                    Error::bad_database(
+                        "Content Disposition in mediaid_file is invalid \
+                         unicode.",
+                    )
+                },
+            )?)
         };
         Ok((content_disposition, content_type, key))
     }

@@ -108,7 +108,10 @@ impl Config {
         }
 
         if was_deprecated {
-            warn!("Read grapevine documentation and check your configuration if any new configuration parameters should be adjusted");
+            warn!(
+                "Read grapevine documentation and check your configuration if \
+                 any new configuration parameters should be adjusted"
+            );
         }
     }
 }

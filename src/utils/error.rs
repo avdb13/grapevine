@@ -19,13 +19,19 @@ pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 #[allow(clippy::error_impl_error)]
 pub(crate) enum Error {
     #[cfg(feature = "sqlite")]
-    #[error("There was a problem with the connection to the sqlite database: {source}")]
+    #[error(
+        "There was a problem with the connection to the sqlite database: \
+         {source}"
+    )]
     Sqlite {
         #[from]
         source: rusqlite::Error,
     },
     #[cfg(feature = "rocksdb")]
-    #[error("There was a problem with the connection to the rocksdb database: {source}")]
+    #[error(
+        "There was a problem with the connection to the rocksdb database: \
+         {source}"
+    )]
     RocksDb {
         #[from]
         source: rocksdb::Error,
@@ -91,9 +97,10 @@ impl Error {
 
     pub(crate) fn to_response(&self) -> RumaResponse<UiaaResponse> {
         use ErrorKind::{
-            Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken, NotFound,
-            ThreepidAuthFailed, ThreepidDenied, TooLarge, Unauthorized, Unknown, UnknownToken,
-            Unrecognized, UserDeactivated, WrongRoomKeysVersion,
+            Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken,
+            NotFound, ThreepidAuthFailed, ThreepidDenied, TooLarge,
+            Unauthorized, Unknown, UnknownToken, Unrecognized, UserDeactivated,
+            WrongRoomKeysVersion,
         };
 
         if let Self::Uiaa(uiaainfo) = self {
@@ -115,15 +122,23 @@ impl Error {
             Self::BadRequest(kind, _) => (
                 kind.clone(),
                 match kind {
-                    WrongRoomKeysVersion { .. }
+                    WrongRoomKeysVersion {
+                        ..
+                    }
                     | Forbidden
                     | GuestAccessForbidden
                     | ThreepidAuthFailed
                     | UserDeactivated
                     | ThreepidDenied => StatusCode::FORBIDDEN,
-                    Unauthorized | UnknownToken { .. } | MissingToken => StatusCode::UNAUTHORIZED,
+                    Unauthorized
+                    | UnknownToken {
+                        ..
+                    }
+                    | MissingToken => StatusCode::UNAUTHORIZED,
                     NotFound | Unrecognized => StatusCode::NOT_FOUND,
-                    LimitExceeded { .. } => StatusCode::TOO_MANY_REQUESTS,
+                    LimitExceeded {
+                        ..
+                    } => StatusCode::TOO_MANY_REQUESTS,
                     TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
                     _ => StatusCode::BAD_REQUEST,
                 },
@@ -135,7 +150,10 @@ impl Error {
         info!("Returning an error: {}: {}", status_code, message);
 
         RumaResponse(UiaaResponse::MatrixError(RumaError {
-            body: ErrorBody::Standard { kind, message },
+            body: ErrorBody::Standard {
+                kind,
+                message,
+            },
             status_code,
         }))
     }
@@ -146,12 +164,22 @@ impl Error {
 
         match self {
             #[cfg(feature = "sqlite")]
-            Self::Sqlite { .. } => db_error,
+            Self::Sqlite {
+                ..
+            } => db_error,
             #[cfg(feature = "rocksdb")]
-            Self::RocksDb { .. } => db_error,
-            Self::Io { .. } => db_error,
-            Self::BadConfig { .. } => db_error,
-            Self::BadDatabase { .. } => db_error,
+            Self::RocksDb {
+                ..
+            } => db_error,
+            Self::Io {
+                ..
+            } => db_error,
+            Self::BadConfig {
+                ..
+            } => db_error,
+            Self::BadDatabase {
+                ..
+            } => db_error,
             _ => self.to_string(),
         }
     }

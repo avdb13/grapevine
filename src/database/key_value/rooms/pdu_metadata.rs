@@ -22,7 +22,8 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
         shortroomid: u64,
         target: u64,
         until: PduCount,
-    ) -> Result<Box<dyn Iterator<Item = Result<(PduCount, PduEvent)>> + 'a>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<(PduCount, PduEvent)>> + 'a>>
+    {
         let prefix = target.to_be_bytes().to_vec();
         let mut current = prefix.clone();
 
@@ -40,8 +41,12 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
                 .iter_from(&current, true)
                 .take_while(move |(k, _)| k.starts_with(&prefix))
                 .map(move |(tofrom, _data)| {
-                    let from = utils::u64_from_bytes(&tofrom[(mem::size_of::<u64>())..])
-                        .map_err(|_| Error::bad_database("Invalid count in tofrom_relation."))?;
+                    let from = utils::u64_from_bytes(
+                        &tofrom[(mem::size_of::<u64>())..],
+                    )
+                    .map_err(|_| {
+                        Error::bad_database("Invalid count in tofrom_relation.")
+                    })?;
 
                     let mut pduid = shortroomid.to_be_bytes().to_vec();
                     pduid.extend_from_slice(&from.to_be_bytes());
@@ -50,7 +55,11 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
                         .rooms
                         .timeline
                         .get_pdu_from_id(&pduid)?
-                        .ok_or_else(|| Error::bad_database("Pdu in tofrom_relation is invalid."))?;
+                        .ok_or_else(|| {
+                            Error::bad_database(
+                                "Pdu in tofrom_relation is invalid.",
+                            )
+                        })?;
                     if pdu.sender != user_id {
                         pdu.remove_transaction_id()?;
                     }
@@ -59,7 +68,11 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
         ))
     }
 
-    fn mark_as_referenced(&self, room_id: &RoomId, event_ids: &[Arc<EventId>]) -> Result<()> {
+    fn mark_as_referenced(
+        &self,
+        room_id: &RoomId,
+        event_ids: &[Arc<EventId>],
+    ) -> Result<()> {
         for prev in event_ids {
             let mut key = room_id.as_bytes().to_vec();
             key.extend_from_slice(prev.as_bytes());
@@ -69,7 +82,11 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
         Ok(())
     }
 
-    fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> Result<bool> {
+    fn is_event_referenced(
+        &self,
+        room_id: &RoomId,
+        event_id: &EventId,
+    ) -> Result<bool> {
         let mut key = room_id.as_bytes().to_vec();
         key.extend_from_slice(event_id.as_bytes());
         Ok(self.referencedevents.get(&key)?.is_some())
@@ -80,8 +97,6 @@ impl service::rooms::pdu_metadata::Data for KeyValueDatabase {
     }
 
     fn is_event_soft_failed(&self, event_id: &EventId) -> Result<bool> {
-        self.softfailedeventids
-            .get(event_id.as_bytes())
-            .map(|o| o.is_some())
+        self.softfailedeventids.get(event_id.as_bytes()).map(|o| o.is_some())
     }
 }

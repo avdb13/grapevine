@@ -5,8 +5,8 @@ use ruma::{
     encryption::{CrossSigningKey, DeviceKeys, OneTimeKey},
     events::{AnyToDeviceEvent, StateEventType},
     serde::Raw,
-    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, MilliSecondsSinceUnixEpoch, OwnedDeviceId,
-    OwnedDeviceKeyId, OwnedMxcUri, OwnedUserId, UInt, UserId,
+    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, MilliSecondsSinceUnixEpoch,
+    OwnedDeviceId, OwnedDeviceKeyId, OwnedMxcUri, OwnedUserId, UInt, UserId,
 };
 use tracing::warn;
 
@@ -40,67 +40,100 @@ impl service::users::Data for KeyValueDatabase {
     }
 
     /// Find out which user an access token belongs to.
-    fn find_from_token(&self, token: &str) -> Result<Option<(OwnedUserId, String)>> {
-        self.token_userdeviceid
-            .get(token.as_bytes())?
-            .map_or(Ok(None), |bytes| {
-                let mut parts = bytes.split(|&b| b == 0xff);
+    fn find_from_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<(OwnedUserId, String)>> {
+        self.token_userdeviceid.get(token.as_bytes())?.map_or(
+            Ok(None),
+            |bytes| {
+                let mut parts = bytes.split(|&b| b == 0xFF);
                 let user_bytes = parts.next().ok_or_else(|| {
-                    Error::bad_database("User ID in token_userdeviceid is invalid.")
+                    Error::bad_database(
+                        "User ID in token_userdeviceid is invalid.",
+                    )
                 })?;
                 let device_bytes = parts.next().ok_or_else(|| {
-                    Error::bad_database("Device ID in token_userdeviceid is invalid.")
+                    Error::bad_database(
+                        "Device ID in token_userdeviceid is invalid.",
+                    )
                 })?;
 
                 Ok(Some((
-                    UserId::parse(utils::string_from_bytes(user_bytes).map_err(|_| {
-                        Error::bad_database("User ID in token_userdeviceid is invalid unicode.")
-                    })?)
+                    UserId::parse(
+                        utils::string_from_bytes(user_bytes).map_err(|_| {
+                            Error::bad_database(
+                                "User ID in token_userdeviceid is invalid \
+                                 unicode.",
+                            )
+                        })?,
+                    )
                     .map_err(|_| {
-                        Error::bad_database("User ID in token_userdeviceid is invalid.")
+                        Error::bad_database(
+                            "User ID in token_userdeviceid is invalid.",
+                        )
                     })?,
                     utils::string_from_bytes(device_bytes).map_err(|_| {
-                        Error::bad_database("Device ID in token_userdeviceid is invalid.")
+                        Error::bad_database(
+                            "Device ID in token_userdeviceid is invalid.",
+                        )
                     })?,
                 )))
-            })
+            },
+        )
     }
 
     /// Returns an iterator over all users on this homeserver.
-    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
+    fn iter<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
         Box::new(self.userid_password.iter().map(|(bytes, _)| {
             UserId::parse(utils::string_from_bytes(&bytes).map_err(|_| {
-                Error::bad_database("User ID in userid_password is invalid unicode.")
+                Error::bad_database(
+                    "User ID in userid_password is invalid unicode.",
+                )
             })?)
-            .map_err(|_| Error::bad_database("User ID in userid_password is invalid."))
+            .map_err(|_| {
+                Error::bad_database("User ID in userid_password is invalid.")
+            })
         }))
     }
 
     /// Returns a list of local users as list of usernames.
     ///
-    /// A user account is considered `local` if the length of it's password is greater then zero.
+    /// A user account is considered `local` if the length of it's password is
+    /// greater then zero.
     fn list_local_users(&self) -> Result<Vec<String>> {
         let users: Vec<String> = self
             .userid_password
             .iter()
-            .filter_map(|(username, pw)| get_username_with_valid_password(&username, &pw))
+            .filter_map(|(username, pw)| {
+                get_username_with_valid_password(&username, &pw)
+            })
             .collect();
         Ok(users)
     }
 
     /// Returns the password hash for the given user.
     fn password_hash(&self, user_id: &UserId) -> Result<Option<String>> {
-        self.userid_password
-            .get(user_id.as_bytes())?
-            .map_or(Ok(None), |bytes| {
+        self.userid_password.get(user_id.as_bytes())?.map_or(
+            Ok(None),
+            |bytes| {
                 Ok(Some(utils::string_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Password hash in db is not valid string.")
+                    Error::bad_database(
+                        "Password hash in db is not valid string.",
+                    )
                 })?))
-            })
+            },
+        )
     }
 
     /// Hash and set the user's password to the Argon2 hash
-    fn set_password(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
+    fn set_password(
+        &self,
+        user_id: &UserId,
+        password: Option<&str>,
+    ) -> Result<()> {
         if let Some(password) = password {
             if let Ok(hash) = utils::calculate_password_hash(password) {
                 self.userid_password
@@ -120,17 +153,23 @@ impl service::users::Data for KeyValueDatabase {
 
     /// Returns the `displayname` of a user on this homeserver.
     fn displayname(&self, user_id: &UserId) -> Result<Option<String>> {
-        self.userid_displayname
-            .get(user_id.as_bytes())?
-            .map_or(Ok(None), |bytes| {
+        self.userid_displayname.get(user_id.as_bytes())?.map_or(
+            Ok(None),
+            |bytes| {
                 Ok(Some(utils::string_from_bytes(&bytes).map_err(|_| {
                     Error::bad_database("Displayname in db is invalid.")
                 })?))
-            })
+            },
+        )
     }
 
-    /// Sets a new `displayname` or removes it if `displayname` is `None`. You still need to nofify all rooms of this change.
-    fn set_displayname(&self, user_id: &UserId, displayname: Option<String>) -> Result<()> {
+    /// Sets a new `displayname` or removes it if `displayname` is `None`. You
+    /// still need to nofify all rooms of this change.
+    fn set_displayname(
+        &self,
+        user_id: &UserId,
+        displayname: Option<String>,
+    ) -> Result<()> {
         if let Some(displayname) = displayname {
             self.userid_displayname
                 .insert(user_id.as_bytes(), displayname.as_bytes())?;
@@ -147,17 +186,25 @@ impl service::users::Data for KeyValueDatabase {
             .get(user_id.as_bytes())?
             .map(|bytes| {
                 utils::string_from_bytes(&bytes)
-                    .map_err(|_| Error::bad_database("Avatar URL in db is invalid."))
+                    .map_err(|_| {
+                        Error::bad_database("Avatar URL in db is invalid.")
+                    })
                     .map(Into::into)
             })
             .transpose()
     }
 
     /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
-    fn set_avatar_url(&self, user_id: &UserId, avatar_url: Option<OwnedMxcUri>) -> Result<()> {
+    fn set_avatar_url(
+        &self,
+        user_id: &UserId,
+        avatar_url: Option<OwnedMxcUri>,
+    ) -> Result<()> {
         if let Some(avatar_url) = avatar_url {
-            self.userid_avatarurl
-                .insert(user_id.as_bytes(), avatar_url.to_string().as_bytes())?;
+            self.userid_avatarurl.insert(
+                user_id.as_bytes(),
+                avatar_url.to_string().as_bytes(),
+            )?;
         } else {
             self.userid_avatarurl.remove(user_id.as_bytes())?;
         }
@@ -170,8 +217,9 @@ impl service::users::Data for KeyValueDatabase {
         self.userid_blurhash
             .get(user_id.as_bytes())?
             .map(|bytes| {
-                let s = utils::string_from_bytes(&bytes)
-                    .map_err(|_| Error::bad_database("Avatar URL in db is invalid."))?;
+                let s = utils::string_from_bytes(&bytes).map_err(|_| {
+                    Error::bad_database("Avatar URL in db is invalid.")
+                })?;
 
                 Ok(s)
             })
@@ -179,7 +227,11 @@ impl service::users::Data for KeyValueDatabase {
     }
 
     /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
-    fn set_blurhash(&self, user_id: &UserId, blurhash: Option<String>) -> Result<()> {
+    fn set_blurhash(
+        &self,
+        user_id: &UserId,
+        blurhash: Option<String>,
+    ) -> Result<()> {
         if let Some(blurhash) = blurhash {
             self.userid_blurhash
                 .insert(user_id.as_bytes(), blurhash.as_bytes())?;
@@ -204,11 +256,10 @@ impl service::users::Data for KeyValueDatabase {
         );
 
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
-        self.userid_devicelistversion
-            .increment(user_id.as_bytes())?;
+        self.userid_devicelistversion.increment(user_id.as_bytes())?;
 
         self.userdeviceid_metadata.insert(
             &userdeviceid,
@@ -228,9 +279,13 @@ impl service::users::Data for KeyValueDatabase {
     }
 
     /// Removes a device from a user.
-    fn remove_device(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
+    fn remove_device(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<()> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
         // Remove tokens
@@ -241,7 +296,7 @@ impl service::users::Data for KeyValueDatabase {
 
         // Remove todevice events
         let mut prefix = userdeviceid.clone();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         for (key, _) in self.todeviceid_events.scan_prefix(prefix) {
             self.todeviceid_events.remove(&key)?;
@@ -249,8 +304,7 @@ impl service::users::Data for KeyValueDatabase {
 
         // TODO: Remove onetimekeys
 
-        self.userid_devicelistversion
-            .increment(user_id.as_bytes())?;
+        self.userid_devicelistversion.increment(user_id.as_bytes())?;
 
         self.userdeviceid_metadata.remove(&userdeviceid)?;
 
@@ -263,29 +317,34 @@ impl service::users::Data for KeyValueDatabase {
         user_id: &UserId,
     ) -> Box<dyn Iterator<Item = Result<OwnedDeviceId>> + 'a> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         // All devices have metadata
-        Box::new(
-            self.userdeviceid_metadata
-                .scan_prefix(prefix)
-                .map(|(bytes, _)| {
-                    Ok(utils::string_from_bytes(
-                        bytes.rsplit(|&b| b == 0xff).next().ok_or_else(|| {
-                            Error::bad_database("UserDevice ID in db is invalid.")
-                        })?,
+        Box::new(self.userdeviceid_metadata.scan_prefix(prefix).map(
+            |(bytes, _)| {
+                Ok(utils::string_from_bytes(
+                    bytes.rsplit(|&b| b == 0xFF).next().ok_or_else(|| {
+                        Error::bad_database("UserDevice ID in db is invalid.")
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Device ID in userdeviceid_metadata is invalid.",
                     )
-                    .map_err(|_| {
-                        Error::bad_database("Device ID in userdeviceid_metadata is invalid.")
-                    })?
-                    .into())
-                }),
-        )
+                })?
+                .into())
+            },
+        ))
     }
 
     /// Replaces the access token of one device.
-    fn set_token(&self, user_id: &UserId, device_id: &DeviceId, token: &str) -> Result<()> {
+    fn set_token(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+        token: &str,
+    ) -> Result<()> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
         assert!(
@@ -300,10 +359,8 @@ impl service::users::Data for KeyValueDatabase {
         }
 
         // Assign token to user device combination
-        self.userdeviceid_token
-            .insert(&userdeviceid, token.as_bytes())?;
-        self.token_userdeviceid
-            .insert(token.as_bytes(), &userdeviceid)?;
+        self.userdeviceid_token.insert(&userdeviceid, token.as_bytes())?;
+        self.token_userdeviceid.insert(token.as_bytes(), &userdeviceid)?;
 
         Ok(())
     }
@@ -316,17 +373,19 @@ impl service::users::Data for KeyValueDatabase {
         one_time_key_value: &Raw<OneTimeKey>,
     ) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(device_id.as_bytes());
 
         assert!(
             self.userdeviceid_metadata.get(&key)?.is_some(),
-            "devices should have metadata and this method should only be called with existing devices"
+            "devices should have metadata and this method should only be \
+             called with existing devices"
         );
 
-        key.push(0xff);
-        // TODO: Use DeviceKeyId::to_string when it's available (and update everything,
-        // because there are no wrapping quotation marks anymore)
+        key.push(0xFF);
+        // TODO: Use DeviceKeyId::to_string when it's available (and update
+        // everything, because there are no wrapping quotation marks
+        // anymore)
         key.extend_from_slice(
             serde_json::to_string(one_time_key_key)
                 .expect("DeviceKeyId::to_string always works")
@@ -335,7 +394,8 @@ impl service::users::Data for KeyValueDatabase {
 
         self.onetimekeyid_onetimekeys.insert(
             &key,
-            &serde_json::to_vec(&one_time_key_value).expect("OneTimeKey::to_vec always works"),
+            &serde_json::to_vec(&one_time_key_value)
+                .expect("OneTimeKey::to_vec always works"),
         )?;
 
         self.userid_lastonetimekeyupdate.insert(
@@ -347,13 +407,16 @@ impl service::users::Data for KeyValueDatabase {
     }
 
     fn last_one_time_keys_update(&self, user_id: &UserId) -> Result<u64> {
-        self.userid_lastonetimekeyupdate
-            .get(user_id.as_bytes())?
-            .map_or(Ok(0), |bytes| {
+        self.userid_lastonetimekeyupdate.get(user_id.as_bytes())?.map_or(
+            Ok(0),
+            |bytes| {
                 utils::u64_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Count in roomid_lastroomactiveupdate is invalid.")
+                    Error::bad_database(
+                        "Count in roomid_lastroomactiveupdate is invalid.",
+                    )
                 })
-            })
+            },
+        )
     }
 
     fn take_one_time_key(
@@ -363,9 +426,9 @@ impl service::users::Data for KeyValueDatabase {
         key_algorithm: &DeviceKeyAlgorithm,
     ) -> Result<Option<(OwnedDeviceKeyId, Raw<OneTimeKey>)>> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(device_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
         // Annoying quotation mark
         prefix.push(b'"');
         prefix.extend_from_slice(key_algorithm.as_ref().as_bytes());
@@ -384,13 +447,18 @@ impl service::users::Data for KeyValueDatabase {
 
                 Ok((
                     serde_json::from_slice(
-                        key.rsplit(|&b| b == 0xff)
-                            .next()
-                            .ok_or_else(|| Error::bad_database("OneTimeKeyId in db is invalid."))?,
+                        key.rsplit(|&b| b == 0xFF).next().ok_or_else(|| {
+                            Error::bad_database(
+                                "OneTimeKeyId in db is invalid.",
+                            )
+                        })?,
                     )
-                    .map_err(|_| Error::bad_database("OneTimeKeyId in db is invalid."))?,
-                    serde_json::from_slice(&value)
-                        .map_err(|_| Error::bad_database("OneTimeKeys in db are invalid."))?,
+                    .map_err(|_| {
+                        Error::bad_database("OneTimeKeyId in db is invalid.")
+                    })?,
+                    serde_json::from_slice(&value).map_err(|_| {
+                        Error::bad_database("OneTimeKeys in db are invalid.")
+                    })?,
                 ))
             })
             .transpose()
@@ -402,25 +470,31 @@ impl service::users::Data for KeyValueDatabase {
         device_id: &DeviceId,
     ) -> Result<BTreeMap<DeviceKeyAlgorithm, UInt>> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
         let mut counts = BTreeMap::new();
 
-        for algorithm in
-            self.onetimekeyid_onetimekeys
-                .scan_prefix(userdeviceid)
-                .map(|(bytes, _)| {
-                    Ok::<_, Error>(
-                        serde_json::from_slice::<OwnedDeviceKeyId>(
-                            bytes.rsplit(|&b| b == 0xff).next().ok_or_else(|| {
-                                Error::bad_database("OneTimeKey ID in db is invalid.")
-                            })?,
-                        )
-                        .map_err(|_| Error::bad_database("DeviceKeyId in db is invalid."))?
-                        .algorithm(),
+        for algorithm in self
+            .onetimekeyid_onetimekeys
+            .scan_prefix(userdeviceid)
+            .map(|(bytes, _)| {
+                Ok::<_, Error>(
+                    serde_json::from_slice::<OwnedDeviceKeyId>(
+                        bytes.rsplit(|&b| b == 0xFF).next().ok_or_else(
+                            || {
+                                Error::bad_database(
+                                    "OneTimeKey ID in db is invalid.",
+                                )
+                            },
+                        )?,
                     )
-                })
+                    .map_err(|_| {
+                        Error::bad_database("DeviceKeyId in db is invalid.")
+                    })?
+                    .algorithm(),
+                )
+            })
         {
             *counts.entry(algorithm?).or_default() += UInt::from(1_u32);
         }
@@ -435,12 +509,13 @@ impl service::users::Data for KeyValueDatabase {
         device_keys: &Raw<DeviceKeys>,
     ) -> Result<()> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
         self.keyid_key.insert(
             &userdeviceid,
-            &serde_json::to_vec(&device_keys).expect("DeviceKeys::to_vec always works"),
+            &serde_json::to_vec(&device_keys)
+                .expect("DeviceKeys::to_vec always works"),
         )?;
 
         self.mark_device_key_update(user_id)?;
@@ -458,30 +533,33 @@ impl service::users::Data for KeyValueDatabase {
     ) -> Result<()> {
         // TODO: Check signatures
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         let (master_key_key, _) = self.parse_master_key(user_id, master_key)?;
 
         self.keyid_key
             .insert(&master_key_key, master_key.json().get().as_bytes())?;
 
-        self.userid_masterkeyid
-            .insert(user_id.as_bytes(), &master_key_key)?;
+        self.userid_masterkeyid.insert(user_id.as_bytes(), &master_key_key)?;
 
         // Self-signing key
         if let Some(self_signing_key) = self_signing_key {
             let mut self_signing_key_ids = self_signing_key
                 .deserialize()
                 .map_err(|_| {
-                    Error::BadRequest(ErrorKind::InvalidParam, "Invalid self signing key")
+                    Error::BadRequest(
+                        ErrorKind::InvalidParam,
+                        "Invalid self signing key",
+                    )
                 })?
                 .keys
                 .into_values();
 
-            let self_signing_key_id = self_signing_key_ids.next().ok_or(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Self signing key contained no key.",
-            ))?;
+            let self_signing_key_id =
+                self_signing_key_ids.next().ok_or(Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "Self signing key contained no key.",
+                ))?;
 
             if self_signing_key_ids.next().is_some() {
                 return Err(Error::BadRequest(
@@ -491,7 +569,8 @@ impl service::users::Data for KeyValueDatabase {
             }
 
             let mut self_signing_key_key = prefix.clone();
-            self_signing_key_key.extend_from_slice(self_signing_key_id.as_bytes());
+            self_signing_key_key
+                .extend_from_slice(self_signing_key_id.as_bytes());
 
             self.keyid_key.insert(
                 &self_signing_key_key,
@@ -507,15 +586,19 @@ impl service::users::Data for KeyValueDatabase {
             let mut user_signing_key_ids = user_signing_key
                 .deserialize()
                 .map_err(|_| {
-                    Error::BadRequest(ErrorKind::InvalidParam, "Invalid user signing key")
+                    Error::BadRequest(
+                        ErrorKind::InvalidParam,
+                        "Invalid user signing key",
+                    )
                 })?
                 .keys
                 .into_values();
 
-            let user_signing_key_id = user_signing_key_ids.next().ok_or(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "User signing key contained no key.",
-            ))?;
+            let user_signing_key_id =
+                user_signing_key_ids.next().ok_or(Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "User signing key contained no key.",
+                ))?;
 
             if user_signing_key_ids.next().is_some() {
                 return Err(Error::BadRequest(
@@ -525,7 +608,8 @@ impl service::users::Data for KeyValueDatabase {
             }
 
             let mut user_signing_key_key = prefix;
-            user_signing_key_key.extend_from_slice(user_signing_key_id.as_bytes());
+            user_signing_key_key
+                .extend_from_slice(user_signing_key_id.as_bytes());
 
             self.keyid_key.insert(
                 &user_signing_key_key,
@@ -551,32 +635,44 @@ impl service::users::Data for KeyValueDatabase {
         sender_id: &UserId,
     ) -> Result<()> {
         let mut key = target_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(key_id.as_bytes());
 
-        let mut cross_signing_key: serde_json::Value =
-            serde_json::from_slice(&self.keyid_key.get(&key)?.ok_or(Error::BadRequest(
+        let mut cross_signing_key: serde_json::Value = serde_json::from_slice(
+            &self.keyid_key.get(&key)?.ok_or(Error::BadRequest(
                 ErrorKind::InvalidParam,
                 "Tried to sign nonexistent key.",
-            ))?)
-            .map_err(|_| Error::bad_database("key in keyid_key is invalid."))?;
+            ))?,
+        )
+        .map_err(|_| Error::bad_database("key in keyid_key is invalid."))?;
 
         let signatures = cross_signing_key
             .get_mut("signatures")
-            .ok_or_else(|| Error::bad_database("key in keyid_key has no signatures field."))?
+            .ok_or_else(|| {
+                Error::bad_database("key in keyid_key has no signatures field.")
+            })?
             .as_object_mut()
-            .ok_or_else(|| Error::bad_database("key in keyid_key has invalid signatures field."))?
+            .ok_or_else(|| {
+                Error::bad_database(
+                    "key in keyid_key has invalid signatures field.",
+                )
+            })?
             .entry(sender_id.to_string())
             .or_insert_with(|| serde_json::Map::new().into());
 
         signatures
             .as_object_mut()
-            .ok_or_else(|| Error::bad_database("signatures in keyid_key for a user is invalid."))?
+            .ok_or_else(|| {
+                Error::bad_database(
+                    "signatures in keyid_key for a user is invalid.",
+                )
+            })?
             .insert(signature.0, signature.1.into());
 
         self.keyid_key.insert(
             &key,
-            &serde_json::to_vec(&cross_signing_key).expect("CrossSigningKey::to_vec always works"),
+            &serde_json::to_vec(&cross_signing_key)
+                .expect("CrossSigningKey::to_vec always works"),
         )?;
 
         self.mark_device_key_update(target_id)?;
@@ -591,7 +687,7 @@ impl service::users::Data for KeyValueDatabase {
         to: Option<u64>,
     ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
         let mut prefix = user_or_room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         let mut start = prefix.clone();
         start.extend_from_slice(&(from + 1).to_be_bytes());
@@ -603,26 +699,39 @@ impl service::users::Data for KeyValueDatabase {
                 .iter_from(&start, false)
                 .take_while(move |(k, _)| {
                     k.starts_with(&prefix)
-                        && if let Some(current) = k.splitn(2, |&b| b == 0xff).nth(1) {
+                        && if let Some(current) =
+                            k.splitn(2, |&b| b == 0xFF).nth(1)
+                        {
                             if let Ok(c) = utils::u64_from_bytes(current) {
                                 c <= to
                             } else {
-                                warn!("BadDatabase: Could not parse keychangeid_userid bytes");
+                                warn!(
+                                    "BadDatabase: Could not parse \
+                                     keychangeid_userid bytes"
+                                );
                                 false
                             }
                         } else {
-                            warn!("BadDatabase: Could not parse keychangeid_userid");
+                            warn!(
+                                "BadDatabase: Could not parse \
+                                 keychangeid_userid"
+                            );
                             false
                         }
                 })
                 .map(|(_, bytes)| {
-                    UserId::parse(utils::string_from_bytes(&bytes).map_err(|_| {
-                        Error::bad_database(
-                            "User ID in devicekeychangeid_userid is invalid unicode.",
-                        )
-                    })?)
+                    UserId::parse(utils::string_from_bytes(&bytes).map_err(
+                        |_| {
+                            Error::bad_database(
+                                "User ID in devicekeychangeid_userid is \
+                                 invalid unicode.",
+                            )
+                        },
+                    )?)
                     .map_err(|_| {
-                        Error::bad_database("User ID in devicekeychangeid_userid is invalid.")
+                        Error::bad_database(
+                            "User ID in devicekeychangeid_userid is invalid.",
+                        )
                     })
                 }),
         )
@@ -647,14 +756,14 @@ impl service::users::Data for KeyValueDatabase {
             }
 
             let mut key = room_id.as_bytes().to_vec();
-            key.push(0xff);
+            key.push(0xFF);
             key.extend_from_slice(&count);
 
             self.keychangeid_userid.insert(&key, user_id.as_bytes())?;
         }
 
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(&count);
         self.keychangeid_userid.insert(&key, user_id.as_bytes())?;
 
@@ -667,7 +776,7 @@ impl service::users::Data for KeyValueDatabase {
         device_id: &DeviceId,
     ) -> Result<Option<Raw<DeviceKeys>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(device_id.as_bytes());
 
         self.keyid_key.get(&key)?.map_or(Ok(None), |bytes| {
@@ -683,11 +792,11 @@ impl service::users::Data for KeyValueDatabase {
         master_key: &Raw<CrossSigningKey>,
     ) -> Result<(Vec<u8>, CrossSigningKey)> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
-        let master_key = master_key
-            .deserialize()
-            .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Invalid master key"))?;
+        let master_key = master_key.deserialize().map_err(|_| {
+            Error::BadRequest(ErrorKind::InvalidParam, "Invalid master key")
+        })?;
         let mut master_key_ids = master_key.keys.values();
         let master_key_id = master_key_ids.next().ok_or(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -712,8 +821,12 @@ impl service::users::Data for KeyValueDatabase {
         allowed_signatures: &dyn Fn(&UserId) -> bool,
     ) -> Result<Option<Raw<CrossSigningKey>>> {
         self.keyid_key.get(key)?.map_or(Ok(None), |bytes| {
-            let mut cross_signing_key = serde_json::from_slice::<serde_json::Value>(&bytes)
-                .map_err(|_| Error::bad_database("CrossSigningKey in db is invalid."))?;
+            let mut cross_signing_key = serde_json::from_slice::<
+                serde_json::Value,
+            >(&bytes)
+            .map_err(|_| {
+                Error::bad_database("CrossSigningKey in db is invalid.")
+            })?;
             clean_signatures(
                 &mut cross_signing_key,
                 sender_user,
@@ -754,16 +867,20 @@ impl service::users::Data for KeyValueDatabase {
             })
     }
 
-    fn get_user_signing_key(&self, user_id: &UserId) -> Result<Option<Raw<CrossSigningKey>>> {
-        self.userid_usersigningkeyid
-            .get(user_id.as_bytes())?
-            .map_or(Ok(None), |key| {
+    fn get_user_signing_key(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<Raw<CrossSigningKey>>> {
+        self.userid_usersigningkeyid.get(user_id.as_bytes())?.map_or(
+            Ok(None),
+            |key| {
                 self.keyid_key.get(&key)?.map_or(Ok(None), |bytes| {
                     Ok(Some(serde_json::from_slice(&bytes).map_err(|_| {
                         Error::bad_database("CrossSigningKey in db is invalid.")
                     })?))
                 })
-            })
+            },
+        )
     }
 
     fn add_to_device_event(
@@ -775,9 +892,9 @@ impl service::users::Data for KeyValueDatabase {
         content: serde_json::Value,
     ) -> Result<()> {
         let mut key = target_user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(target_device_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(&services().globals.next_count()?.to_be_bytes());
 
         let mut json = serde_json::Map::new();
@@ -785,7 +902,8 @@ impl service::users::Data for KeyValueDatabase {
         json.insert("sender".to_owned(), sender.to_string().into());
         json.insert("content".to_owned(), content);
 
-        let value = serde_json::to_vec(&json).expect("Map::to_vec always works");
+        let value =
+            serde_json::to_vec(&json).expect("Map::to_vec always works");
 
         self.todeviceid_events.insert(&key, &value)?;
 
@@ -800,15 +918,14 @@ impl service::users::Data for KeyValueDatabase {
         let mut events = Vec::new();
 
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(device_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         for (_, value) in self.todeviceid_events.scan_prefix(prefix) {
-            events.push(
-                serde_json::from_slice(&value)
-                    .map_err(|_| Error::bad_database("Event in todeviceid_events is invalid."))?,
-            );
+            events.push(serde_json::from_slice(&value).map_err(|_| {
+                Error::bad_database("Event in todeviceid_events is invalid.")
+            })?);
         }
 
         Ok(events)
@@ -821,9 +938,9 @@ impl service::users::Data for KeyValueDatabase {
         until: u64,
     ) -> Result<()> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(device_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         let mut last = prefix.clone();
         last.extend_from_slice(&until.to_be_bytes());
@@ -836,8 +953,14 @@ impl service::users::Data for KeyValueDatabase {
             .map(|(key, _)| {
                 Ok::<_, Error>((
                     key.clone(),
-                    utils::u64_from_bytes(&key[key.len() - size_of::<u64>()..key.len()])
-                        .map_err(|_| Error::bad_database("ToDeviceId has invalid count bytes."))?,
+                    utils::u64_from_bytes(
+                        &key[key.len() - size_of::<u64>()..key.len()],
+                    )
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "ToDeviceId has invalid count bytes.",
+                        )
+                    })?,
                 ))
             })
             .filter_map(Result::ok)
@@ -856,7 +979,7 @@ impl service::users::Data for KeyValueDatabase {
         device: &Device,
     ) -> Result<()> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
         assert!(
@@ -864,12 +987,12 @@ impl service::users::Data for KeyValueDatabase {
             "this method should only be called with existing devices"
         );
 
-        self.userid_devicelistversion
-            .increment(user_id.as_bytes())?;
+        self.userid_devicelistversion.increment(user_id.as_bytes())?;
 
         self.userdeviceid_metadata.insert(
             &userdeviceid,
-            &serde_json::to_vec(device).expect("Device::to_string always works"),
+            &serde_json::to_vec(device)
+                .expect("Device::to_string always works"),
         )?;
 
         Ok(())
@@ -882,26 +1005,32 @@ impl service::users::Data for KeyValueDatabase {
         device_id: &DeviceId,
     ) -> Result<Option<Device>> {
         let mut userdeviceid = user_id.as_bytes().to_vec();
-        userdeviceid.push(0xff);
+        userdeviceid.push(0xFF);
         userdeviceid.extend_from_slice(device_id.as_bytes());
 
-        self.userdeviceid_metadata
-            .get(&userdeviceid)?
-            .map_or(Ok(None), |bytes| {
+        self.userdeviceid_metadata.get(&userdeviceid)?.map_or(
+            Ok(None),
+            |bytes| {
                 Ok(Some(serde_json::from_slice(&bytes).map_err(|_| {
-                    Error::bad_database("Metadata in userdeviceid_metadata is invalid.")
+                    Error::bad_database(
+                        "Metadata in userdeviceid_metadata is invalid.",
+                    )
                 })?))
-            })
+            },
+        )
     }
 
     fn get_devicelist_version(&self, user_id: &UserId) -> Result<Option<u64>> {
-        self.userid_devicelistversion
-            .get(user_id.as_bytes())?
-            .map_or(Ok(None), |bytes| {
+        self.userid_devicelistversion.get(user_id.as_bytes())?.map_or(
+            Ok(None),
+            |bytes| {
                 utils::u64_from_bytes(&bytes)
-                    .map_err(|_| Error::bad_database("Invalid devicelistversion in db."))
+                    .map_err(|_| {
+                        Error::bad_database("Invalid devicelistversion in db.")
+                    })
                     .map(Some)
-            })
+            },
+        )
     }
 
     fn all_devices_metadata<'a>(
@@ -909,25 +1038,29 @@ impl service::users::Data for KeyValueDatabase {
         user_id: &UserId,
     ) -> Box<dyn Iterator<Item = Result<Device>> + 'a> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
 
-        Box::new(
-            self.userdeviceid_metadata
-                .scan_prefix(key)
-                .map(|(_, bytes)| {
-                    serde_json::from_slice::<Device>(&bytes).map_err(|_| {
-                        Error::bad_database("Device in userdeviceid_metadata is invalid.")
-                    })
-                }),
-        )
+        Box::new(self.userdeviceid_metadata.scan_prefix(key).map(
+            |(_, bytes)| {
+                serde_json::from_slice::<Device>(&bytes).map_err(|_| {
+                    Error::bad_database(
+                        "Device in userdeviceid_metadata is invalid.",
+                    )
+                })
+            },
+        ))
     }
 
     /// Creates a new sync filter. Returns the filter id.
-    fn create_filter(&self, user_id: &UserId, filter: &FilterDefinition) -> Result<String> {
+    fn create_filter(
+        &self,
+        user_id: &UserId,
+        filter: &FilterDefinition,
+    ) -> Result<String> {
         let filter_id = utils::random_string(4);
 
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(filter_id.as_bytes());
 
         self.userfilterid_filter.insert(
@@ -938,9 +1071,13 @@ impl service::users::Data for KeyValueDatabase {
         Ok(filter_id)
     }
 
-    fn get_filter(&self, user_id: &UserId, filter_id: &str) -> Result<Option<FilterDefinition>> {
+    fn get_filter(
+        &self,
+        user_id: &UserId,
+        filter_id: &str,
+    ) -> Result<Option<FilterDefinition>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(filter_id.as_bytes());
 
         let raw = self.userfilterid_filter.get(&key)?;
@@ -956,9 +1093,12 @@ impl service::users::Data for KeyValueDatabase {
 
 /// Will only return with Some(username) if the password was not empty and the
 /// username could be successfully parsed.
-/// If [`utils::string_from_bytes`] returns an error that username will be skipped
-/// and the error will be logged.
-fn get_username_with_valid_password(username: &[u8], password: &[u8]) -> Option<String> {
+/// If [`utils::string_from_bytes`] returns an error that username will be
+/// skipped and the error will be logged.
+fn get_username_with_valid_password(
+    username: &[u8],
+    password: &[u8],
+) -> Option<String> {
     // A valid password is not empty
     if password.is_empty() {
         None
@@ -967,7 +1107,8 @@ fn get_username_with_valid_password(username: &[u8], password: &[u8]) -> Option<
             Ok(u) => Some(u),
             Err(e) => {
                 warn!(
-                    "Failed to parse username while calling get_local_users(): {}",
+                    "Failed to parse username while calling \
+                     get_local_users(): {}",
                     e.to_string()
                 );
                 None

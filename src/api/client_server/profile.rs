@@ -1,19 +1,24 @@
-use crate::{service::pdu::PduBuilder, services, Error, Result, Ruma};
+use std::sync::Arc;
+
 use ruma::{
     api::{
         client::{
             error::ErrorKind,
             profile::{
-                get_avatar_url, get_display_name, get_profile, set_avatar_url, set_display_name,
+                get_avatar_url, get_display_name, get_profile, set_avatar_url,
+                set_display_name,
             },
         },
         federation::{self, query::get_profile_information::v1::ProfileField},
     },
-    events::{room::member::RoomMemberEventContent, StateEventType, TimelineEventType},
+    events::{
+        room::member::RoomMemberEventContent, StateEventType, TimelineEventType,
+    },
 };
 use serde_json::value::to_raw_value;
-use std::sync::Arc;
 use tracing::warn;
+
+use crate::{service::pdu::PduBuilder, services, Error, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/profile/{userId}/displayname`
 ///
@@ -25,9 +30,7 @@ pub(crate) async fn set_displayname_route(
 ) -> Result<set_display_name::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .users
-        .set_displayname(sender_user, body.displayname.clone())?;
+    services().users.set_displayname(sender_user, body.displayname.clone())?;
 
     // Send a new membership event and presence update into all joined rooms
     let all_rooms_joined: Vec<_> = services()
@@ -53,14 +56,18 @@ pub(crate) async fn set_displayname_route(
                                 )?
                                 .ok_or_else(|| {
                                     Error::bad_database(
-                                        "Tried to send displayname update for user not in the \
-                                     room.",
+                                        "Tried to send displayname update for \
+                                         user not in the room.",
                                     )
                                 })?
                                 .content
                                 .get(),
                         )
-                        .map_err(|_| Error::bad_database("Database contains invalid PDU."))?
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Database contains invalid PDU.",
+                            )
+                        })?
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
@@ -88,7 +95,12 @@ pub(crate) async fn set_displayname_route(
         if let Err(error) = services()
             .rooms
             .timeline
-            .build_and_append_pdu(pdu_builder, sender_user, &room_id, &state_lock)
+            .build_and_append_pdu(
+                pdu_builder,
+                sender_user,
+                &room_id,
+                &state_lock,
+            )
             .await
         {
             warn!(%error, "failed to add PDU");
@@ -138,13 +150,9 @@ pub(crate) async fn set_avatar_url_route(
 ) -> Result<set_avatar_url::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .users
-        .set_avatar_url(sender_user, body.avatar_url.clone())?;
+    services().users.set_avatar_url(sender_user, body.avatar_url.clone())?;
 
-    services()
-        .users
-        .set_blurhash(sender_user, body.blurhash.clone())?;
+    services().users.set_blurhash(sender_user, body.blurhash.clone())?;
 
     // Send a new membership event and presence update into all joined rooms
     let all_joined_rooms: Vec<_> = services()
@@ -170,14 +178,18 @@ pub(crate) async fn set_avatar_url_route(
                                 )?
                                 .ok_or_else(|| {
                                     Error::bad_database(
-                                        "Tried to send displayname update for user not in the \
-                                     room.",
+                                        "Tried to send displayname update for \
+                                         user not in the room.",
                                     )
                                 })?
                                 .content
                                 .get(),
                         )
-                        .map_err(|_| Error::bad_database("Database contains invalid PDU."))?
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Database contains invalid PDU.",
+                            )
+                        })?
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
@@ -205,7 +217,12 @@ pub(crate) async fn set_avatar_url_route(
         if let Err(error) = services()
             .rooms
             .timeline
-            .build_and_append_pdu(pdu_builder, sender_user, &room_id, &state_lock)
+            .build_and_append_pdu(
+                pdu_builder,
+                sender_user,
+                &room_id,
+                &state_lock,
+            )
             .await
         {
             warn!(%error, "failed to add PDU");
@@ -219,7 +236,8 @@ pub(crate) async fn set_avatar_url_route(
 ///
 /// Returns the `avatar_url` and `blurhash` of the user.
 ///
-/// - If user is on another server: Fetches `avatar_url` and `blurhash` over federation
+/// - If user is on another server: Fetches `avatar_url` and `blurhash` over
+///   federation
 pub(crate) async fn get_avatar_url_route(
     body: Ruma<get_avatar_url::v3::Request>,
 ) -> Result<get_avatar_url::v3::Response> {

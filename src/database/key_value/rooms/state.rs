@@ -1,20 +1,22 @@
-use ruma::{EventId, OwnedEventId, RoomId};
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
-use std::sync::Arc;
+use ruma::{EventId, OwnedEventId, RoomId};
 use tokio::sync::MutexGuard;
 
 use crate::{database::KeyValueDatabase, service, utils, Error, Result};
 
 impl service::rooms::state::Data for KeyValueDatabase {
     fn get_room_shortstatehash(&self, room_id: &RoomId) -> Result<Option<u64>> {
-        self.roomid_shortstatehash
-            .get(room_id.as_bytes())?
-            .map_or(Ok(None), |bytes| {
+        self.roomid_shortstatehash.get(room_id.as_bytes())?.map_or(
+            Ok(None),
+            |bytes| {
                 Ok(Some(utils::u64_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Invalid shortstatehash in roomid_shortstatehash")
+                    Error::bad_database(
+                        "Invalid shortstatehash in roomid_shortstatehash",
+                    )
                 })?))
-            })
+            },
+        )
     }
 
     fn set_room_state(
@@ -29,23 +31,40 @@ impl service::rooms::state::Data for KeyValueDatabase {
         Ok(())
     }
 
-    fn set_event_state(&self, shorteventid: u64, shortstatehash: u64) -> Result<()> {
-        self.shorteventid_shortstatehash
-            .insert(&shorteventid.to_be_bytes(), &shortstatehash.to_be_bytes())?;
+    fn set_event_state(
+        &self,
+        shorteventid: u64,
+        shortstatehash: u64,
+    ) -> Result<()> {
+        self.shorteventid_shortstatehash.insert(
+            &shorteventid.to_be_bytes(),
+            &shortstatehash.to_be_bytes(),
+        )?;
         Ok(())
     }
 
-    fn get_forward_extremities(&self, room_id: &RoomId) -> Result<HashSet<Arc<EventId>>> {
+    fn get_forward_extremities(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<HashSet<Arc<EventId>>> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         self.roomid_pduleaves
             .scan_prefix(prefix)
             .map(|(_, bytes)| {
-                EventId::parse_arc(utils::string_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("EventID in roomid_pduleaves is invalid unicode.")
-                })?)
-                .map_err(|_| Error::bad_database("EventId in roomid_pduleaves is invalid."))
+                EventId::parse_arc(utils::string_from_bytes(&bytes).map_err(
+                    |_| {
+                        Error::bad_database(
+                            "EventID in roomid_pduleaves is invalid unicode.",
+                        )
+                    },
+                )?)
+                .map_err(|_| {
+                    Error::bad_database(
+                        "EventId in roomid_pduleaves is invalid.",
+                    )
+                })
             })
             .collect()
     }
@@ -58,7 +77,7 @@ impl service::rooms::state::Data for KeyValueDatabase {
         _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         for (key, _) in self.roomid_pduleaves.scan_prefix(prefix.clone()) {
             self.roomid_pduleaves.remove(&key)?;

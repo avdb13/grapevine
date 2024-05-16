@@ -1,8 +1,14 @@
 use std::mem;
 
-use ruma::{api::client::threads::get_threads::v1::IncludeThreads, OwnedUserId, RoomId, UserId};
+use ruma::{
+    api::client::threads::get_threads::v1::IncludeThreads, OwnedUserId, RoomId,
+    UserId,
+};
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, PduEvent, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, PduEvent,
+    Result,
+};
 
 impl service::rooms::threads::Data for KeyValueDatabase {
     fn threads_until<'a>(
@@ -28,14 +34,22 @@ impl service::rooms::threads::Data for KeyValueDatabase {
                 .iter_from(&current, true)
                 .take_while(move |(k, _)| k.starts_with(&prefix))
                 .map(move |(pduid, _users)| {
-                    let count = utils::u64_from_bytes(&pduid[(mem::size_of::<u64>())..])
-                        .map_err(|_| Error::bad_database("Invalid pduid in threadid_userids."))?;
+                    let count = utils::u64_from_bytes(
+                        &pduid[(mem::size_of::<u64>())..],
+                    )
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "Invalid pduid in threadid_userids.",
+                        )
+                    })?;
                     let mut pdu = services()
                         .rooms
                         .timeline
                         .get_pdu_from_id(&pduid)?
                         .ok_or_else(|| {
-                            Error::bad_database("Invalid pduid reference in threadid_userids")
+                            Error::bad_database(
+                                "Invalid pduid reference in threadid_userids",
+                            )
                         })?;
                     if pdu.sender != user_id {
                         pdu.remove_transaction_id()?;
@@ -45,28 +59,43 @@ impl service::rooms::threads::Data for KeyValueDatabase {
         ))
     }
 
-    fn update_participants(&self, root_id: &[u8], participants: &[OwnedUserId]) -> Result<()> {
+    fn update_participants(
+        &self,
+        root_id: &[u8],
+        participants: &[OwnedUserId],
+    ) -> Result<()> {
         let users = participants
             .iter()
             .map(|user| user.as_bytes())
             .collect::<Vec<_>>()
-            .join(&[0xff][..]);
+            .join(&[0xFF][..]);
 
         self.threadid_userids.insert(root_id, &users)?;
 
         Ok(())
     }
 
-    fn get_participants(&self, root_id: &[u8]) -> Result<Option<Vec<OwnedUserId>>> {
+    fn get_participants(
+        &self,
+        root_id: &[u8],
+    ) -> Result<Option<Vec<OwnedUserId>>> {
         if let Some(users) = self.threadid_userids.get(root_id)? {
             Ok(Some(
                 users
-                    .split(|b| *b == 0xff)
+                    .split(|b| *b == 0xFF)
                     .map(|bytes| {
-                        UserId::parse(utils::string_from_bytes(bytes).map_err(|_| {
-                            Error::bad_database("Invalid UserId bytes in threadid_userids.")
-                        })?)
-                        .map_err(|_| Error::bad_database("Invalid UserId in threadid_userids."))
+                        UserId::parse(utils::string_from_bytes(bytes).map_err(
+                            |_| {
+                                Error::bad_database(
+                                    "Invalid UserId bytes in threadid_userids.",
+                                )
+                            },
+                        )?)
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Invalid UserId in threadid_userids.",
+                            )
+                        })
                     })
                     .filter_map(Result::ok)
                     .collect(),

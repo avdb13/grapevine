@@ -7,10 +7,13 @@ use ruma::{
     RoomId, UserId,
 };
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, Result,
+};
 
 impl service::account_data::Data for KeyValueDatabase {
-    /// Places one event in the account data of the user and removes the previous entry.
+    /// Places one event in the account data of the user and removes the
+    /// previous entry.
     #[tracing::instrument(skip(self, room_id, user_id, event_type, data))]
     fn update(
         &self,
@@ -24,13 +27,14 @@ impl service::account_data::Data for KeyValueDatabase {
             .unwrap_or_default()
             .as_bytes()
             .to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(user_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         let mut roomuserdataid = prefix.clone();
-        roomuserdataid.extend_from_slice(&services().globals.next_count()?.to_be_bytes());
-        roomuserdataid.push(0xff);
+        roomuserdataid
+            .extend_from_slice(&services().globals.next_count()?.to_be_bytes());
+        roomuserdataid.push(0xFF);
         roomuserdataid.extend_from_slice(event_type.to_string().as_bytes());
 
         let mut key = prefix;
@@ -45,13 +49,13 @@ impl service::account_data::Data for KeyValueDatabase {
 
         self.roomuserdataid_accountdata.insert(
             &roomuserdataid,
-            &serde_json::to_vec(&data).expect("to_vec always works on json values"),
+            &serde_json::to_vec(&data)
+                .expect("to_vec always works on json values"),
         )?;
 
         let prev = self.roomusertype_roomuserdataid.get(&key)?;
 
-        self.roomusertype_roomuserdataid
-            .insert(&key, &roomuserdataid)?;
+        self.roomusertype_roomuserdataid.insert(&key, &roomuserdataid)?;
 
         // Remove old entry
         if let Some(prev) = prev {
@@ -74,17 +78,15 @@ impl service::account_data::Data for KeyValueDatabase {
             .unwrap_or_default()
             .as_bytes()
             .to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(user_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(kind.to_string().as_bytes());
 
         self.roomusertype_roomuserdataid
             .get(&key)?
             .and_then(|roomuserdataid| {
-                self.roomuserdataid_accountdata
-                    .get(&roomuserdataid)
-                    .transpose()
+                self.roomuserdataid_accountdata.get(&roomuserdataid).transpose()
             })
             .transpose()?
             .map(|data| {
@@ -101,7 +103,8 @@ impl service::account_data::Data for KeyValueDatabase {
         room_id: Option<&RoomId>,
         user_id: &UserId,
         since: u64,
-    ) -> Result<HashMap<RoomAccountDataEventType, Raw<AnyEphemeralRoomEvent>>> {
+    ) -> Result<HashMap<RoomAccountDataEventType, Raw<AnyEphemeralRoomEvent>>>
+    {
         let mut userdata = HashMap::new();
 
         let mut prefix = room_id
@@ -109,9 +112,9 @@ impl service::account_data::Data for KeyValueDatabase {
             .unwrap_or_default()
             .as_bytes()
             .to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(user_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         // Skip the data that's exactly at since, because we sent that last time
         let mut first_possible = prefix.clone();
@@ -124,14 +127,27 @@ impl service::account_data::Data for KeyValueDatabase {
             .map(|(k, v)| {
                 Ok::<_, Error>((
                     RoomAccountDataEventType::from(
-                        utils::string_from_bytes(k.rsplit(|&b| b == 0xff).next().ok_or_else(
-                            || Error::bad_database("RoomUserData ID in db is invalid."),
-                        )?)
-                        .map_err(|_| Error::bad_database("RoomUserData ID in db is invalid."))?,
+                        utils::string_from_bytes(
+                            k.rsplit(|&b| b == 0xFF).next().ok_or_else(
+                                || {
+                                    Error::bad_database(
+                                        "RoomUserData ID in db is invalid.",
+                                    )
+                                },
+                            )?,
+                        )
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "RoomUserData ID in db is invalid.",
+                            )
+                        })?,
                     ),
-                    serde_json::from_slice::<Raw<AnyEphemeralRoomEvent>>(&v).map_err(|_| {
-                        Error::bad_database("Database contains invalid account data.")
-                    })?,
+                    serde_json::from_slice::<Raw<AnyEphemeralRoomEvent>>(&v)
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Database contains invalid account data.",
+                            )
+                        })?,
                 ))
             })
         {

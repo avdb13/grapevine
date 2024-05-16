@@ -1,16 +1,17 @@
-use crate::{services, Error, Result, Ruma};
 use ruma::{
     api::client::{
         error::ErrorKind,
         push::{
-            delete_pushrule, get_pushers, get_pushrule, get_pushrule_actions, get_pushrule_enabled,
-            get_pushrules_all, set_pusher, set_pushrule, set_pushrule_actions,
-            set_pushrule_enabled, RuleScope,
+            delete_pushrule, get_pushers, get_pushrule, get_pushrule_actions,
+            get_pushrule_enabled, get_pushrules_all, set_pusher, set_pushrule,
+            set_pushrule_actions, set_pushrule_enabled, RuleScope,
         },
     },
     events::{push_rules::PushRulesEvent, GlobalAccountDataEventType},
     push::{AnyPushRuleRef, InsertPushRuleError, RemovePushRuleError},
 };
+
+use crate::{services, Error, Result, Ruma};
 
 /// # `GET /_matrix/client/r0/pushrules`
 ///
@@ -71,12 +72,11 @@ pub(crate) async fn get_pushrule_route(
         .map(Into::into);
 
     if let Some(rule) = rule {
-        Ok(get_pushrule::v3::Response { rule })
+        Ok(get_pushrule::v3::Response {
+            rule,
+        })
     } else {
-        Err(Error::BadRequest(
-            ErrorKind::NotFound,
-            "Push rule not found.",
-        ))
+        Err(Error::BadRequest(ErrorKind::NotFound, "Push rule not found."))
     }
 }
 
@@ -109,7 +109,9 @@ pub(crate) async fn set_pushrule_route(
         ))?;
 
     let mut account_data = serde_json::from_str::<PushRulesEvent>(event.get())
-        .map_err(|_| Error::bad_database("Invalid account data event in db."))?;
+        .map_err(|_| {
+            Error::bad_database("Invalid account data event in db.")
+        })?;
 
     if let Err(error) = account_data.content.global.insert(
         body.rule.clone(),
@@ -119,16 +121,20 @@ pub(crate) async fn set_pushrule_route(
         let err = match error {
             InsertPushRuleError::ServerDefaultRuleId => Error::BadRequest(
                 ErrorKind::InvalidParam,
-                "Rule IDs starting with a dot are reserved for server-default rules.",
+                "Rule IDs starting with a dot are reserved for server-default \
+                 rules.",
             ),
             InsertPushRuleError::InvalidRuleId => Error::BadRequest(
                 ErrorKind::InvalidParam,
                 "Rule ID containing invalid characters.",
             ),
-            InsertPushRuleError::RelativeToServerDefaultRule => Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Can't place a push rule relatively to a server-default rule.",
-            ),
+            InsertPushRuleError::RelativeToServerDefaultRule => {
+                Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "Can't place a push rule relatively to a server-default \
+                     rule.",
+                )
+            }
             InsertPushRuleError::UnknownRuleId => Error::BadRequest(
                 ErrorKind::NotFound,
                 "The before or after rule could not be found.",
@@ -147,7 +153,8 @@ pub(crate) async fn set_pushrule_route(
         None,
         sender_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
-        &serde_json::to_value(account_data).expect("to json value always works"),
+        &serde_json::to_value(account_data)
+            .expect("to json value always works"),
     )?;
 
     Ok(set_pushrule::v3::Response {})
@@ -193,7 +200,9 @@ pub(crate) async fn get_pushrule_actions_route(
             "Push rule not found.",
         ))?;
 
-    Ok(get_pushrule_actions::v3::Response { actions })
+    Ok(get_pushrule_actions::v3::Response {
+        actions,
+    })
 }
 
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/actions`
@@ -224,7 +233,9 @@ pub(crate) async fn set_pushrule_actions_route(
         ))?;
 
     let mut account_data = serde_json::from_str::<PushRulesEvent>(event.get())
-        .map_err(|_| Error::bad_database("Invalid account data event in db."))?;
+        .map_err(|_| {
+            Error::bad_database("Invalid account data event in db.")
+        })?;
 
     if account_data
         .content
@@ -242,7 +253,8 @@ pub(crate) async fn set_pushrule_actions_route(
         None,
         sender_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
-        &serde_json::to_value(account_data).expect("to json value always works"),
+        &serde_json::to_value(account_data)
+            .expect("to json value always works"),
     )?;
 
     Ok(set_pushrule_actions::v3::Response {})
@@ -276,7 +288,9 @@ pub(crate) async fn get_pushrule_enabled_route(
         ))?;
 
     let account_data = serde_json::from_str::<PushRulesEvent>(event.get())
-        .map_err(|_| Error::bad_database("Invalid account data event in db."))?;
+        .map_err(|_| {
+            Error::bad_database("Invalid account data event in db.")
+        })?;
 
     let global = account_data.content.global;
     let enabled = global
@@ -287,7 +301,9 @@ pub(crate) async fn get_pushrule_enabled_route(
             "Push rule not found.",
         ))?;
 
-    Ok(get_pushrule_enabled::v3::Response { enabled })
+    Ok(get_pushrule_enabled::v3::Response {
+        enabled,
+    })
 }
 
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/enabled`
@@ -318,7 +334,9 @@ pub(crate) async fn set_pushrule_enabled_route(
         ))?;
 
     let mut account_data = serde_json::from_str::<PushRulesEvent>(event.get())
-        .map_err(|_| Error::bad_database("Invalid account data event in db."))?;
+        .map_err(|_| {
+            Error::bad_database("Invalid account data event in db.")
+        })?;
 
     if account_data
         .content
@@ -336,7 +354,8 @@ pub(crate) async fn set_pushrule_enabled_route(
         None,
         sender_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
-        &serde_json::to_value(account_data).expect("to json value always works"),
+        &serde_json::to_value(account_data)
+            .expect("to json value always works"),
     )?;
 
     Ok(set_pushrule_enabled::v3::Response {})
@@ -370,12 +389,12 @@ pub(crate) async fn delete_pushrule_route(
         ))?;
 
     let mut account_data = serde_json::from_str::<PushRulesEvent>(event.get())
-        .map_err(|_| Error::bad_database("Invalid account data event in db."))?;
+        .map_err(|_| {
+            Error::bad_database("Invalid account data event in db.")
+        })?;
 
-    if let Err(error) = account_data
-        .content
-        .global
-        .remove(body.kind.clone(), &body.rule_id)
+    if let Err(error) =
+        account_data.content.global.remove(body.kind.clone(), &body.rule_id)
     {
         let err = match error {
             RemovePushRuleError::ServerDefault => Error::BadRequest(
@@ -395,7 +414,8 @@ pub(crate) async fn delete_pushrule_route(
         None,
         sender_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
-        &serde_json::to_value(account_data).expect("to json value always works"),
+        &serde_json::to_value(account_data)
+            .expect("to json value always works"),
     )?;
 
     Ok(delete_pushrule::v3::Response {})
@@ -424,9 +444,7 @@ pub(crate) async fn set_pushers_route(
 ) -> Result<set_pusher::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    services()
-        .pusher
-        .set_pusher(sender_user, body.action.clone())?;
+    services().pusher.set_pusher(sender_user, body.action.clone())?;
 
     Ok(set_pusher::v3::Response::default())
 }

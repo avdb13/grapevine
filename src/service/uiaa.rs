@@ -1,7 +1,6 @@
 mod data;
 
 pub(crate) use data::Data;
-
 use ruma::{
     api::client::{
         error::ErrorKind,
@@ -11,7 +10,9 @@ use ruma::{
 };
 use tracing::error;
 
-use crate::{api::client_server::SESSION_ID_LENGTH, services, utils, Error, Result};
+use crate::{
+    api::client_server::SESSION_ID_LENGTH, services, utils, Error, Result,
+};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -29,7 +30,8 @@ impl Service {
         self.db.set_uiaa_request(
             user_id,
             device_id,
-            // TODO: better session error handling (why is it optional in ruma?)
+            // TODO: better session error handling (why is it optional in
+            // ruma?)
             uiaainfo.session.as_ref().expect("session should be set"),
             json_body,
         )?;
@@ -64,7 +66,8 @@ impl Service {
                 password,
                 ..
             }) => {
-                let UserIdentifier::UserIdOrLocalpart(username) = identifier else {
+                let UserIdentifier::UserIdOrLocalpart(username) = identifier
+                else {
                     return Err(Error::BadRequest(
                         ErrorKind::Unrecognized,
                         "Identifier type not recognized.",
@@ -75,18 +78,26 @@ impl Service {
                     username.clone(),
                     services().globals.server_name(),
                 )
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "User ID is invalid."))?;
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidParam,
+                        "User ID is invalid.",
+                    )
+                })?;
 
                 // Check if password is correct
                 if let Some(hash) = services().users.password_hash(&user_id)? {
                     let hash_matches =
-                        argon2::verify_encoded(&hash, password.as_bytes()).unwrap_or(false);
+                        argon2::verify_encoded(&hash, password.as_bytes())
+                            .unwrap_or(false);
 
                     if !hash_matches {
-                        uiaainfo.auth_error = Some(ruma::api::client::error::StandardErrorBody {
-                            kind: ErrorKind::Forbidden,
-                            message: "Invalid username or password.".to_owned(),
-                        });
+                        uiaainfo.auth_error =
+                            Some(ruma::api::client::error::StandardErrorBody {
+                                kind: ErrorKind::Forbidden,
+                                message: "Invalid username or password."
+                                    .to_owned(),
+                            });
                         return Ok((false, uiaainfo));
                     }
                 }
@@ -95,13 +106,16 @@ impl Service {
                 uiaainfo.completed.push(AuthType::Password);
             }
             AuthData::RegistrationToken(t) => {
-                if Some(t.token.trim()) == services().globals.config.registration_token.as_deref() {
+                if Some(t.token.trim())
+                    == services().globals.config.registration_token.as_deref()
+                {
                     uiaainfo.completed.push(AuthType::RegistrationToken);
                 } else {
-                    uiaainfo.auth_error = Some(ruma::api::client::error::StandardErrorBody {
-                        kind: ErrorKind::Forbidden,
-                        message: "Invalid registration token.".to_owned(),
-                    });
+                    uiaainfo.auth_error =
+                        Some(ruma::api::client::error::StandardErrorBody {
+                            kind: ErrorKind::Forbidden,
+                            message: "Invalid registration token.".to_owned(),
+                        });
                     return Ok((false, uiaainfo));
                 }
             }

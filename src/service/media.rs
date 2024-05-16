@@ -2,14 +2,13 @@ mod data;
 use std::io::Cursor;
 
 pub(crate) use data::Data;
-
-use crate::{services, Result};
 use image::imageops::FilterType;
-
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
 };
+
+use crate::{services, Result};
 
 pub(crate) struct FileMeta {
     pub(crate) content_disposition: Option<String>,
@@ -31,9 +30,13 @@ impl Service {
         file: &[u8],
     ) -> Result<()> {
         // Width, Height = 0 if it's not a thumbnail
-        let key = self
-            .db
-            .create_file_metadata(mxc, 0, 0, content_disposition, content_type)?;
+        let key = self.db.create_file_metadata(
+            mxc,
+            0,
+            0,
+            content_disposition,
+            content_type,
+        )?;
 
         let path = services().globals.get_media_file(&key);
         let mut f = File::create(path).await?;
@@ -52,9 +55,13 @@ impl Service {
         height: u32,
         file: &[u8],
     ) -> Result<()> {
-        let key =
-            self.db
-                .create_file_metadata(mxc, width, height, content_disposition, content_type)?;
+        let key = self.db.create_file_metadata(
+            mxc,
+            width,
+            height,
+            content_disposition,
+            content_type,
+        )?;
 
         let path = services().globals.get_media_file(&key);
         let mut f = File::create(path).await?;
@@ -84,9 +91,12 @@ impl Service {
         }
     }
 
-    /// Returns width, height of the thumbnail and whether it should be cropped. Returns None when
-    /// the server should send the original file.
-    fn thumbnail_properties(width: u32, height: u32) -> Option<(u32, u32, bool)> {
+    /// Returns width, height of the thumbnail and whether it should be cropped.
+    /// Returns None when the server should send the original file.
+    fn thumbnail_properties(
+        width: u32,
+        height: u32,
+    ) -> Option<(u32, u32, bool)> {
         match (width, height) {
             (0..=32, 0..=32) => Some((32, 32, true)),
             (0..=96, 0..=96) => Some((96, 96, true)),
@@ -102,11 +112,15 @@ impl Service {
     /// Here's an example on how it works:
     ///
     /// - Client requests an image with width=567, height=567
-    /// - Server rounds that up to (800, 600), so it doesn't have to save too many thumbnails
-    /// - Server rounds that up again to (958, 600) to fix the aspect ratio (only for width,height>96)
+    /// - Server rounds that up to (800, 600), so it doesn't have to save too
+    ///   many thumbnails
+    /// - Server rounds that up again to (958, 600) to fix the aspect ratio
+    ///   (only for width,height>96)
     /// - Server creates the thumbnail and sends it to the user
     ///
-    /// For width,height <= 96 the server uses another thumbnailing algorithm which crops the image afterwards.
+    /// For width,height <= 96 the server uses another thumbnailing algorithm
+    /// which crops the image afterwards.
+    #[allow(clippy::too_many_lines)]
     pub(crate) async fn get_thumbnail(
         &self,
         mxc: String,
@@ -154,7 +168,8 @@ impl Service {
                 } else {
                     let (exact_width, exact_height) = {
                         // Copied from image::dynimage::resize_dimensions
-                        let use_width = (u64::from(width) * u64::from(original_height))
+                        let use_width = (u64::from(width)
+                            * u64::from(original_height))
                             <= (u64::from(original_width) * u64::from(height));
                         let intermediate = if use_width {
                             u64::from(original_height) * u64::from(width)
@@ -165,21 +180,31 @@ impl Service {
                         };
                         if use_width {
                             if intermediate <= u64::from(::std::u32::MAX) {
-                                (width, intermediate.try_into().unwrap_or(u32::MAX))
+                                (
+                                    width,
+                                    intermediate.try_into().unwrap_or(u32::MAX),
+                                )
                             } else {
                                 (
-                                    (u64::from(width) * u64::from(::std::u32::MAX) / intermediate)
+                                    (u64::from(width)
+                                        * u64::from(::std::u32::MAX)
+                                        / intermediate)
                                         .try_into()
                                         .unwrap_or(u32::MAX),
                                     ::std::u32::MAX,
                                 )
                             }
                         } else if intermediate <= u64::from(::std::u32::MAX) {
-                            (intermediate.try_into().unwrap_or(u32::MAX), height)
+                            (
+                                intermediate.try_into().unwrap_or(u32::MAX),
+                                height,
+                            )
                         } else {
                             (
                                 ::std::u32::MAX,
-                                (u64::from(height) * u64::from(::std::u32::MAX) / intermediate)
+                                (u64::from(height)
+                                    * u64::from(::std::u32::MAX)
+                                    / intermediate)
                                     .try_into()
                                     .unwrap_or(u32::MAX),
                             )
@@ -195,7 +220,8 @@ impl Service {
                     image::ImageOutputFormat::Png,
                 )?;
 
-                // Save thumbnail in database so we don't have to generate it again next time
+                // Save thumbnail in database so we don't have to generate it
+                // again next time
                 let thumbnail_key = self.db.create_file_metadata(
                     mxc,
                     width,

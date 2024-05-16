@@ -1,23 +1,6 @@
 pub(crate) mod abstraction;
 pub(crate) mod key_value;
 
-use crate::{
-    service::rooms::timeline::PduCount, services, utils, Config, Error, PduEvent, Result, Services,
-    SERVICES,
-};
-use abstraction::{KeyValueDatabaseEngine, KvTree};
-use lru_cache::LruCache;
-
-use ruma::{
-    events::{
-        push_rules::{PushRulesEvent, PushRulesEventContent},
-        room::message::RoomMessageEventContent,
-        GlobalAccountDataEvent, GlobalAccountDataEventType, StateEventType,
-    },
-    push::Ruleset,
-    CanonicalJsonValue, EventId, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId,
-    UserId,
-};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
@@ -27,7 +10,24 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
+use abstraction::{KeyValueDatabaseEngine, KvTree};
+use lru_cache::LruCache;
+use ruma::{
+    events::{
+        push_rules::{PushRulesEvent, PushRulesEventContent},
+        room::message::RoomMessageEventContent,
+        GlobalAccountDataEvent, GlobalAccountDataEventType, StateEventType,
+    },
+    push::Ruleset,
+    CanonicalJsonValue, EventId, OwnedDeviceId, OwnedEventId, OwnedRoomId,
+    OwnedUserId, RoomId, UserId,
+};
 use tracing::{debug, error, info, warn};
+
+use crate::{
+    service::rooms::timeline::PduCount, services, utils, Config, Error,
+    PduEvent, Result, Services, SERVICES,
+};
 
 pub(crate) struct KeyValueDatabase {
     db: Arc<dyn KeyValueDatabaseEngine>,
@@ -74,8 +74,9 @@ pub(crate) struct KeyValueDatabase {
     // Trees "owned" by `self::key_value::uiaa`
     // User-interactive authentication
     pub(super) userdevicesessionid_uiaainfo: Arc<dyn KvTree>,
-    pub(super) userdevicesessionid_uiaarequest:
-        RwLock<BTreeMap<(OwnedUserId, OwnedDeviceId, String), CanonicalJsonValue>>,
+    pub(super) userdevicesessionid_uiaarequest: RwLock<
+        BTreeMap<(OwnedUserId, OwnedDeviceId, String), CanonicalJsonValue>,
+    >,
 
     // Trees "owned" by `self::key_value::rooms::edus`
     // ReadReceiptId = RoomId + Count + UserId
@@ -169,13 +170,15 @@ pub(crate) struct KeyValueDatabase {
 
     pub(super) statehash_shortstatehash: Arc<dyn KvTree>,
 
-    // StateDiff = parent (or 0) + (shortstatekey+shorteventid++) + 0_u64 + (shortstatekey+shorteventid--)
+    // StateDiff = parent (or 0) + (shortstatekey+shorteventid++) + 0_u64 +
+    // (shortstatekey+shorteventid--)
     pub(super) shortstatehash_statediff: Arc<dyn KvTree>,
 
     pub(super) shorteventid_authchain: Arc<dyn KvTree>,
 
     /// RoomId + EventId -> outlier PDU.
-    /// Any pdu that has passed the steps 1-8 in the incoming event /federation/send/txn.
+    /// Any pdu that has passed the steps 1-8 in the incoming event
+    /// /federation/send/txn.
     pub(super) eventid_outlierpdu: Arc<dyn KvTree>,
     pub(super) softfailedeventids: Arc<dyn KvTree>,
 
@@ -214,10 +217,12 @@ pub(crate) struct KeyValueDatabase {
     // EduCount: Count of last EDU sync
     pub(super) servername_educount: Arc<dyn KvTree>,
 
-    // ServernameEvent = (+ / $)SenderKey / ServerName / UserId + PduId / Id (for edus), Data = EDU content
+    // ServernameEvent = (+ / $)SenderKey / ServerName / UserId + PduId / Id
+    // (for edus), Data = EDU content
     pub(super) servernameevent_data: Arc<dyn KvTree>,
 
-    // ServerCurrentEvents = (+ / $)ServerName / UserId + PduId / Id (for edus), Data = EDU content
+    // ServerCurrentEvents = (+ / $)ServerName / UserId + PduId / Id (for
+    // edus), Data = EDU content
     pub(super) servercurrentevent_data: Arc<dyn KvTree>,
 
     // Trees "owned" by `self::key_value::appservice`
@@ -231,10 +236,14 @@ pub(crate) struct KeyValueDatabase {
     pub(super) shorteventid_cache: Mutex<LruCache<u64, Arc<EventId>>>,
     pub(super) auth_chain_cache: Mutex<LruCache<Vec<u64>, Arc<HashSet<u64>>>>,
     pub(super) eventidshort_cache: Mutex<LruCache<OwnedEventId, u64>>,
-    pub(super) statekeyshort_cache: Mutex<LruCache<(StateEventType, String), u64>>,
-    pub(super) shortstatekey_cache: Mutex<LruCache<u64, (StateEventType, String)>>,
-    pub(super) our_real_users_cache: RwLock<HashMap<OwnedRoomId, Arc<HashSet<OwnedUserId>>>>,
-    pub(super) appservice_in_room_cache: RwLock<HashMap<OwnedRoomId, HashMap<String, bool>>>,
+    pub(super) statekeyshort_cache:
+        Mutex<LruCache<(StateEventType, String), u64>>,
+    pub(super) shortstatekey_cache:
+        Mutex<LruCache<u64, (StateEventType, String)>>,
+    pub(super) our_real_users_cache:
+        RwLock<HashMap<OwnedRoomId, Arc<HashSet<OwnedUserId>>>>,
+    pub(super) appservice_in_room_cache:
+        RwLock<HashMap<OwnedRoomId, HashMap<String, bool>>>,
     pub(super) lasttimelinecount_cache: Mutex<HashMap<OwnedRoomId, PduCount>>,
 }
 
@@ -271,13 +280,15 @@ impl KeyValueDatabase {
 
         if sqlite_exists && config.database_backend != "sqlite" {
             return Err(Error::bad_config(
-                "Found sqlite at database_path, but is not specified in config.",
+                "Found sqlite at database_path, but is not specified in \
+                 config.",
             ));
         }
 
         if rocksdb_exists && config.database_backend != "rocksdb" {
             return Err(Error::bad_config(
-                "Found rocksdb at database_path, but is not specified in config.",
+                "Found rocksdb at database_path, but is not specified in \
+                 config.",
             ));
         }
 
@@ -294,19 +305,30 @@ impl KeyValueDatabase {
         Self::check_db_setup(&config)?;
 
         if !Path::new(&config.database_path).exists() {
-            std::fs::create_dir_all(&config.database_path)
-                .map_err(|_| Error::BadConfig("Database folder doesn't exists and couldn't be created (e.g. due to missing permissions). Please create the database folder yourself."))?;
+            std::fs::create_dir_all(&config.database_path).map_err(|_| {
+                Error::BadConfig(
+                    "Database folder doesn't exists and couldn't be created \
+                     (e.g. due to missing permissions). Please create the \
+                     database folder yourself.",
+                )
+            })?;
         }
 
         #[cfg_attr(
             not(any(feature = "rocksdb", feature = "sqlite")),
             allow(unused_variables)
         )]
-        let builder: Arc<dyn KeyValueDatabaseEngine> = match &*config.database_backend {
+        let builder: Arc<dyn KeyValueDatabaseEngine> = match &*config
+            .database_backend
+        {
             #[cfg(feature = "sqlite")]
-            "sqlite" => Arc::new(Arc::<abstraction::sqlite::Engine>::open(&config)?),
+            "sqlite" => {
+                Arc::new(Arc::<abstraction::sqlite::Engine>::open(&config)?)
+            }
             #[cfg(feature = "rocksdb")]
-            "rocksdb" => Arc::new(Arc::<abstraction::rocksdb::Engine>::open(&config)?),
+            "rocksdb" => {
+                Arc::new(Arc::<abstraction::rocksdb::Engine>::open(&config)?)
+            }
             _ => {
                 return Err(Error::BadConfig("Database backend not found."));
             }
@@ -327,28 +349,38 @@ impl KeyValueDatabase {
             userid_avatarurl: builder.open_tree("userid_avatarurl")?,
             userid_blurhash: builder.open_tree("userid_blurhash")?,
             userdeviceid_token: builder.open_tree("userdeviceid_token")?,
-            userdeviceid_metadata: builder.open_tree("userdeviceid_metadata")?,
-            userid_devicelistversion: builder.open_tree("userid_devicelistversion")?,
+            userdeviceid_metadata: builder
+                .open_tree("userdeviceid_metadata")?,
+            userid_devicelistversion: builder
+                .open_tree("userid_devicelistversion")?,
             token_userdeviceid: builder.open_tree("token_userdeviceid")?,
-            onetimekeyid_onetimekeys: builder.open_tree("onetimekeyid_onetimekeys")?,
-            userid_lastonetimekeyupdate: builder.open_tree("userid_lastonetimekeyupdate")?,
+            onetimekeyid_onetimekeys: builder
+                .open_tree("onetimekeyid_onetimekeys")?,
+            userid_lastonetimekeyupdate: builder
+                .open_tree("userid_lastonetimekeyupdate")?,
             keychangeid_userid: builder.open_tree("keychangeid_userid")?,
             keyid_key: builder.open_tree("keyid_key")?,
             userid_masterkeyid: builder.open_tree("userid_masterkeyid")?,
-            userid_selfsigningkeyid: builder.open_tree("userid_selfsigningkeyid")?,
-            userid_usersigningkeyid: builder.open_tree("userid_usersigningkeyid")?,
+            userid_selfsigningkeyid: builder
+                .open_tree("userid_selfsigningkeyid")?,
+            userid_usersigningkeyid: builder
+                .open_tree("userid_usersigningkeyid")?,
             userfilterid_filter: builder.open_tree("userfilterid_filter")?,
             todeviceid_events: builder.open_tree("todeviceid_events")?,
 
-            userdevicesessionid_uiaainfo: builder.open_tree("userdevicesessionid_uiaainfo")?,
+            userdevicesessionid_uiaainfo: builder
+                .open_tree("userdevicesessionid_uiaainfo")?,
             userdevicesessionid_uiaarequest: RwLock::new(BTreeMap::new()),
-            readreceiptid_readreceipt: builder.open_tree("readreceiptid_readreceipt")?,
+            readreceiptid_readreceipt: builder
+                .open_tree("readreceiptid_readreceipt")?,
             // "Private" read receipt
-            roomuserid_privateread: builder.open_tree("roomuserid_privateread")?,
+            roomuserid_privateread: builder
+                .open_tree("roomuserid_privateread")?,
             roomuserid_lastprivatereadupdate: builder
                 .open_tree("roomuserid_lastprivatereadupdate")?,
             presenceid_presence: builder.open_tree("presenceid_presence")?,
-            userid_lastpresenceupdate: builder.open_tree("userid_lastpresenceupdate")?,
+            userid_lastpresenceupdate: builder
+                .open_tree("userid_lastpresenceupdate")?,
             pduid_pdu: builder.open_tree("pduid_pdu")?,
             eventid_pduid: builder.open_tree("eventid_pduid")?,
             roomid_pduleaves: builder.open_tree("roomid_pduleaves")?,
@@ -367,9 +399,12 @@ impl KeyValueDatabase {
             roomuserid_joined: builder.open_tree("roomuserid_joined")?,
             roomid_joinedcount: builder.open_tree("roomid_joinedcount")?,
             roomid_invitedcount: builder.open_tree("roomid_invitedcount")?,
-            roomuseroncejoinedids: builder.open_tree("roomuseroncejoinedids")?,
-            userroomid_invitestate: builder.open_tree("userroomid_invitestate")?,
-            roomuserid_invitecount: builder.open_tree("roomuserid_invitecount")?,
+            roomuseroncejoinedids: builder
+                .open_tree("roomuseroncejoinedids")?,
+            userroomid_invitestate: builder
+                .open_tree("userroomid_invitestate")?,
+            roomuserid_invitecount: builder
+                .open_tree("roomuserid_invitecount")?,
             userroomid_leftstate: builder.open_tree("userroomid_leftstate")?,
             roomuserid_leftcount: builder.open_tree("roomuserid_leftcount")?,
 
@@ -377,41 +412,57 @@ impl KeyValueDatabase {
 
             lazyloadedids: builder.open_tree("lazyloadedids")?,
 
-            userroomid_notificationcount: builder.open_tree("userroomid_notificationcount")?,
-            userroomid_highlightcount: builder.open_tree("userroomid_highlightcount")?,
-            roomuserid_lastnotificationread: builder.open_tree("userroomid_highlightcount")?,
+            userroomid_notificationcount: builder
+                .open_tree("userroomid_notificationcount")?,
+            userroomid_highlightcount: builder
+                .open_tree("userroomid_highlightcount")?,
+            roomuserid_lastnotificationread: builder
+                .open_tree("userroomid_highlightcount")?,
 
-            statekey_shortstatekey: builder.open_tree("statekey_shortstatekey")?,
-            shortstatekey_statekey: builder.open_tree("shortstatekey_statekey")?,
+            statekey_shortstatekey: builder
+                .open_tree("statekey_shortstatekey")?,
+            shortstatekey_statekey: builder
+                .open_tree("shortstatekey_statekey")?,
 
-            shorteventid_authchain: builder.open_tree("shorteventid_authchain")?,
+            shorteventid_authchain: builder
+                .open_tree("shorteventid_authchain")?,
 
             roomid_shortroomid: builder.open_tree("roomid_shortroomid")?,
 
-            shortstatehash_statediff: builder.open_tree("shortstatehash_statediff")?,
+            shortstatehash_statediff: builder
+                .open_tree("shortstatehash_statediff")?,
             eventid_shorteventid: builder.open_tree("eventid_shorteventid")?,
             shorteventid_eventid: builder.open_tree("shorteventid_eventid")?,
-            shorteventid_shortstatehash: builder.open_tree("shorteventid_shortstatehash")?,
-            roomid_shortstatehash: builder.open_tree("roomid_shortstatehash")?,
-            roomsynctoken_shortstatehash: builder.open_tree("roomsynctoken_shortstatehash")?,
-            statehash_shortstatehash: builder.open_tree("statehash_shortstatehash")?,
+            shorteventid_shortstatehash: builder
+                .open_tree("shorteventid_shortstatehash")?,
+            roomid_shortstatehash: builder
+                .open_tree("roomid_shortstatehash")?,
+            roomsynctoken_shortstatehash: builder
+                .open_tree("roomsynctoken_shortstatehash")?,
+            statehash_shortstatehash: builder
+                .open_tree("statehash_shortstatehash")?,
 
             eventid_outlierpdu: builder.open_tree("eventid_outlierpdu")?,
             softfailedeventids: builder.open_tree("softfailedeventids")?,
 
             tofrom_relation: builder.open_tree("tofrom_relation")?,
             referencedevents: builder.open_tree("referencedevents")?,
-            roomuserdataid_accountdata: builder.open_tree("roomuserdataid_accountdata")?,
-            roomusertype_roomuserdataid: builder.open_tree("roomusertype_roomuserdataid")?,
+            roomuserdataid_accountdata: builder
+                .open_tree("roomuserdataid_accountdata")?,
+            roomusertype_roomuserdataid: builder
+                .open_tree("roomusertype_roomuserdataid")?,
             mediaid_file: builder.open_tree("mediaid_file")?,
             backupid_algorithm: builder.open_tree("backupid_algorithm")?,
             backupid_etag: builder.open_tree("backupid_etag")?,
             backupkeyid_backup: builder.open_tree("backupkeyid_backup")?,
-            userdevicetxnid_response: builder.open_tree("userdevicetxnid_response")?,
+            userdevicetxnid_response: builder
+                .open_tree("userdevicetxnid_response")?,
             servername_educount: builder.open_tree("servername_educount")?,
             servernameevent_data: builder.open_tree("servernameevent_data")?,
-            servercurrentevent_data: builder.open_tree("servercurrentevent_data")?,
-            id_appserviceregistrations: builder.open_tree("id_appserviceregistrations")?,
+            servercurrentevent_data: builder
+                .open_tree("servercurrentevent_data")?,
+            id_appserviceregistrations: builder
+                .open_tree("id_appserviceregistrations")?,
             senderkey_pusher: builder.open_tree("senderkey_pusher")?,
             global: builder.open_tree("global")?,
             server_signingkeys: builder.open_tree("server_signingkeys")?,
@@ -489,11 +540,13 @@ impl KeyValueDatabase {
 
             if !services().users.exists(&grapevine_user)? {
                 error!(
-                    "The {} server user does not exist, and the database is not new.",
+                    "The {} server user does not exist, and the database is \
+                     not new.",
                     grapevine_user
                 );
                 return Err(Error::bad_database(
-                    "Cannot reuse an existing database after changing the server name, please delete the old one first."
+                    "Cannot reuse an existing database after changing the \
+                     server name, please delete the old one first.",
                 ));
             }
         }
@@ -505,14 +558,15 @@ impl KeyValueDatabase {
             // MIGRATIONS
             if services().globals.database_version()? < 1 {
                 for (roomserverid, _) in db.roomserverids.iter() {
-                    let mut parts = roomserverid.split(|&b| b == 0xff);
-                    let room_id = parts.next().expect("split always returns one element");
+                    let mut parts = roomserverid.split(|&b| b == 0xFF);
+                    let room_id =
+                        parts.next().expect("split always returns one element");
                     let Some(servername) = parts.next() else {
                         error!("Migration: Invalid roomserverid in db.");
                         continue;
                     };
                     let mut serverroomid = servername.to_vec();
-                    serverroomid.push(0xff);
+                    serverroomid.push(0xFF);
                     serverroomid.extend_from_slice(room_id);
 
                     db.serverroomids.insert(&serverroomid, &[])?;
@@ -524,13 +578,16 @@ impl KeyValueDatabase {
             }
 
             if services().globals.database_version()? < 2 {
-                // We accidentally inserted hashed versions of "" into the db instead of just ""
+                // We accidentally inserted hashed versions of "" into the db
+                // instead of just ""
                 for (userid, password) in db.userid_password.iter() {
                     let password = utils::string_from_bytes(&password);
 
-                    let empty_hashed_password = password.map_or(false, |password| {
-                        argon2::verify_encoded(&password, b"").unwrap_or(false)
-                    });
+                    let empty_hashed_password =
+                        password.map_or(false, |password| {
+                            argon2::verify_encoded(&password, b"")
+                                .unwrap_or(false)
+                        });
 
                     if empty_hashed_password {
                         db.userid_password.insert(&userid, b"")?;
@@ -567,10 +624,16 @@ impl KeyValueDatabase {
                     if services().users.is_deactivated(&our_user)? {
                         continue;
                     }
-                    for room in services().rooms.state_cache.rooms_joined(&our_user) {
-                        for user in services().rooms.state_cache.room_members(&room?) {
+                    for room in
+                        services().rooms.state_cache.rooms_joined(&our_user)
+                    {
+                        for user in
+                            services().rooms.state_cache.room_members(&room?)
+                        {
                             let user = user?;
-                            if user.server_name() != services().globals.server_name() {
+                            if user.server_name()
+                                != services().globals.server_name()
+                            {
                                 info!(?user, "Migration: creating user");
                                 services().users.create(&user, None)?;
                             }
@@ -585,16 +648,18 @@ impl KeyValueDatabase {
 
             if services().globals.database_version()? < 5 {
                 // Upgrade user data store
-                for (roomuserdataid, _) in db.roomuserdataid_accountdata.iter() {
-                    let mut parts = roomuserdataid.split(|&b| b == 0xff);
+                for (roomuserdataid, _) in db.roomuserdataid_accountdata.iter()
+                {
+                    let mut parts = roomuserdataid.split(|&b| b == 0xFF);
                     let room_id = parts.next().unwrap();
                     let user_id = parts.next().unwrap();
-                    let event_type = roomuserdataid.rsplit(|&b| b == 0xff).next().unwrap();
+                    let event_type =
+                        roomuserdataid.rsplit(|&b| b == 0xFF).next().unwrap();
 
                     let mut key = room_id.to_vec();
-                    key.push(0xff);
+                    key.push(0xFF);
                     key.extend_from_slice(user_id);
-                    key.push(0xff);
+                    key.push(0xFF);
                     key.extend_from_slice(event_type);
 
                     db.roomusertype_roomuserdataid
@@ -611,7 +676,10 @@ impl KeyValueDatabase {
                 for (roomid, _) in db.roomid_shortstatehash.iter() {
                     let string = utils::string_from_bytes(&roomid).unwrap();
                     let room_id = <&RoomId>::try_from(string.as_str()).unwrap();
-                    services().rooms.state_cache.update_joined_count(room_id)?;
+                    services()
+                        .rooms
+                        .state_cache
+                        .update_joined_count(room_id)?;
                 }
 
                 services().globals.bump_database_version(6)?;
@@ -621,7 +689,8 @@ impl KeyValueDatabase {
 
             if services().globals.database_version()? < 7 {
                 // Upgrade state store
-                let mut last_roomstates: HashMap<OwnedRoomId, u64> = HashMap::new();
+                let mut last_roomstates: HashMap<OwnedRoomId, u64> =
+                    HashMap::new();
                 let mut current_sstatehash: Option<u64> = None;
                 let mut current_room = None;
                 let mut current_state = HashSet::new();
@@ -633,7 +702,8 @@ impl KeyValueDatabase {
                      current_state: HashSet<_>,
                      last_roomstates: &mut HashMap<_, _>| {
                         counter += 1;
-                        let last_roomsstatehash = last_roomstates.get(current_room);
+                        let last_roomsstatehash =
+                            last_roomstates.get(current_room);
 
                         let states_parents = last_roomsstatehash.map_or_else(
                             || Ok(Vec::new()),
@@ -641,12 +711,16 @@ impl KeyValueDatabase {
                                 services()
                                     .rooms
                                     .state_compressor
-                                    .load_shortstatehash_info(last_roomsstatehash)
+                                    .load_shortstatehash_info(
+                                        last_roomsstatehash,
+                                    )
                             },
                         )?;
 
                         let (statediffnew, statediffremoved) =
-                            if let Some(parent_stateinfo) = states_parents.last() {
+                            if let Some(parent_stateinfo) =
+                                states_parents.last()
+                            {
                                 let statediffnew = current_state
                                     .difference(&parent_stateinfo.1)
                                     .copied()
@@ -663,21 +737,28 @@ impl KeyValueDatabase {
                                 (current_state, HashSet::new())
                             };
 
-                        services().rooms.state_compressor.save_state_from_diff(
-                            current_sstatehash,
-                            Arc::new(statediffnew),
-                            Arc::new(statediffremoved),
-                            // every state change is 2 event changes on average
-                            2,
-                            states_parents,
-                        )?;
+                        services()
+                            .rooms
+                            .state_compressor
+                            .save_state_from_diff(
+                                current_sstatehash,
+                                Arc::new(statediffnew),
+                                Arc::new(statediffremoved),
+                                // every state change is 2 event changes on
+                                // average
+                                2,
+                                states_parents,
+                            )?;
 
                         Ok::<_, Error>(())
                     };
 
-                for (k, seventid) in db.db.open_tree("stateid_shorteventid")?.iter() {
-                    let sstatehash = utils::u64_from_bytes(&k[0..size_of::<u64>()])
-                        .expect("number of bytes is correct");
+                for (k, seventid) in
+                    db.db.open_tree("stateid_shorteventid")?.iter()
+                {
+                    let sstatehash =
+                        utils::u64_from_bytes(&k[0..size_of::<u64>()])
+                            .expect("number of bytes is correct");
                     let sstatekey = k[size_of::<u64>()..].to_vec();
                     if Some(sstatehash) != current_sstatehash {
                         if let Some(current_sstatehash) = current_sstatehash {
@@ -687,15 +768,23 @@ impl KeyValueDatabase {
                                 current_state,
                                 &mut last_roomstates,
                             )?;
-                            last_roomstates
-                                .insert(current_room.clone().unwrap(), current_sstatehash);
+                            last_roomstates.insert(
+                                current_room.clone().unwrap(),
+                                current_sstatehash,
+                            );
                         }
                         current_state = HashSet::new();
                         current_sstatehash = Some(sstatehash);
 
-                        let event_id = db.shorteventid_eventid.get(&seventid).unwrap().unwrap();
-                        let string = utils::string_from_bytes(&event_id).unwrap();
-                        let event_id = <&EventId>::try_from(string.as_str()).unwrap();
+                        let event_id = db
+                            .shorteventid_eventid
+                            .get(&seventid)
+                            .unwrap()
+                            .unwrap();
+                        let string =
+                            utils::string_from_bytes(&event_id).unwrap();
+                        let event_id =
+                            <&EventId>::try_from(string.as_str()).unwrap();
                         let pdu = services()
                             .rooms
                             .timeline
@@ -710,7 +799,8 @@ impl KeyValueDatabase {
 
                     let mut val = sstatekey;
                     val.extend_from_slice(&seventid);
-                    current_state.insert(val.try_into().expect("size is correct"));
+                    current_state
+                        .insert(val.try_into().expect("size is correct"));
                 }
 
                 if let Some(current_sstatehash) = current_sstatehash {
@@ -730,7 +820,8 @@ impl KeyValueDatabase {
             if services().globals.database_version()? < 8 {
                 // Generate short room ids for all rooms
                 for (room_id, _) in db.roomid_shortstatehash.iter() {
-                    let shortroomid = services().globals.next_count()?.to_be_bytes();
+                    let shortroomid =
+                        services().globals.next_count()?.to_be_bytes();
                     db.roomid_shortroomid.insert(&room_id, &shortroomid)?;
                     info!("Migration: 8");
                 }
@@ -739,7 +830,7 @@ impl KeyValueDatabase {
                     if !key.starts_with(b"!") {
                         return None;
                     }
-                    let mut parts = key.splitn(2, |&b| b == 0xff);
+                    let mut parts = key.splitn(2, |&b| b == 0xFF);
                     let room_id = parts.next().unwrap();
                     let count = parts.next().unwrap();
 
@@ -757,25 +848,26 @@ impl KeyValueDatabase {
 
                 db.pduid_pdu.insert_batch(&mut batch)?;
 
-                let mut batch2 = db.eventid_pduid.iter().filter_map(|(k, value)| {
-                    if !value.starts_with(b"!") {
-                        return None;
-                    }
-                    let mut parts = value.splitn(2, |&b| b == 0xff);
-                    let room_id = parts.next().unwrap();
-                    let count = parts.next().unwrap();
+                let mut batch2 =
+                    db.eventid_pduid.iter().filter_map(|(k, value)| {
+                        if !value.starts_with(b"!") {
+                            return None;
+                        }
+                        let mut parts = value.splitn(2, |&b| b == 0xFF);
+                        let room_id = parts.next().unwrap();
+                        let count = parts.next().unwrap();
 
-                    let short_room_id = db
-                        .roomid_shortroomid
-                        .get(room_id)
-                        .unwrap()
-                        .expect("shortroomid should exist");
+                        let short_room_id = db
+                            .roomid_shortroomid
+                            .get(room_id)
+                            .unwrap()
+                            .expect("shortroomid should exist");
 
-                    let mut new_value = short_room_id;
-                    new_value.extend_from_slice(count);
+                        let mut new_value = short_room_id;
+                        new_value.extend_from_slice(count);
 
-                    Some((k, new_value))
-                });
+                        Some((k, new_value))
+                    });
 
                 db.eventid_pduid.insert_batch(&mut batch2)?;
 
@@ -793,7 +885,7 @@ impl KeyValueDatabase {
                         if !key.starts_with(b"!") {
                             return None;
                         }
-                        let mut parts = key.splitn(4, |&b| b == 0xff);
+                        let mut parts = key.splitn(4, |&b| b == 0xFF);
                         let room_id = parts.next().unwrap();
                         let word = parts.next().unwrap();
                         let _pdu_id_room = parts.next().unwrap();
@@ -806,7 +898,7 @@ impl KeyValueDatabase {
                             .expect("shortroomid should exist");
                         let mut new_key = short_room_id;
                         new_key.extend_from_slice(word);
-                        new_key.push(0xff);
+                        new_key.push(0xFF);
                         new_key.extend_from_slice(pdu_id_count);
                         Some((new_key, Vec::new()))
                     })
@@ -836,12 +928,15 @@ impl KeyValueDatabase {
 
             if services().globals.database_version()? < 10 {
                 // Add other direction for shortstatekeys
-                for (statekey, shortstatekey) in db.statekey_shortstatekey.iter() {
+                for (statekey, shortstatekey) in
+                    db.statekey_shortstatekey.iter()
+                {
                     db.shortstatekey_statekey
                         .insert(&shortstatekey, &statekey)?;
                 }
 
-                // Force E2EE device list updates so we can send them over federation
+                // Force E2EE device list updates so we can send them over
+                // federation
                 for user_id in services().users.iter().filter_map(Result::ok) {
                     services().users.mark_device_key_update(&user_id)?;
                 }
@@ -852,9 +947,7 @@ impl KeyValueDatabase {
             }
 
             if services().globals.database_version()? < 11 {
-                db.db
-                    .open_tree("userdevicesessionid_uiaarequest")?
-                    .clear()?;
+                db.db.open_tree("userdevicesessionid_uiaarequest")?.clear()?;
                 services().globals.bump_database_version(11)?;
 
                 warn!("Migration: 10 -> 11 finished");
@@ -878,24 +971,34 @@ impl KeyValueDatabase {
                         .get(
                             None,
                             &user,
-                            GlobalAccountDataEventType::PushRules.to_string().into(),
+                            GlobalAccountDataEventType::PushRules
+                                .to_string()
+                                .into(),
                         )
                         .unwrap()
                         .expect("Username is invalid");
 
                     let mut account_data =
-                        serde_json::from_str::<PushRulesEvent>(raw_rules_list.get()).unwrap();
+                        serde_json::from_str::<PushRulesEvent>(
+                            raw_rules_list.get(),
+                        )
+                        .unwrap();
                     let rules_list = &mut account_data.content.global;
 
                     //content rule
                     {
-                        let content_rule_transformation =
-                            [".m.rules.contains_user_name", ".m.rule.contains_user_name"];
+                        let content_rule_transformation = [
+                            ".m.rules.contains_user_name",
+                            ".m.rule.contains_user_name",
+                        ];
 
-                        let rule = rules_list.content.get(content_rule_transformation[0]);
+                        let rule = rules_list
+                            .content
+                            .get(content_rule_transformation[0]);
                         if rule.is_some() {
                             let mut rule = rule.unwrap().clone();
-                            rule.rule_id = content_rule_transformation[1].to_owned();
+                            rule.rule_id =
+                                content_rule_transformation[1].to_owned();
                             rules_list
                                 .content
                                 .shift_remove(content_rule_transformation[0]);
@@ -907,7 +1010,10 @@ impl KeyValueDatabase {
                     {
                         let underride_rule_transformation = [
                             [".m.rules.call", ".m.rule.call"],
-                            [".m.rules.room_one_to_one", ".m.rule.room_one_to_one"],
+                            [
+                                ".m.rules.room_one_to_one",
+                                ".m.rule.room_one_to_one",
+                            ],
                             [
                                 ".m.rules.encrypted_room_one_to_one",
                                 ".m.rule.encrypted_room_one_to_one",
@@ -917,11 +1023,14 @@ impl KeyValueDatabase {
                         ];
 
                         for transformation in underride_rule_transformation {
-                            let rule = rules_list.underride.get(transformation[0]);
+                            let rule =
+                                rules_list.underride.get(transformation[0]);
                             if let Some(rule) = rule {
                                 let mut rule = rule.clone();
                                 rule.rule_id = transformation[1].to_owned();
-                                rules_list.underride.shift_remove(transformation[0]);
+                                rules_list
+                                    .underride
+                                    .shift_remove(transformation[0]);
                                 rules_list.underride.insert(rule);
                             }
                         }
@@ -930,8 +1039,11 @@ impl KeyValueDatabase {
                     services().account_data.update(
                         None,
                         &user,
-                        GlobalAccountDataEventType::PushRules.to_string().into(),
-                        &serde_json::to_value(account_data).expect("to json value always works"),
+                        GlobalAccountDataEventType::PushRules
+                            .to_string()
+                            .into(),
+                        &serde_json::to_value(account_data)
+                            .expect("to json value always works"),
                     )?;
                 }
 
@@ -940,7 +1052,8 @@ impl KeyValueDatabase {
                 warn!("Migration: 11 -> 12 finished");
             }
 
-            // This migration can be reused as-is anytime the server-default rules are updated.
+            // This migration can be reused as-is anytime the server-default
+            // rules are updated.
             if services().globals.database_version()? < 13 {
                 for username in services().users.list_local_users()? {
                     let user = match UserId::parse_with_server_name(
@@ -959,15 +1072,21 @@ impl KeyValueDatabase {
                         .get(
                             None,
                             &user,
-                            GlobalAccountDataEventType::PushRules.to_string().into(),
+                            GlobalAccountDataEventType::PushRules
+                                .to_string()
+                                .into(),
                         )
                         .unwrap()
                         .expect("Username is invalid");
 
                     let mut account_data =
-                        serde_json::from_str::<PushRulesEvent>(raw_rules_list.get()).unwrap();
+                        serde_json::from_str::<PushRulesEvent>(
+                            raw_rules_list.get(),
+                        )
+                        .unwrap();
 
-                    let user_default_rules = ruma::push::Ruleset::server_default(&user);
+                    let user_default_rules =
+                        ruma::push::Ruleset::server_default(&user);
                     account_data
                         .content
                         .global
@@ -976,8 +1095,11 @@ impl KeyValueDatabase {
                     services().account_data.update(
                         None,
                         &user,
-                        GlobalAccountDataEventType::PushRules.to_string().into(),
-                        &serde_json::to_value(account_data).expect("to json value always works"),
+                        GlobalAccountDataEventType::PushRules
+                            .to_string()
+                            .into(),
+                        &serde_json::to_value(account_data)
+                            .expect("to json value always works"),
                     )?;
                 }
 
@@ -1018,13 +1140,24 @@ impl KeyValueDatabase {
         match set_emergency_access() {
             Ok(pwd_set) => {
                 if pwd_set {
-                    warn!("The Grapevine account emergency password is set! Please unset it as soon as you finish admin account recovery!");
-                    services().admin.send_message(RoomMessageEventContent::text_plain("The Grapevine account emergency password is set! Please unset it as soon as you finish admin account recovery!"));
+                    warn!(
+                        "The Grapevine account emergency password is set! \
+                         Please unset it as soon as you finish admin account \
+                         recovery!"
+                    );
+                    services().admin.send_message(
+                        RoomMessageEventContent::text_plain(
+                            "The Grapevine account emergency password is set! \
+                             Please unset it as soon as you finish admin \
+                             account recovery!",
+                        ),
+                    );
                 }
             }
             Err(e) => {
                 error!(
-                    "Could not set the configured emergency password for the grapevine user: {}",
+                    "Could not set the configured emergency password for the \
+                     grapevine user: {}",
                     e
                 );
             }
@@ -1050,15 +1183,15 @@ impl KeyValueDatabase {
 
     #[tracing::instrument]
     pub(crate) async fn start_cleanup_task() {
-        use tokio::time::interval;
+        use std::time::{Duration, Instant};
 
         #[cfg(unix)]
         use tokio::signal::unix::{signal, SignalKind};
+        use tokio::time::interval;
 
-        use std::time::{Duration, Instant};
-
-        let timer_interval =
-            Duration::from_secs(u64::from(services().globals.config.cleanup_second_interval));
+        let timer_interval = Duration::from_secs(u64::from(
+            services().globals.config.cleanup_second_interval,
+        ));
 
         tokio::spawn(async move {
             let mut i = interval(timer_interval);
@@ -1092,11 +1225,14 @@ impl KeyValueDatabase {
     }
 }
 
-/// Sets the emergency password and push rules for the @grapevine account in case emergency password is set
+/// Sets the emergency password and push rules for the @grapevine account in
+/// case emergency password is set
 fn set_emergency_access() -> Result<bool> {
-    let grapevine_user =
-        UserId::parse_with_server_name("grapevine", services().globals.server_name())
-            .expect("@grapevine:server_name is a valid UserId");
+    let grapevine_user = UserId::parse_with_server_name(
+        "grapevine",
+        services().globals.server_name(),
+    )
+    .expect("@grapevine:server_name is a valid UserId");
 
     services().users.set_password(
         &grapevine_user,
@@ -1113,7 +1249,9 @@ fn set_emergency_access() -> Result<bool> {
         &grapevine_user,
         GlobalAccountDataEventType::PushRules.to_string().into(),
         &serde_json::to_value(&GlobalAccountDataEvent {
-            content: PushRulesEventContent { global: ruleset },
+            content: PushRulesEventContent {
+                global: ruleset,
+            },
         })
         .expect("to json value always works"),
     )?;

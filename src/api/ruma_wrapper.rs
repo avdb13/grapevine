@@ -1,9 +1,11 @@
-use crate::{service::appservice::RegistrationInfo, Error};
-use ruma::{
-    api::client::uiaa::UiaaResponse, CanonicalJsonValue, OwnedDeviceId, OwnedServerName,
-    OwnedUserId,
-};
 use std::ops::Deref;
+
+use ruma::{
+    api::client::uiaa::UiaaResponse, CanonicalJsonValue, OwnedDeviceId,
+    OwnedServerName, OwnedUserId,
+};
+
+use crate::{service::appservice::RegistrationInfo, Error};
 
 mod axum;
 

@@ -1,26 +1,4 @@
 mod data;
-pub(crate) use data::Data;
-use ruma::{
-    serde::Base64, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedServerSigningKeyId, OwnedUserId,
-};
-
-use crate::api::server_server::FedDest;
-
-use crate::{services, Config, Error, Result};
-use futures_util::FutureExt;
-use hyper::{
-    client::connect::dns::{GaiResolver, Name},
-    service::Service as HyperService,
-};
-use reqwest::dns::{Addrs, Resolve, Resolving};
-use ruma::{
-    api::{
-        client::sync::sync_events,
-        federation::discovery::{ServerSigningKeys, VerifyKey},
-    },
-    DeviceId, RoomVersionId, ServerName, UserId,
-};
 use std::{
     collections::{BTreeMap, HashMap},
     error::Error as StdError,
@@ -35,11 +13,29 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+use base64::{engine::general_purpose, Engine as _};
+pub(crate) use data::Data;
+use futures_util::FutureExt;
+use hyper::{
+    client::connect::dns::{GaiResolver, Name},
+    service::Service as HyperService,
+};
+use reqwest::dns::{Addrs, Resolve, Resolving};
+use ruma::{
+    api::{
+        client::sync::sync_events,
+        federation::discovery::{ServerSigningKeys, VerifyKey},
+    },
+    serde::Base64,
+    DeviceId, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedServerName,
+    OwnedServerSigningKeyId, OwnedUserId, RoomVersionId, ServerName, UserId,
+};
 use tokio::sync::{broadcast, watch::Receiver, Mutex, RwLock, Semaphore};
 use tracing::{error, info};
 use trust_dns_resolver::TokioAsyncResolver;
 
-use base64::{engine::general_purpose, Engine as _};
+use crate::{api::server_server::FedDest, services, Config, Error, Result};
 
 type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
@@ -66,27 +62,40 @@ pub(crate) struct Service {
     default_client: reqwest::Client,
     pub(crate) stable_room_versions: Vec<RoomVersionId>,
     pub(crate) unstable_room_versions: Vec<RoomVersionId>,
-    pub(crate) bad_event_ratelimiter: Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
-    pub(crate) bad_signature_ratelimiter: Arc<RwLock<HashMap<Vec<String>, RateLimitState>>>,
-    pub(crate) bad_query_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
-    pub(crate) servername_ratelimiter: Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
-    pub(crate) sync_receivers: RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
-    pub(crate) roomid_mutex_insert: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) bad_event_ratelimiter:
+        Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
+    pub(crate) bad_signature_ratelimiter:
+        Arc<RwLock<HashMap<Vec<String>, RateLimitState>>>,
+    pub(crate) bad_query_ratelimiter:
+        Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
+    pub(crate) servername_ratelimiter:
+        Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
+    pub(crate) sync_receivers:
+        RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
+    pub(crate) roomid_mutex_insert:
+        RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
     pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
 
     // this lock will be held longer
-    pub(crate) roomid_mutex_federation: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
-    pub(crate) roomid_federationhandletime: RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
+    pub(crate) roomid_mutex_federation:
+        RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) roomid_federationhandletime:
+        RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
     pub(crate) stateres_mutex: Arc<Mutex<()>>,
     pub(crate) rotate: RotationHandler,
 
     pub(crate) shutdown: AtomicBool,
 }
 
-/// Handles "rotation" of long-polling requests. "Rotation" in this context is similar to "rotation" of log files and the like.
+/// Handles "rotation" of long-polling requests. "Rotation" in this context is
+/// similar to "rotation" of log files and the like.
 ///
-/// This is utilized to have sync workers return early and release read locks on the database.
-pub(crate) struct RotationHandler(broadcast::Sender<()>, broadcast::Receiver<()>);
+/// This is utilized to have sync workers return early and release read locks on
+/// the database.
+pub(crate) struct RotationHandler(
+    broadcast::Sender<()>,
+    broadcast::Receiver<()>,
+);
 
 impl RotationHandler {
     pub(crate) fn new() -> Self {
@@ -136,7 +145,10 @@ impl Resolve for Resolver {
             .and_then(|(override_name, port)| {
                 override_name.first().map(|first_name| {
                     let x: Box<dyn Iterator<Item = SocketAddr> + Send> =
-                        Box::new(iter::once(SocketAddr::new(*first_name, *port)));
+                        Box::new(iter::once(SocketAddr::new(
+                            *first_name,
+                            *port,
+                        )));
                     let x: Resolving = Box::pin(future::ready(Ok(x)));
                     x
                 })
@@ -144,9 +156,11 @@ impl Resolve for Resolver {
             .unwrap_or_else(|| {
                 let this = &mut self.inner.clone();
                 Box::pin(HyperService::<Name>::call(this, name).map(|result| {
-                    result
-                        .map(|addrs| -> Addrs { Box::new(addrs) })
-                        .map_err(|err| -> Box<dyn StdError + Send + Sync> { Box::new(err) })
+                    result.map(|addrs| -> Addrs { Box::new(addrs) }).map_err(
+                        |err| -> Box<dyn StdError + Send + Sync> {
+                            Box::new(err)
+                        },
+                    )
                 }))
             })
     }
@@ -167,10 +181,9 @@ impl Service {
 
         let tls_name_override = Arc::new(StdRwLock::new(TlsNameMap::new()));
 
-        let jwt_decoding_key = config
-            .jwt_secret
-            .as_ref()
-            .map(|secret| jsonwebtoken::DecodingKey::from_secret(secret.as_bytes()));
+        let jwt_decoding_key = config.jwt_secret.as_ref().map(|secret| {
+            jsonwebtoken::DecodingKey::from_secret(secret.as_bytes())
+        });
 
         let default_client = reqwest_client_builder(&config)?.build()?;
         let federation_client = reqwest_client_builder(&config)?
@@ -187,20 +200,28 @@ impl Service {
             RoomVersionId::V11,
         ];
         // Experimental, partially supported room versions
-        let unstable_room_versions = vec![RoomVersionId::V3, RoomVersionId::V4, RoomVersionId::V5];
+        let unstable_room_versions =
+            vec![RoomVersionId::V3, RoomVersionId::V4, RoomVersionId::V5];
 
         let mut s = Self {
             db,
             config,
             keypair: Arc::new(keypair),
-            dns_resolver: TokioAsyncResolver::tokio_from_system_conf().map_err(|e| {
-                error!(
-                    "Failed to set up trust dns resolver with system config: {}",
-                    e
-                );
-                Error::bad_config("Failed to set up trust dns resolver with system config.")
-            })?,
-            actual_destination_cache: Arc::new(RwLock::new(WellKnownMap::new())),
+            dns_resolver: TokioAsyncResolver::tokio_from_system_conf()
+                .map_err(|e| {
+                    error!(
+                        "Failed to set up trust dns resolver with system \
+                         config: {}",
+                        e
+                    );
+                    Error::bad_config(
+                        "Failed to set up trust dns resolver with system \
+                         config.",
+                    )
+                })?,
+            actual_destination_cache: Arc::new(
+                RwLock::new(WellKnownMap::new()),
+            ),
             tls_name_override,
             federation_client,
             default_client,
@@ -223,12 +244,11 @@ impl Service {
 
         fs::create_dir_all(s.get_media_folder())?;
 
-        if !s
-            .supported_room_versions()
-            .contains(&s.config.default_room_version)
+        if !s.supported_room_versions().contains(&s.config.default_room_version)
         {
             error!(config=?s.config.default_room_version, fallback=?crate::config::default_default_room_version(), "Room version in config isn't supported, falling back to default version");
-            s.config.default_room_version = crate::config::default_default_room_version();
+            s.config.default_room_version =
+                crate::config::default_default_room_version();
         };
 
         Ok(s)
@@ -261,7 +281,11 @@ impl Service {
         self.db.current_count()
     }
 
-    pub(crate) async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
+    pub(crate) async fn watch(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<()> {
         self.db.watch(user_id, device_id).await
     }
 
@@ -313,7 +337,9 @@ impl Service {
         &self.dns_resolver
     }
 
-    pub(crate) fn jwt_decoding_key(&self) -> Option<&jsonwebtoken::DecodingKey> {
+    pub(crate) fn jwt_decoding_key(
+        &self,
+    ) -> Option<&jsonwebtoken::DecodingKey> {
         self.jwt_decoding_key.as_ref()
     }
 
@@ -353,7 +379,8 @@ impl Service {
     /// TODO: the key valid until timestamp is only honored in room version > 4
     /// Remove the outdated keys and insert the new ones.
     ///
-    /// This doesn't actually check that the keys provided are newer than the old set.
+    /// This doesn't actually check that the keys provided are newer than the
+    /// old set.
     pub(crate) fn add_signing_key(
         &self,
         origin: &ServerName,
@@ -362,7 +389,8 @@ impl Service {
         self.db.add_signing_key(origin, new_keys)
     }
 
-    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found for the server.
+    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found
+    /// for the server.
     pub(crate) fn signing_keys_for(
         &self,
         origin: &ServerName,

@@ -1,20 +1,27 @@
-use crate::{service::rooms::timeline::PduCount, services, Error, Result, Ruma};
+use std::collections::BTreeMap;
+
 use ruma::{
-    api::client::{error::ErrorKind, read_marker::set_read_marker, receipt::create_receipt},
+    api::client::{
+        error::ErrorKind, read_marker::set_read_marker, receipt::create_receipt,
+    },
     events::{
         receipt::{ReceiptThread, ReceiptType},
         RoomAccountDataEventType,
     },
     MilliSecondsSinceUnixEpoch,
 };
-use std::collections::BTreeMap;
+
+use crate::{
+    service::rooms::timeline::PduCount, services, Error, Result, Ruma,
+};
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/read_markers`
 ///
 /// Sets different types of read markers.
 ///
 /// - Updates fully-read account data event to `fully_read`
-/// - If `read_receipt` is set: Update private marker and public read receipt EDU
+/// - If `read_receipt` is set: Update private marker and public read receipt
+///   EDU
 pub(crate) async fn set_read_marker_route(
     body: Ruma<set_read_marker::v3::Request>,
 ) -> Result<set_read_marker::v3::Response> {
@@ -30,7 +37,8 @@ pub(crate) async fn set_read_marker_route(
             Some(&body.room_id),
             sender_user,
             RoomAccountDataEventType::FullyRead,
-            &serde_json::to_value(fully_read_event).expect("to json value always works"),
+            &serde_json::to_value(fully_read_event)
+                .expect("to json value always works"),
         )?;
     }
 
@@ -42,14 +50,9 @@ pub(crate) async fn set_read_marker_route(
     }
 
     if let Some(event) = &body.private_read_receipt {
-        let count = services()
-            .rooms
-            .timeline
-            .get_pdu_count(event)?
-            .ok_or(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Event does not exist.",
-            ))?;
+        let count = services().rooms.timeline.get_pdu_count(event)?.ok_or(
+            Error::BadRequest(ErrorKind::InvalidParam, "Event does not exist."),
+        )?;
         let count = match count {
             PduCount::Backfilled(_) => {
                 return Err(Error::BadRequest(
@@ -59,11 +62,11 @@ pub(crate) async fn set_read_marker_route(
             }
             PduCount::Normal(c) => c,
         };
-        services()
-            .rooms
-            .edus
-            .read_receipt
-            .private_read_set(&body.room_id, sender_user, count)?;
+        services().rooms.edus.read_receipt.private_read_set(
+            &body.room_id,
+            sender_user,
+            count,
+        )?;
     }
 
     if let Some(event) = &body.read_receipt {
@@ -86,7 +89,9 @@ pub(crate) async fn set_read_marker_route(
             sender_user,
             &body.room_id,
             ruma::events::receipt::ReceiptEvent {
-                content: ruma::events::receipt::ReceiptEventContent(receipt_content),
+                content: ruma::events::receipt::ReceiptEventContent(
+                    receipt_content,
+                ),
                 room_id: body.room_id.clone(),
             },
         )?;
@@ -105,7 +110,8 @@ pub(crate) async fn create_receipt_route(
 
     if matches!(
         &body.receipt_type,
-        create_receipt::v3::ReceiptType::Read | create_receipt::v3::ReceiptType::ReadPrivate
+        create_receipt::v3::ReceiptType::Read
+            | create_receipt::v3::ReceiptType::ReadPrivate
     ) {
         services()
             .rooms
@@ -124,7 +130,8 @@ pub(crate) async fn create_receipt_route(
                 Some(&body.room_id),
                 sender_user,
                 RoomAccountDataEventType::FullyRead,
-                &serde_json::to_value(fully_read_event).expect("to json value always works"),
+                &serde_json::to_value(fully_read_event)
+                    .expect("to json value always works"),
             )?;
         }
         create_receipt::v3::ReceiptType::Read => {
@@ -146,7 +153,9 @@ pub(crate) async fn create_receipt_route(
                 sender_user,
                 &body.room_id,
                 ruma::events::receipt::ReceiptEvent {
-                    content: ruma::events::receipt::ReceiptEventContent(receipt_content),
+                    content: ruma::events::receipt::ReceiptEventContent(
+                        receipt_content,
+                    ),
                     room_id: body.room_id.clone(),
                 },
             )?;

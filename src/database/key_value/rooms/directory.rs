@@ -19,14 +19,18 @@ impl service::rooms::directory::Data for KeyValueDatabase {
     }
 
     #[tracing::instrument(skip(self))]
-    fn public_rooms<'a>(&'a self) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
+    fn public_rooms<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
         Box::new(self.publicroomids.iter().map(|(bytes, _)| {
-            RoomId::parse(
-                utils::string_from_bytes(&bytes).map_err(|_| {
-                    Error::bad_database("Room ID in publicroomids is invalid unicode.")
-                })?,
-            )
-            .map_err(|_| Error::bad_database("Room ID in publicroomids is invalid."))
+            RoomId::parse(utils::string_from_bytes(&bytes).map_err(|_| {
+                Error::bad_database(
+                    "Room ID in publicroomids is invalid unicode.",
+                )
+            })?)
+            .map_err(|_| {
+                Error::bad_database("Room ID in publicroomids is invalid.")
+            })
         }))
     }
 }

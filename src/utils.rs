@@ -1,14 +1,17 @@
 pub(crate) mod error;
 
-use argon2::{Config, Variant};
-use cmp::Ordering;
-use rand::prelude::*;
-use ring::digest;
-use ruma::{canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject};
 use std::{
     cmp,
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
+};
+
+use argon2::{Config, Variant};
+use cmp::Ordering;
+use rand::prelude::*;
+use ring::digest;
+use ruma::{
+    canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject,
 };
 
 // Hopefully we have a better chat protocol in 530 years
@@ -36,7 +39,7 @@ pub(crate) fn increment(old: Option<&[u8]>) -> Vec<u8> {
 
 pub(crate) fn generate_keypair() -> Vec<u8> {
     let mut value = random_string(8).as_bytes().to_vec();
-    value.push(0xff);
+    value.push(0xFF);
     value.extend_from_slice(
         &ruma::signatures::Ed25519KeyPair::generate()
             .expect("Ed25519KeyPair generation always works (?)"),
@@ -45,13 +48,17 @@ pub(crate) fn generate_keypair() -> Vec<u8> {
 }
 
 /// Parses the bytes into an u64.
-pub(crate) fn u64_from_bytes(bytes: &[u8]) -> Result<u64, std::array::TryFromSliceError> {
+pub(crate) fn u64_from_bytes(
+    bytes: &[u8],
+) -> Result<u64, std::array::TryFromSliceError> {
     let array: [u8; 8] = bytes.try_into()?;
     Ok(u64::from_be_bytes(array))
 }
 
 /// Parses the bytes into a string.
-pub(crate) fn string_from_bytes(bytes: &[u8]) -> Result<String, std::string::FromUtf8Error> {
+pub(crate) fn string_from_bytes(
+    bytes: &[u8],
+) -> Result<String, std::string::FromUtf8Error> {
     String::from_utf8(bytes.to_vec())
 }
 
@@ -64,7 +71,9 @@ pub(crate) fn random_string(length: usize) -> String {
 }
 
 /// Calculate a new hash for the given password
-pub(crate) fn calculate_password_hash(password: &str) -> Result<String, argon2::Error> {
+pub(crate) fn calculate_password_hash(
+    password: &str,
+) -> Result<String, argon2::Error> {
     let hashing_config = Config {
         variant: Variant::Argon2id,
         ..Default::default()
@@ -77,7 +86,7 @@ pub(crate) fn calculate_password_hash(password: &str) -> Result<String, argon2::
 #[tracing::instrument(skip(keys))]
 pub(crate) fn calculate_hash(keys: &[&[u8]]) -> Vec<u8> {
     // We only hash the pdu's event ids, not the whole pdu
-    let bytes = keys.join(&0xff);
+    let bytes = keys.join(&0xFF);
     let hash = digest::digest(&digest::SHA256, &bytes);
     hash.as_ref().to_owned()
 }
@@ -92,7 +101,8 @@ where
     F: Fn(&[u8], &[u8]) -> Ordering,
 {
     let first_iterator = iterators.next()?;
-    let mut other_iterators = iterators.map(Iterator::peekable).collect::<Vec<_>>();
+    let mut other_iterators =
+        iterators.map(Iterator::peekable).collect::<Vec<_>>();
 
     Some(first_iterator.filter(move |target| {
         other_iterators.iter_mut().all(|it| {
@@ -113,7 +123,8 @@ where
     }))
 }
 
-/// Fallible conversion from any value that implements `Serialize` to a `CanonicalJsonObject`.
+/// Fallible conversion from any value that implements `Serialize` to a
+/// `CanonicalJsonObject`.
 ///
 /// `value` must serialize to an `serde_json::Value::Object`.
 pub(crate) fn to_canonical_object<T: serde::Serialize>(
@@ -138,11 +149,18 @@ pub(crate) fn deserialize_from_str<
     deserializer: D,
 ) -> Result<T, D::Error> {
     struct Visitor<T: FromStr<Err = E>, E>(std::marker::PhantomData<T>);
-    impl<T: FromStr<Err = Err>, Err: std::fmt::Display> serde::de::Visitor<'_> for Visitor<T, Err> {
+    impl<T: FromStr<Err = Err>, Err: std::fmt::Display> serde::de::Visitor<'_>
+        for Visitor<T, Err>
+    {
         type Value = T;
-        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        fn expecting(
+            &self,
+            formatter: &mut std::fmt::Formatter<'_>,
+        ) -> std::fmt::Result {
             write!(formatter, "a parsable string")
         }
+
         fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
         where
             E: serde::de::Error,

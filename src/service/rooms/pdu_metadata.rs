@@ -9,9 +9,8 @@ use ruma::{
 };
 use serde::Deserialize;
 
-use crate::{services, PduEvent, Result};
-
 use super::timeline::PduCount;
+use crate::{services, PduEvent, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -29,9 +28,15 @@ struct ExtractRelatesToEventId {
 
 impl Service {
     #[tracing::instrument(skip(self, from, to))]
-    pub(crate) fn add_relation(&self, from: PduCount, to: PduCount) -> Result<()> {
+    pub(crate) fn add_relation(
+        &self,
+        from: PduCount,
+        to: PduCount,
+    ) -> Result<()> {
         match (from, to) {
-            (PduCount::Normal(f), PduCount::Normal(t)) => self.db.add_relation(f, t),
+            (PduCount::Normal(f), PduCount::Normal(t)) => {
+                self.db.add_relation(f, t)
+            }
             _ => {
                 // TODO: Relations with backfilled pdus
 
@@ -42,6 +47,7 @@ impl Service {
 
     #[allow(
         clippy::too_many_arguments,
+        clippy::too_many_lines,
         // Allowed because this function uses `services()`
         clippy::unused_self,
     )]
@@ -68,15 +74,17 @@ impl Service {
                     .relations_until(sender_user, room_id, target, from)?
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
-                            filter_event_type.as_ref().map_or(true, |t| &&pdu.kind == t)
-                                && if let Ok(content) =
-                                    serde_json::from_str::<ExtractRelatesToEventId>(
-                                        pdu.content.get(),
-                                    )
-                                {
-                                    filter_rel_type
-                                        .as_ref()
-                                        .map_or(true, |r| &&content.relates_to.rel_type == r)
+                            filter_event_type
+                                .as_ref()
+                                .map_or(true, |t| &&pdu.kind == t)
+                                && if let Ok(content) = serde_json::from_str::<
+                                    ExtractRelatesToEventId,
+                                >(
+                                    pdu.content.get()
+                                ) {
+                                    filter_rel_type.as_ref().map_or(true, |r| {
+                                        &&content.relates_to.rel_type == r
+                                    })
                                 } else {
                                     false
                                 }
@@ -88,13 +96,18 @@ impl Service {
                         services()
                             .rooms
                             .state_accessor
-                            .user_can_see_event(sender_user, room_id, &pdu.event_id)
+                            .user_can_see_event(
+                                sender_user,
+                                room_id,
+                                &pdu.event_id,
+                            )
                             .unwrap_or(false)
                     })
                     .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 
-                next_token = events_after.last().map(|(count, _)| count).copied();
+                next_token =
+                    events_after.last().map(|(count, _)| count).copied();
 
                 // Reversed because relations are always most recent first
                 let events_after: Vec<_> = events_after
@@ -116,15 +129,17 @@ impl Service {
                     .relations_until(sender_user, room_id, target, from)?
                     .filter(|r| {
                         r.as_ref().map_or(true, |(_, pdu)| {
-                            filter_event_type.as_ref().map_or(true, |t| &&pdu.kind == t)
-                                && if let Ok(content) =
-                                    serde_json::from_str::<ExtractRelatesToEventId>(
-                                        pdu.content.get(),
-                                    )
-                                {
-                                    filter_rel_type
-                                        .as_ref()
-                                        .map_or(true, |r| &&content.relates_to.rel_type == r)
+                            filter_event_type
+                                .as_ref()
+                                .map_or(true, |t| &&pdu.kind == t)
+                                && if let Ok(content) = serde_json::from_str::<
+                                    ExtractRelatesToEventId,
+                                >(
+                                    pdu.content.get()
+                                ) {
+                                    filter_rel_type.as_ref().map_or(true, |r| {
+                                        &&content.relates_to.rel_type == r
+                                    })
                                 } else {
                                     false
                                 }
@@ -136,13 +151,18 @@ impl Service {
                         services()
                             .rooms
                             .state_accessor
-                            .user_can_see_event(sender_user, room_id, &pdu.event_id)
+                            .user_can_see_event(
+                                sender_user,
+                                room_id,
+                                &pdu.event_id,
+                            )
                             .unwrap_or(false)
                     })
                     .take_while(|&(k, _)| Some(k) != to)
                     .collect();
 
-                next_token = events_before.last().map(|(count, _)| count).copied();
+                next_token =
+                    events_before.last().map(|(count, _)| count).copied();
 
                 let events_before: Vec<_> = events_before
                     .into_iter()
@@ -165,7 +185,8 @@ impl Service {
         target: &'a EventId,
         until: PduCount,
     ) -> Result<impl Iterator<Item = Result<(PduCount, PduEvent)>> + 'a> {
-        let room_id = services().rooms.short.get_or_create_shortroomid(room_id)?;
+        let room_id =
+            services().rooms.short.get_or_create_shortroomid(room_id)?;
         let target = match services().rooms.timeline.get_pdu_count(target)? {
             Some(PduCount::Normal(c)) => c,
             // TODO: Support backfilled relations
@@ -185,17 +206,27 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn is_event_referenced(&self, room_id: &RoomId, event_id: &EventId) -> Result<bool> {
+    pub(crate) fn is_event_referenced(
+        &self,
+        room_id: &RoomId,
+        event_id: &EventId,
+    ) -> Result<bool> {
         self.db.is_event_referenced(room_id, event_id)
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn mark_event_soft_failed(&self, event_id: &EventId) -> Result<()> {
+    pub(crate) fn mark_event_soft_failed(
+        &self,
+        event_id: &EventId,
+    ) -> Result<()> {
         self.db.mark_event_soft_failed(event_id)
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn is_event_soft_failed(&self, event_id: &EventId) -> Result<bool> {
+    pub(crate) fn is_event_soft_failed(
+        &self,
+        event_id: &EventId,
+    ) -> Result<bool> {
         self.db.is_event_soft_failed(event_id)
     }
 }

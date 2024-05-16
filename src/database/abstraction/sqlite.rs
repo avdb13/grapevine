@@ -1,7 +1,3 @@
-use super::{watchers::Watchers, KeyValueDatabaseEngine, KvTree};
-use crate::{database::Config, Result};
-use parking_lot::{Mutex, MutexGuard};
-use rusqlite::{Connection, DatabaseName::Main, OptionalExtension};
 use std::{
     cell::RefCell,
     future::Future,
@@ -9,8 +5,14 @@ use std::{
     pin::Pin,
     sync::Arc,
 };
+
+use parking_lot::{Mutex, MutexGuard};
+use rusqlite::{Connection, DatabaseName::Main, OptionalExtension};
 use thread_local::ThreadLocal;
 use tracing::debug;
+
+use super::{watchers::Watchers, KeyValueDatabaseEngine, KvTree};
+use crate::{database::Config, Result};
 
 thread_local! {
     static READ_CONNECTION: RefCell<Option<&'static Connection>> = RefCell::new(None);
@@ -68,7 +70,11 @@ impl Engine {
         conn.pragma_update(Some(Main), "page_size", 2048)?;
         conn.pragma_update(Some(Main), "journal_mode", "WAL")?;
         conn.pragma_update(Some(Main), "synchronous", "NORMAL")?;
-        conn.pragma_update(Some(Main), "cache_size", -i64::from(cache_size_kb))?;
+        conn.pragma_update(
+            Some(Main),
+            "cache_size",
+            -i64::from(cache_size_kb),
+        )?;
         conn.pragma_update(Some(Main), "wal_autocheckpoint", 0)?;
 
         Ok(conn)
@@ -79,18 +85,23 @@ impl Engine {
     }
 
     fn read_lock(&self) -> &Connection {
-        self.read_conn_tls
-            .get_or(|| Self::prepare_conn(&self.path, self.cache_size_per_thread).unwrap())
+        self.read_conn_tls.get_or(|| {
+            Self::prepare_conn(&self.path, self.cache_size_per_thread).unwrap()
+        })
     }
 
     fn read_lock_iterator(&self) -> &Connection {
-        self.read_iterator_conn_tls
-            .get_or(|| Self::prepare_conn(&self.path, self.cache_size_per_thread).unwrap())
+        self.read_iterator_conn_tls.get_or(|| {
+            Self::prepare_conn(&self.path, self.cache_size_per_thread).unwrap()
+        })
     }
 
     pub(crate) fn flush_wal(self: &Arc<Self>) -> Result<()> {
-        self.write_lock()
-            .pragma_update(Some(Main), "wal_checkpoint", "RESTART")?;
+        self.write_lock().pragma_update(
+            Some(Main),
+            "wal_checkpoint",
+            "RESTART",
+        )?;
         Ok(())
     }
 }
@@ -108,7 +119,8 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
 
         // calculates cache-size per permanent connection
         // 1. convert MB to KiB
-        // 2. divide by permanent connections + permanent iter connections + write connection
+        // 2. divide by permanent connections + permanent iter connections +
+        //    write connection
         // 3. round down to nearest integer
         #[allow(
             clippy::as_conversions,
@@ -117,9 +129,11 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             clippy::cast_sign_loss
         )]
         let cache_size_per_thread = ((config.db_cache_capacity_mb * 1024.0)
-            / ((num_cpus::get() as f64 * 2.0) + 1.0)) as u32;
+            / ((num_cpus::get() as f64 * 2.0) + 1.0))
+            as u32;
 
-        let writer = Mutex::new(Engine::prepare_conn(&path, cache_size_per_thread)?);
+        let writer =
+            Mutex::new(Engine::prepare_conn(&path, cache_size_per_thread)?);
 
         let arc = Arc::new(Engine {
             writer,
@@ -133,7 +147,13 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
     }
 
     fn open_tree(&self, name: &str) -> Result<Arc<dyn KvTree>> {
-        self.write_lock().execute(&format!("CREATE TABLE IF NOT EXISTS {name} ( \"key\" BLOB PRIMARY KEY, \"value\" BLOB NOT NULL )"), [])?;
+        self.write_lock().execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {name} ( \"key\" BLOB PRIMARY \
+                 KEY, \"value\" BLOB NOT NULL )"
+            ),
+            [],
+        )?;
 
         Ok(Arc::new(SqliteTable {
             engine: Arc::clone(self),
@@ -161,14 +181,26 @@ pub(crate) struct SqliteTable {
 type TupleOfBytes = (Vec<u8>, Vec<u8>);
 
 impl SqliteTable {
-    fn get_with_guard(&self, guard: &Connection, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    fn get_with_guard(
+        &self,
+        guard: &Connection,
+        key: &[u8],
+    ) -> Result<Option<Vec<u8>>> {
         Ok(guard
-            .prepare(format!("SELECT value FROM {} WHERE key = ?", self.name).as_str())?
+            .prepare(
+                format!("SELECT value FROM {} WHERE key = ?", self.name)
+                    .as_str(),
+            )?
             .query_row([key], |row| row.get(0))
             .optional()?)
     }
 
-    fn insert_with_guard(&self, guard: &Connection, key: &[u8], value: &[u8]) -> Result<()> {
+    fn insert_with_guard(
+        &self,
+        guard: &Connection,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<()> {
         guard.execute(
             format!(
                 "INSERT OR REPLACE INTO {} (key, value) VALUES (?, ?)",
@@ -222,7 +254,10 @@ impl KvTree for SqliteTable {
         Ok(())
     }
 
-    fn insert_batch(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()> {
+    fn insert_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>,
+    ) -> Result<()> {
         let guard = self.engine.write_lock();
 
         guard.execute("BEGIN", [])?;
@@ -236,7 +271,10 @@ impl KvTree for SqliteTable {
         Ok(())
     }
 
-    fn increment_batch(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()> {
+    fn increment_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = Vec<u8>>,
+    ) -> Result<()> {
         let guard = self.engine.write_lock();
 
         guard.execute("BEGIN", [])?;
@@ -282,7 +320,8 @@ impl KvTree for SqliteTable {
             let statement = Box::leak(Box::new(
                 guard
                     .prepare(&format!(
-                        "SELECT key, value FROM {} WHERE key <= ? ORDER BY key DESC",
+                        "SELECT key, value FROM {} WHERE key <= ? ORDER BY \
+                         key DESC",
                         &self.name
                     ))
                     .unwrap(),
@@ -292,7 +331,9 @@ impl KvTree for SqliteTable {
 
             let iterator = Box::new(
                 statement
-                    .query_map([from], |row| Ok((row.get_unwrap(0), row.get_unwrap(1))))
+                    .query_map([from], |row| {
+                        Ok((row.get_unwrap(0), row.get_unwrap(1)))
+                    })
                     .unwrap()
                     .map(Result::unwrap),
             );
@@ -304,7 +345,8 @@ impl KvTree for SqliteTable {
             let statement = Box::leak(Box::new(
                 guard
                     .prepare(&format!(
-                        "SELECT key, value FROM {} WHERE key >= ? ORDER BY key ASC",
+                        "SELECT key, value FROM {} WHERE key >= ? ORDER BY \
+                         key ASC",
                         &self.name
                     ))
                     .unwrap(),
@@ -314,7 +356,9 @@ impl KvTree for SqliteTable {
 
             let iterator = Box::new(
                 statement
-                    .query_map([from], |row| Ok((row.get_unwrap(0), row.get_unwrap(1))))
+                    .query_map([from], |row| {
+                        Ok((row.get_unwrap(0), row.get_unwrap(1)))
+                    })
                     .unwrap()
                     .map(Result::unwrap),
             );
@@ -338,14 +382,20 @@ impl KvTree for SqliteTable {
         Ok(new)
     }
 
-    fn scan_prefix<'a>(&'a self, prefix: Vec<u8>) -> Box<dyn Iterator<Item = TupleOfBytes> + 'a> {
+    fn scan_prefix<'a>(
+        &'a self,
+        prefix: Vec<u8>,
+    ) -> Box<dyn Iterator<Item = TupleOfBytes> + 'a> {
         Box::new(
             self.iter_from(&prefix, false)
                 .take_while(move |(key, _)| key.starts_with(&prefix)),
         )
     }
 
-    fn watch_prefix<'a>(&'a self, prefix: &[u8]) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+    fn watch_prefix<'a>(
+        &'a self,
+        prefix: &[u8],
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
         self.watchers.watch(prefix)
     }
 

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::{service::pdu::PduBuilder, services, Result, Ruma};
 use ruma::{
     api::client::redact::redact_event,
     events::{room::redaction::RoomRedactionEventContent, TimelineEventType},
 };
-
 use serde_json::value::to_raw_value;
+
+use crate::{service::pdu::PduBuilder, services, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/redact/{eventId}/{txnId}`
 ///
@@ -54,5 +54,7 @@ pub(crate) async fn redact_event_route(
     drop(state_lock);
 
     let event_id = (*event_id).to_owned();
-    Ok(redact_event::v3::Response { event_id })
+    Ok(redact_event::v3::Response {
+        event_id,
+    })
 }

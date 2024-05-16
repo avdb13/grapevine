@@ -2,21 +2,30 @@ use std::sync::Arc;
 
 use ruma::{CanonicalJsonObject, EventId, OwnedUserId, RoomId, UserId};
 
+use super::PduCount;
 use crate::{PduEvent, Result};
 
-use super::PduCount;
-
 pub(crate) trait Data: Send + Sync {
-    fn last_timeline_count(&self, sender_user: &UserId, room_id: &RoomId) -> Result<PduCount>;
+    fn last_timeline_count(
+        &self,
+        sender_user: &UserId,
+        room_id: &RoomId,
+    ) -> Result<PduCount>;
 
     /// Returns the `count` of this pdu's id.
     fn get_pdu_count(&self, event_id: &EventId) -> Result<Option<PduCount>>;
 
     /// Returns the json of a pdu.
-    fn get_pdu_json(&self, event_id: &EventId) -> Result<Option<CanonicalJsonObject>>;
+    fn get_pdu_json(
+        &self,
+        event_id: &EventId,
+    ) -> Result<Option<CanonicalJsonObject>>;
 
     /// Returns the json of a pdu.
-    fn get_non_outlier_pdu_json(&self, event_id: &EventId) -> Result<Option<CanonicalJsonObject>>;
+    fn get_non_outlier_pdu_json(
+        &self,
+        event_id: &EventId,
+    ) -> Result<Option<CanonicalJsonObject>>;
 
     /// Returns the pdu's id.
     fn get_pdu_id(&self, event_id: &EventId) -> Result<Option<Vec<u8>>>;
@@ -24,7 +33,10 @@ pub(crate) trait Data: Send + Sync {
     /// Returns the pdu.
     ///
     /// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
-    fn get_non_outlier_pdu(&self, event_id: &EventId) -> Result<Option<PduEvent>>;
+    fn get_non_outlier_pdu(
+        &self,
+        event_id: &EventId,
+    ) -> Result<Option<PduEvent>>;
 
     /// Returns the pdu.
     ///
@@ -37,7 +49,10 @@ pub(crate) trait Data: Send + Sync {
     fn get_pdu_from_id(&self, pdu_id: &[u8]) -> Result<Option<PduEvent>>;
 
     /// Returns the pdu as a `BTreeMap<String, CanonicalJsonValue>`.
-    fn get_pdu_json_from_id(&self, pdu_id: &[u8]) -> Result<Option<CanonicalJsonObject>>;
+    fn get_pdu_json_from_id(
+        &self,
+        pdu_id: &[u8],
+    ) -> Result<Option<CanonicalJsonObject>>;
 
     /// Adds a new pdu to the timeline
     fn append_pdu(
@@ -64,8 +79,9 @@ pub(crate) trait Data: Send + Sync {
         pdu: &PduEvent,
     ) -> Result<()>;
 
-    /// Returns an iterator over all events and their tokens in a room that happened before the
-    /// event with id `until` in reverse-chronological order.
+    /// Returns an iterator over all events and their tokens in a room that
+    /// happened before the event with id `until` in reverse-chronological
+    /// order.
     #[allow(clippy::type_complexity)]
     fn pdus_until<'a>(
         &'a self,
@@ -74,8 +90,8 @@ pub(crate) trait Data: Send + Sync {
         until: PduCount,
     ) -> Result<Box<dyn Iterator<Item = Result<(PduCount, PduEvent)>> + 'a>>;
 
-    /// Returns an iterator over all events in a room that happened after the event with id `from`
-    /// in chronological order.
+    /// Returns an iterator over all events in a room that happened after the
+    /// event with id `from` in chronological order.
     #[allow(clippy::type_complexity)]
     fn pdus_after<'a>(
         &'a self,

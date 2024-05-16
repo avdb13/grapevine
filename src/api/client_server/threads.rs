@@ -9,11 +9,8 @@ pub(crate) async fn get_threads_route(
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     // Use limit or else 10, with maximum 100
-    let limit = body
-        .limit
-        .and_then(|l| l.try_into().ok())
-        .unwrap_or(10)
-        .min(100);
+    let limit =
+        body.limit.and_then(|l| l.try_into().ok()).unwrap_or(10).min(100);
 
     let from = if let Some(from) = &body.from {
         from.parse()

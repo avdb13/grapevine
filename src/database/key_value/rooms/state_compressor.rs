@@ -12,8 +12,8 @@ impl service::rooms::state_compressor::Data for KeyValueDatabase {
             .shortstatehash_statediff
             .get(&shortstatehash.to_be_bytes())?
             .ok_or_else(|| Error::bad_database("State hash does not exist"))?;
-        let parent =
-            utils::u64_from_bytes(&value[0..size_of::<u64>()]).expect("bytes have right length");
+        let parent = utils::u64_from_bytes(&value[0..size_of::<u64>()])
+            .expect("bytes have right length");
         let parent = (parent != 0).then_some(parent);
 
         let mut add_mode = true;
@@ -30,7 +30,8 @@ impl service::rooms::state_compressor::Data for KeyValueDatabase {
             if add_mode {
                 added.insert(v.try_into().expect("we checked the size above"));
             } else {
-                removed.insert(v.try_into().expect("we checked the size above"));
+                removed
+                    .insert(v.try_into().expect("we checked the size above"));
             }
             i += 2 * size_of::<u64>();
         }
@@ -42,7 +43,11 @@ impl service::rooms::state_compressor::Data for KeyValueDatabase {
         })
     }
 
-    fn save_statediff(&self, shortstatehash: u64, diff: StateDiff) -> Result<()> {
+    fn save_statediff(
+        &self,
+        shortstatehash: u64,
+        diff: StateDiff,
+    ) -> Result<()> {
         let mut value = diff.parent.unwrap_or(0).to_be_bytes().to_vec();
         for new in diff.added.iter() {
             value.extend_from_slice(&new[..]);

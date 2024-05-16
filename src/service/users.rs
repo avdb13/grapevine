@@ -19,8 +19,8 @@ use ruma::{
     encryption::{CrossSigningKey, DeviceKeys, OneTimeKey},
     events::AnyToDeviceEvent,
     serde::Raw,
-    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, OwnedDeviceId, OwnedDeviceKeyId, OwnedMxcUri,
-    OwnedRoomId, OwnedUserId, RoomAliasId, UInt, UserId,
+    DeviceId, DeviceKeyAlgorithm, DeviceKeyId, OwnedDeviceId, OwnedDeviceKeyId,
+    OwnedMxcUri, OwnedRoomId, OwnedUserId, RoomAliasId, UInt, UserId,
 };
 
 use crate::{services, Error, Result};
@@ -36,8 +36,12 @@ pub(crate) struct SlidingSyncCache {
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
     #[allow(clippy::type_complexity)]
-    pub(crate) connections:
-        Mutex<BTreeMap<(OwnedUserId, OwnedDeviceId, String), Arc<Mutex<SlidingSyncCache>>>>,
+    pub(crate) connections: Mutex<
+        BTreeMap<
+            (OwnedUserId, OwnedDeviceId, String),
+            Arc<Mutex<SlidingSyncCache>>,
+        >,
+    >,
 }
 
 impl Service {
@@ -52,10 +56,7 @@ impl Service {
         device_id: OwnedDeviceId,
         conn_id: String,
     ) {
-        self.connections
-            .lock()
-            .unwrap()
-            .remove(&(user_id, device_id, conn_id));
+        self.connections.lock().unwrap().remove(&(user_id, device_id, conn_id));
     }
 
     #[allow(clippy::too_many_lines)]
@@ -71,16 +72,14 @@ impl Service {
 
         let mut cache = self.connections.lock().unwrap();
         let cached = Arc::clone(
-            cache
-                .entry((user_id, device_id, conn_id))
-                .or_insert_with(|| {
-                    Arc::new(Mutex::new(SlidingSyncCache {
-                        lists: BTreeMap::new(),
-                        subscriptions: BTreeMap::new(),
-                        known_rooms: BTreeMap::new(),
-                        extensions: ExtensionsConfig::default(),
-                    }))
-                }),
+            cache.entry((user_id, device_id, conn_id)).or_insert_with(|| {
+                Arc::new(Mutex::new(SlidingSyncCache {
+                    lists: BTreeMap::new(),
+                    subscriptions: BTreeMap::new(),
+                    known_rooms: BTreeMap::new(),
+                    extensions: ExtensionsConfig::default(),
+                }))
+            }),
         );
         let cached = &mut cached.lock().unwrap();
         drop(cache);
@@ -104,19 +103,22 @@ impl Service {
                     .or(cached_list.include_old_rooms.clone());
                 match (&mut list.filters, cached_list.filters.clone()) {
                     (Some(list_filters), Some(cached_filters)) => {
-                        list_filters.is_dm = list_filters.is_dm.or(cached_filters.is_dm);
+                        list_filters.is_dm =
+                            list_filters.is_dm.or(cached_filters.is_dm);
                         if list_filters.spaces.is_empty() {
                             list_filters.spaces = cached_filters.spaces;
                         }
-                        list_filters.is_encrypted =
-                            list_filters.is_encrypted.or(cached_filters.is_encrypted);
+                        list_filters.is_encrypted = list_filters
+                            .is_encrypted
+                            .or(cached_filters.is_encrypted);
                         list_filters.is_invite =
                             list_filters.is_invite.or(cached_filters.is_invite);
                         if list_filters.room_types.is_empty() {
                             list_filters.room_types = cached_filters.room_types;
                         }
                         if list_filters.not_room_types.is_empty() {
-                            list_filters.not_room_types = cached_filters.not_room_types;
+                            list_filters.not_room_types =
+                                cached_filters.not_room_types;
                         }
                         list_filters.room_name_like = list_filters
                             .room_name_like
@@ -129,12 +131,17 @@ impl Service {
                             list_filters.not_tags = cached_filters.not_tags;
                         }
                     }
-                    (_, Some(cached_filters)) => list.filters = Some(cached_filters),
-                    (Some(list_filters), _) => list.filters = Some(list_filters.clone()),
-                    (_, _) => {}
+                    (_, Some(cached_filters)) => {
+                        list.filters = Some(cached_filters);
+                    }
+                    (Some(list_filters), _) => {
+                        list.filters = Some(list_filters.clone());
+                    }
+                    (..) => {}
                 }
                 if list.bump_event_types.is_empty() {
-                    list.bump_event_types = cached_list.bump_event_types.clone();
+                    list.bump_event_types =
+                        cached_list.bump_event_types.clone();
                 };
             }
             cached.lists.insert(list_id.clone(), list.clone());
@@ -147,17 +154,11 @@ impl Service {
                 .map(|(k, v)| (k.clone(), v.clone())),
         );
         request.room_subscriptions.extend(
-            cached
-                .subscriptions
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone())),
+            cached.subscriptions.iter().map(|(k, v)| (k.clone(), v.clone())),
         );
 
-        request.extensions.e2ee.enabled = request
-            .extensions
-            .e2ee
-            .enabled
-            .or(cached.extensions.e2ee.enabled);
+        request.extensions.e2ee.enabled =
+            request.extensions.e2ee.enabled.or(cached.extensions.e2ee.enabled);
 
         request.extensions.to_device.enabled = request
             .extensions
@@ -197,16 +198,14 @@ impl Service {
     ) {
         let mut cache = self.connections.lock().unwrap();
         let cached = Arc::clone(
-            cache
-                .entry((user_id, device_id, conn_id))
-                .or_insert_with(|| {
-                    Arc::new(Mutex::new(SlidingSyncCache {
-                        lists: BTreeMap::new(),
-                        subscriptions: BTreeMap::new(),
-                        known_rooms: BTreeMap::new(),
-                        extensions: ExtensionsConfig::default(),
-                    }))
-                }),
+            cache.entry((user_id, device_id, conn_id)).or_insert_with(|| {
+                Arc::new(Mutex::new(SlidingSyncCache {
+                    lists: BTreeMap::new(),
+                    subscriptions: BTreeMap::new(),
+                    known_rooms: BTreeMap::new(),
+                    extensions: ExtensionsConfig::default(),
+                }))
+            }),
         );
         let cached = &mut cached.lock().unwrap();
         drop(cache);
@@ -225,25 +224,20 @@ impl Service {
     ) {
         let mut cache = self.connections.lock().unwrap();
         let cached = Arc::clone(
-            cache
-                .entry((user_id, device_id, conn_id))
-                .or_insert_with(|| {
-                    Arc::new(Mutex::new(SlidingSyncCache {
-                        lists: BTreeMap::new(),
-                        subscriptions: BTreeMap::new(),
-                        known_rooms: BTreeMap::new(),
-                        extensions: ExtensionsConfig::default(),
-                    }))
-                }),
+            cache.entry((user_id, device_id, conn_id)).or_insert_with(|| {
+                Arc::new(Mutex::new(SlidingSyncCache {
+                    lists: BTreeMap::new(),
+                    subscriptions: BTreeMap::new(),
+                    known_rooms: BTreeMap::new(),
+                    extensions: ExtensionsConfig::default(),
+                }))
+            }),
         );
         let cached = &mut cached.lock().unwrap();
         drop(cache);
 
-        for (roomid, lastsince) in cached
-            .known_rooms
-            .entry(list_id.clone())
-            .or_default()
-            .iter_mut()
+        for (roomid, lastsince) in
+            cached.known_rooms.entry(list_id.clone()).or_default().iter_mut()
         {
             if !new_cached_rooms.contains(roomid) {
                 *lastsince = 0;
@@ -264,23 +258,28 @@ impl Service {
     // Allowed because this function uses `services()`
     #[allow(clippy::unused_self)]
     pub(crate) fn is_admin(&self, user_id: &UserId) -> Result<bool> {
-        let admin_room_alias_id =
-            RoomAliasId::parse(format!("#admins:{}", services().globals.server_name()))
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Invalid alias."))?;
+        let admin_room_alias_id = RoomAliasId::parse(format!(
+            "#admins:{}",
+            services().globals.server_name()
+        ))
+        .map_err(|_| {
+            Error::BadRequest(ErrorKind::InvalidParam, "Invalid alias.")
+        })?;
         let admin_room_id = services()
             .rooms
             .alias
             .resolve_local_alias(&admin_room_alias_id)?
             .unwrap();
 
-        services()
-            .rooms
-            .state_cache
-            .is_joined(user_id, &admin_room_id)
+        services().rooms.state_cache.is_joined(user_id, &admin_room_id)
     }
 
     /// Create a new user account on this homeserver.
-    pub(crate) fn create(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
+    pub(crate) fn create(
+        &self,
+        user_id: &UserId,
+        password: Option<&str>,
+    ) -> Result<()> {
         self.db.set_password(user_id, password)?;
         Ok(())
     }
@@ -291,38 +290,55 @@ impl Service {
     }
 
     /// Find out which user an access token belongs to.
-    pub(crate) fn find_from_token(&self, token: &str) -> Result<Option<(OwnedUserId, String)>> {
+    pub(crate) fn find_from_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<(OwnedUserId, String)>> {
         self.db.find_from_token(token)
     }
 
     /// Returns an iterator over all users on this homeserver.
-    pub(crate) fn iter(&self) -> impl Iterator<Item = Result<OwnedUserId>> + '_ {
+    pub(crate) fn iter(
+        &self,
+    ) -> impl Iterator<Item = Result<OwnedUserId>> + '_ {
         self.db.iter()
     }
 
     /// Returns a list of local users as list of usernames.
     ///
-    /// A user account is considered `local` if the length of it's password is greater then zero.
+    /// A user account is considered `local` if the length of it's password is
+    /// greater then zero.
     pub(crate) fn list_local_users(&self) -> Result<Vec<String>> {
         self.db.list_local_users()
     }
 
     /// Returns the password hash for the given user.
-    pub(crate) fn password_hash(&self, user_id: &UserId) -> Result<Option<String>> {
+    pub(crate) fn password_hash(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>> {
         self.db.password_hash(user_id)
     }
 
     /// Hash and set the user's password to the Argon2 hash
-    pub(crate) fn set_password(&self, user_id: &UserId, password: Option<&str>) -> Result<()> {
+    pub(crate) fn set_password(
+        &self,
+        user_id: &UserId,
+        password: Option<&str>,
+    ) -> Result<()> {
         self.db.set_password(user_id, password)
     }
 
     /// Returns the displayname of a user on this homeserver.
-    pub(crate) fn displayname(&self, user_id: &UserId) -> Result<Option<String>> {
+    pub(crate) fn displayname(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>> {
         self.db.displayname(user_id)
     }
 
-    /// Sets a new displayname or removes it if displayname is None. You still need to nofify all rooms of this change.
+    /// Sets a new displayname or removes it if displayname is None. You still
+    /// need to nofify all rooms of this change.
     pub(crate) fn set_displayname(
         &self,
         user_id: &UserId,
@@ -332,7 +348,10 @@ impl Service {
     }
 
     /// Get the `avatar_url` of a user.
-    pub(crate) fn avatar_url(&self, user_id: &UserId) -> Result<Option<OwnedMxcUri>> {
+    pub(crate) fn avatar_url(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<OwnedMxcUri>> {
         self.db.avatar_url(user_id)
     }
 
@@ -351,7 +370,11 @@ impl Service {
     }
 
     /// Sets a new `avatar_url` or removes it if `avatar_url` is `None`.
-    pub(crate) fn set_blurhash(&self, user_id: &UserId, blurhash: Option<String>) -> Result<()> {
+    pub(crate) fn set_blurhash(
+        &self,
+        user_id: &UserId,
+        blurhash: Option<String>,
+    ) -> Result<()> {
         self.db.set_blurhash(user_id, blurhash)
     }
 
@@ -363,12 +386,20 @@ impl Service {
         token: &str,
         initial_device_display_name: Option<String>,
     ) -> Result<()> {
-        self.db
-            .create_device(user_id, device_id, token, initial_device_display_name)
+        self.db.create_device(
+            user_id,
+            device_id,
+            token,
+            initial_device_display_name,
+        )
     }
 
     /// Removes a device from a user.
-    pub(crate) fn remove_device(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
+    pub(crate) fn remove_device(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<()> {
         self.db.remove_device(user_id, device_id)
     }
 
@@ -397,8 +428,12 @@ impl Service {
         one_time_key_key: &DeviceKeyId,
         one_time_key_value: &Raw<OneTimeKey>,
     ) -> Result<()> {
-        self.db
-            .add_one_time_key(user_id, device_id, one_time_key_key, one_time_key_value)
+        self.db.add_one_time_key(
+            user_id,
+            device_id,
+            one_time_key_key,
+            one_time_key_value,
+        )
     }
 
     pub(crate) fn take_one_time_key(
@@ -463,7 +498,10 @@ impl Service {
         self.db.keys_changed(user_or_room_id, from, to)
     }
 
-    pub(crate) fn mark_device_key_update(&self, user_id: &UserId) -> Result<()> {
+    pub(crate) fn mark_device_key_update(
+        &self,
+        user_id: &UserId,
+    ) -> Result<()> {
         self.db.mark_device_key_update(user_id)
     }
 
@@ -490,8 +528,7 @@ impl Service {
         user_id: &UserId,
         allowed_signatures: &dyn Fn(&UserId) -> bool,
     ) -> Result<Option<Raw<CrossSigningKey>>> {
-        self.db
-            .get_key(key, sender_user, user_id, allowed_signatures)
+        self.db.get_key(key, sender_user, user_id, allowed_signatures)
     }
 
     pub(crate) fn get_master_key(
@@ -500,8 +537,7 @@ impl Service {
         user_id: &UserId,
         allowed_signatures: &dyn Fn(&UserId) -> bool,
     ) -> Result<Option<Raw<CrossSigningKey>>> {
-        self.db
-            .get_master_key(sender_user, user_id, allowed_signatures)
+        self.db.get_master_key(sender_user, user_id, allowed_signatures)
     }
 
     pub(crate) fn get_self_signing_key(
@@ -510,8 +546,7 @@ impl Service {
         user_id: &UserId,
         allowed_signatures: &dyn Fn(&UserId) -> bool,
     ) -> Result<Option<Raw<CrossSigningKey>>> {
-        self.db
-            .get_self_signing_key(sender_user, user_id, allowed_signatures)
+        self.db.get_self_signing_key(sender_user, user_id, allowed_signatures)
     }
 
     pub(crate) fn get_user_signing_key(
@@ -573,7 +608,10 @@ impl Service {
         self.db.get_device_metadata(user_id, device_id)
     }
 
-    pub(crate) fn get_devicelist_version(&self, user_id: &UserId) -> Result<Option<u64>> {
+    pub(crate) fn get_devicelist_version(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<u64>> {
         self.db.get_devicelist_version(user_id)
     }
 
@@ -591,9 +629,10 @@ impl Service {
             self.remove_device(user_id, &device_id?)?;
         }
 
-        // Set the password to "" to indicate a deactivated account. Hashes will never result in an
-        // empty string, so the user will not be able to log in again. Systems like changing the
-        // password without logging in should check if the account is deactivated.
+        // Set the password to "" to indicate a deactivated account. Hashes will
+        // never result in an empty string, so the user will not be able
+        // to log in again. Systems like changing the password without
+        // logging in should check if the account is deactivated.
         self.db.set_password(user_id, None)?;
 
         // TODO: Unhook 3PID
@@ -625,19 +664,23 @@ pub(crate) fn clean_signatures<F: Fn(&UserId) -> bool>(
     user_id: &UserId,
     allowed_signatures: F,
 ) -> Result<(), Error> {
-    if let Some(signatures) = cross_signing_key
-        .get_mut("signatures")
-        .and_then(|v| v.as_object_mut())
+    if let Some(signatures) =
+        cross_signing_key.get_mut("signatures").and_then(|v| v.as_object_mut())
     {
-        // Don't allocate for the full size of the current signatures, but require
-        // at most one resize if nothing is dropped
+        // Don't allocate for the full size of the current signatures, but
+        // require at most one resize if nothing is dropped
         let new_capacity = signatures.len() / 2;
-        for (user, signature) in
-            mem::replace(signatures, serde_json::Map::with_capacity(new_capacity))
-        {
-            let sid = <&UserId>::try_from(user.as_str())
-                .map_err(|_| Error::bad_database("Invalid user ID in database."))?;
-            if sender_user == Some(user_id) || sid == user_id || allowed_signatures(sid) {
+        for (user, signature) in mem::replace(
+            signatures,
+            serde_json::Map::with_capacity(new_capacity),
+        ) {
+            let sid = <&UserId>::try_from(user.as_str()).map_err(|_| {
+                Error::bad_database("Invalid user ID in database.")
+            })?;
+            if sender_user == Some(user_id)
+                || sid == user_id
+                || allowed_signatures(sid)
+            {
                 signatures.insert(user, signature);
             }
         }

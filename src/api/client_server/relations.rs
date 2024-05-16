@@ -23,10 +23,7 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
         },
     };
 
-    let to = body
-        .to
-        .as_ref()
-        .and_then(|t| PduCount::try_from_string(t).ok());
+    let to = body.to.as_ref().and_then(|t| PduCount::try_from_string(t).ok());
 
     // Use limit or else 10, with maximum 100
     let limit = body
@@ -36,27 +33,22 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
         .try_into()
         .expect("0-100 should fit in usize");
 
-    let res = services()
-        .rooms
-        .pdu_metadata
-        .paginate_relations_with_filter(
-            sender_user,
-            &body.room_id,
-            &body.event_id,
-            Some(&body.event_type),
-            Some(&body.rel_type),
-            from,
-            to,
-            limit,
-        )?;
+    let res = services().rooms.pdu_metadata.paginate_relations_with_filter(
+        sender_user,
+        &body.room_id,
+        &body.event_id,
+        Some(&body.event_type),
+        Some(&body.rel_type),
+        from,
+        to,
+        limit,
+    )?;
 
-    Ok(
-        get_relating_events_with_rel_type_and_event_type::v1::Response {
-            chunk: res.chunk,
-            next_batch: res.next_batch,
-            prev_batch: res.prev_batch,
-        },
-    )
+    Ok(get_relating_events_with_rel_type_and_event_type::v1::Response {
+        chunk: res.chunk,
+        next_batch: res.next_batch,
+        prev_batch: res.prev_batch,
+    })
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}/{relType}`
@@ -74,10 +66,7 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
         },
     };
 
-    let to = body
-        .to
-        .as_ref()
-        .and_then(|t| PduCount::try_from_string(t).ok());
+    let to = body.to.as_ref().and_then(|t| PduCount::try_from_string(t).ok());
 
     // Use limit or else 10, with maximum 100
     let limit = body
@@ -87,19 +76,16 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
         .try_into()
         .expect("0-100 should fit in usize");
 
-    let res = services()
-        .rooms
-        .pdu_metadata
-        .paginate_relations_with_filter(
-            sender_user,
-            &body.room_id,
-            &body.event_id,
-            None,
-            Some(&body.rel_type),
-            from,
-            to,
-            limit,
-        )?;
+    let res = services().rooms.pdu_metadata.paginate_relations_with_filter(
+        sender_user,
+        &body.room_id,
+        &body.event_id,
+        None,
+        Some(&body.rel_type),
+        from,
+        to,
+        limit,
+    )?;
 
     Ok(get_relating_events_with_rel_type::v1::Response {
         chunk: res.chunk,
@@ -123,10 +109,7 @@ pub(crate) async fn get_relating_events_route(
         },
     };
 
-    let to = body
-        .to
-        .as_ref()
-        .and_then(|t| PduCount::try_from_string(t).ok());
+    let to = body.to.as_ref().and_then(|t| PduCount::try_from_string(t).ok());
 
     // Use limit or else 10, with maximum 100
     let limit = body
@@ -136,17 +119,14 @@ pub(crate) async fn get_relating_events_route(
         .try_into()
         .expect("0-100 should fit in usize");
 
-    services()
-        .rooms
-        .pdu_metadata
-        .paginate_relations_with_filter(
-            sender_user,
-            &body.room_id,
-            &body.event_id,
-            None,
-            None,
-            from,
-            to,
-            limit,
-        )
+    services().rooms.pdu_metadata.paginate_relations_with_filter(
+        sender_user,
+        &body.room_id,
+        &body.event_id,
+        None,
+        None,
+        from,
+        to,
+        limit,
+    )
 }

@@ -15,8 +15,12 @@ use ruma::{
             canonical_alias::RoomCanonicalAliasEventContent,
             create::RoomCreateEventContent,
             guest_access::{GuestAccess, RoomGuestAccessEventContent},
-            history_visibility::{HistoryVisibility, RoomHistoryVisibilityEventContent},
-            join_rules::{self, AllowRule, JoinRule, RoomJoinRulesEventContent},
+            history_visibility::{
+                HistoryVisibility, RoomHistoryVisibilityEventContent,
+            },
+            join_rules::{
+                self, AllowRule, JoinRule, RoomJoinRulesEventContent,
+            },
             topic::RoomTopicEventContent,
         },
         space::child::SpaceChildEventContent,
@@ -26,7 +30,6 @@ use ruma::{
     OwnedRoomId, RoomId, UserId,
 };
 use tokio::sync::Mutex;
-
 use tracing::{debug, error, warn};
 
 use crate::{services, Error, PduEvent, Result};
@@ -42,7 +45,8 @@ pub(crate) struct CachedSpaceChunk {
 }
 
 pub(crate) struct Service {
-    pub(crate) roomid_spacechunk_cache: Mutex<LruCache<OwnedRoomId, Option<CachedSpaceChunk>>>,
+    pub(crate) roomid_spacechunk_cache:
+        Mutex<LruCache<OwnedRoomId, Option<CachedSpaceChunk>>>,
 }
 
 impl Service {
@@ -86,9 +90,11 @@ impl Service {
             {
                 if let Some(cached) = cached {
                     let allowed = match &cached.join_rule {
-                        CachedJoinRule::Full(f) => {
-                            self.handle_join_rule(f, sender_user, &current_room)?
-                        }
+                        CachedJoinRule::Full(f) => self.handle_join_rule(
+                            f,
+                            sender_user,
+                            &current_room,
+                        )?,
                     };
                     if allowed {
                         if left_to_skip > 0 {
@@ -104,10 +110,8 @@ impl Service {
                 continue;
             }
 
-            if let Some(current_shortstatehash) = services()
-                .rooms
-                .state
-                .get_room_shortstatehash(&current_room)?
+            if let Some(current_shortstatehash) =
+                services().rooms.state.get_room_shortstatehash(&current_room)?
             {
                 let state = services()
                     .rooms
@@ -124,16 +128,21 @@ impl Service {
                         continue;
                     }
 
-                    let pdu = services()
-                        .rooms
-                        .timeline
-                        .get_pdu(&id)?
-                        .ok_or_else(|| Error::bad_database("Event in space state not found"))?;
+                    let pdu =
+                        services().rooms.timeline.get_pdu(&id)?.ok_or_else(
+                            || {
+                                Error::bad_database(
+                                    "Event in space state not found",
+                                )
+                            },
+                        )?;
 
-                    if serde_json::from_str::<SpaceChildEventContent>(pdu.content.get())
-                        .ok()
-                        .map(|c| c.via)
-                        .map_or(true, |v| v.is_empty())
+                    if serde_json::from_str::<SpaceChildEventContent>(
+                        pdu.content.get(),
+                    )
+                    .ok()
+                    .map(|c| c.via)
+                    .map_or(true, |v| v.is_empty())
                     {
                         continue;
                     }
@@ -147,7 +156,11 @@ impl Service {
                 // TODO: Sort children
                 children_ids.reverse();
 
-                let chunk = self.get_room_chunk(sender_user, &current_room, children_pdus);
+                let chunk = self.get_room_chunk(
+                    sender_user,
+                    &current_room,
+                    children_pdus,
+                );
                 if let Ok(chunk) = chunk {
                     if left_to_skip > 0 {
                         left_to_skip -= 1;
@@ -157,13 +170,24 @@ impl Service {
                     let join_rule = services()
                         .rooms
                         .state_accessor
-                        .room_state_get(&current_room, &StateEventType::RoomJoinRules, "")?
+                        .room_state_get(
+                            &current_room,
+                            &StateEventType::RoomJoinRules,
+                            "",
+                        )?
                         .map(|s| {
                             serde_json::from_str(s.content.get())
                                 .map(|c: RoomJoinRulesEventContent| c.join_rule)
                                 .map_err(|e| {
-                                    error!("Invalid room join rule event in database: {}", e);
-                                    Error::BadDatabase("Invalid room join rule event in database.")
+                                    error!(
+                                        "Invalid room join rule event in \
+                                         database: {}",
+                                        e
+                                    );
+                                    Error::BadDatabase(
+                                        "Invalid room join rule event in \
+                                         database.",
+                                    )
                                 })
                         })
                         .transpose()?
@@ -205,7 +229,10 @@ impl Service {
                     )
                     .await
                 {
-                    warn!("Got response from {server} for /hierarchy\n{response:?}");
+                    warn!(
+                        "Got response from {server} for \
+                         /hierarchy\n{response:?}"
+                    );
                     let chunk = SpaceHierarchyRoomsChunk {
                         canonical_alias: response.room.canonical_alias,
                         name: response.room.name,
@@ -250,9 +277,17 @@ impl Service {
                             })
                         }
                         SpaceRoomJoinRule::Public => JoinRule::Public,
-                        _ => return Err(Error::BadServerResponse("Unknown join rule")),
+                        _ => {
+                            return Err(Error::BadServerResponse(
+                                "Unknown join rule",
+                            ))
+                        }
                     };
-                    if self.handle_join_rule(&join_rule, sender_user, &current_room)? {
+                    if self.handle_join_rule(
+                        &join_rule,
+                        sender_user,
+                        &current_room,
+                    )? {
                         if left_to_skip > 0 {
                             left_to_skip -= 1;
                         } else {
@@ -301,12 +336,18 @@ impl Service {
             canonical_alias: services()
                 .rooms
                 .state_accessor
-                .room_state_get(room_id, &StateEventType::RoomCanonicalAlias, "")?
+                .room_state_get(
+                    room_id,
+                    &StateEventType::RoomCanonicalAlias,
+                    "",
+                )?
                 .map_or(Ok(None), |s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomCanonicalAliasEventContent| c.alias)
                         .map_err(|_| {
-                            Error::bad_database("Invalid canonical alias event in database.")
+                            Error::bad_database(
+                                "Invalid canonical alias event in database.",
+                            )
                         })
                 })?,
             name: services().rooms.state_accessor.get_name(room_id)?,
@@ -329,22 +370,34 @@ impl Service {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomTopicEventContent| Some(c.topic))
                         .map_err(|_| {
-                            error!("Invalid room topic event in database for room {}", room_id);
-                            Error::bad_database("Invalid room topic event in database.")
+                            error!(
+                                "Invalid room topic event in database for \
+                                 room {}",
+                                room_id
+                            );
+                            Error::bad_database(
+                                "Invalid room topic event in database.",
+                            )
                         })
                 })?,
             world_readable: services()
                 .rooms
                 .state_accessor
-                .room_state_get(room_id, &StateEventType::RoomHistoryVisibility, "")?
+                .room_state_get(
+                    room_id,
+                    &StateEventType::RoomHistoryVisibility,
+                    "",
+                )?
                 .map_or(Ok(false), |s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomHistoryVisibilityEventContent| {
-                            c.history_visibility == HistoryVisibility::WorldReadable
+                            c.history_visibility
+                                == HistoryVisibility::WorldReadable
                         })
                         .map_err(|_| {
                             Error::bad_database(
-                                "Invalid room history visibility event in database.",
+                                "Invalid room history visibility event in \
+                                 database.",
                             )
                         })
                 })?,
@@ -358,7 +411,9 @@ impl Service {
                             c.guest_access == GuestAccess::CanJoin
                         })
                         .map_err(|_| {
-                            Error::bad_database("Invalid room guest access event in database.")
+                            Error::bad_database(
+                                "Invalid room guest access event in database.",
+                            )
                         })
                 })?,
             avatar_url: services()
@@ -368,7 +423,11 @@ impl Service {
                 .map(|s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomAvatarEventContent| c.url)
-                        .map_err(|_| Error::bad_database("Invalid room avatar event in database."))
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Invalid room avatar event in database.",
+                            )
+                        })
                 })
                 .transpose()?
                 .flatten(),
@@ -376,13 +435,23 @@ impl Service {
                 let join_rule = services()
                     .rooms
                     .state_accessor
-                    .room_state_get(room_id, &StateEventType::RoomJoinRules, "")?
+                    .room_state_get(
+                        room_id,
+                        &StateEventType::RoomJoinRules,
+                        "",
+                    )?
                     .map(|s| {
                         serde_json::from_str(s.content.get())
                             .map(|c: RoomJoinRulesEventContent| c.join_rule)
                             .map_err(|e| {
-                                error!("Invalid room join rule event in database: {}", e);
-                                Error::BadDatabase("Invalid room join rule event in database.")
+                                error!(
+                                    "Invalid room join rule event in \
+                                     database: {}",
+                                    e
+                                );
+                                Error::BadDatabase(
+                                    "Invalid room join rule event in database.",
+                                )
                             })
                     })
                     .transpose()?
@@ -404,9 +473,14 @@ impl Service {
                 .state_accessor
                 .room_state_get(room_id, &StateEventType::RoomCreate, "")?
                 .map(|s| {
-                    serde_json::from_str::<RoomCreateEventContent>(s.content.get()).map_err(|e| {
+                    serde_json::from_str::<RoomCreateEventContent>(
+                        s.content.get(),
+                    )
+                    .map_err(|e| {
                         error!("Invalid room create event in database: {}", e);
-                        Error::BadDatabase("Invalid room create event in database.")
+                        Error::BadDatabase(
+                            "Invalid room create event in database.",
+                        )
                     })
                 })
                 .transpose()?
@@ -424,7 +498,9 @@ impl Service {
             JoinRule::Knock => Ok(SpaceRoomJoinRule::Knock),
             JoinRule::Private => Ok(SpaceRoomJoinRule::Private),
             JoinRule::Restricted(_) => Ok(SpaceRoomJoinRule::Restricted),
-            JoinRule::KnockRestricted(_) => Ok(SpaceRoomJoinRule::KnockRestricted),
+            JoinRule::KnockRestricted(_) => {
+                Ok(SpaceRoomJoinRule::KnockRestricted)
+            }
             JoinRule::Public => Ok(SpaceRoomJoinRule::Public),
             _ => Err(Error::BadServerResponse("Unknown join rule")),
         }
@@ -440,10 +516,9 @@ impl Service {
     ) -> Result<bool> {
         let allowed = match join_rule {
             SpaceRoomJoinRule::Knock | SpaceRoomJoinRule::Public => true,
-            SpaceRoomJoinRule::Invite => services()
-                .rooms
-                .state_cache
-                .is_joined(sender_user, room_id)?,
+            SpaceRoomJoinRule::Invite => {
+                services().rooms.state_cache.is_joined(sender_user, room_id)?
+            }
             _ => false,
         };
 

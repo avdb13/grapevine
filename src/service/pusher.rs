@@ -1,26 +1,33 @@
 mod data;
-pub(crate) use data::Data;
-use ruma::{events::AnySyncTimelineEvent, push::PushConditionPowerLevelsCtx};
+use std::{fmt::Debug, mem};
 
-use crate::{services, Error, PduEvent, Result};
 use bytes::BytesMut;
+pub(crate) use data::Data;
 use ruma::{
     api::{
         client::push::{set_pusher, Pusher, PusherKind},
         push_gateway::send_event_notification::{
             self,
-            v1::{Device, Notification, NotificationCounts, NotificationPriority},
+            v1::{
+                Device, Notification, NotificationCounts, NotificationPriority,
+            },
         },
         IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken,
     },
-    events::{room::power_levels::RoomPowerLevelsEventContent, StateEventType, TimelineEventType},
-    push::{Action, PushConditionRoomCtx, PushFormat, Ruleset, Tweak},
+    events::{
+        room::power_levels::RoomPowerLevelsEventContent, AnySyncTimelineEvent,
+        StateEventType, TimelineEventType,
+    },
+    push::{
+        Action, PushConditionPowerLevelsCtx, PushConditionRoomCtx, PushFormat,
+        Ruleset, Tweak,
+    },
     serde::Raw,
     uint, RoomId, UInt, UserId,
 };
-
-use std::{fmt::Debug, mem};
 use tracing::{info, warn};
+
+use crate::{services, Error, PduEvent, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -35,7 +42,11 @@ impl Service {
         self.db.set_pusher(sender, pusher)
     }
 
-    pub(crate) fn get_pusher(&self, sender: &UserId, pushkey: &str) -> Result<Option<Pusher>> {
+    pub(crate) fn get_pusher(
+        &self,
+        sender: &UserId,
+        pushkey: &str,
+    ) -> Result<Option<Pusher>> {
         self.db.get_pusher(sender, pushkey)
     }
 
@@ -43,7 +54,10 @@ impl Service {
         self.db.get_pushers(sender)
     }
 
-    pub(crate) fn get_pushkeys(&self, sender: &UserId) -> Box<dyn Iterator<Item = Result<String>>> {
+    pub(crate) fn get_pushkeys(
+        &self,
+        sender: &UserId,
+    ) -> Box<dyn Iterator<Item = Result<String>>> {
         self.db.get_pushkeys(sender)
     }
 
@@ -73,11 +87,8 @@ impl Service {
         let reqwest_request = reqwest::Request::try_from(http_request)?;
 
         let url = reqwest_request.url().clone();
-        let response = services()
-            .globals
-            .default_client()
-            .execute(reqwest_request)
-            .await;
+        let response =
+            services().globals.default_client().execute(reqwest_request).await;
 
         match response {
             Ok(mut response) => {
@@ -119,11 +130,16 @@ impl Service {
                         "Push gateway returned invalid response bytes {}\n{}",
                         destination, url
                     );
-                    Error::BadServerResponse("Push gateway returned bad response.")
+                    Error::BadServerResponse(
+                        "Push gateway returned bad response.",
+                    )
                 })
             }
             Err(e) => {
-                warn!("Could not send request to pusher {}: {}", destination, e);
+                warn!(
+                    "Could not send request to pusher {}: {}",
+                    destination, e
+                );
                 Err(e.into())
             }
         }
@@ -146,8 +162,9 @@ impl Service {
             .state_accessor
             .room_state_get(&pdu.room_id, &StateEventType::RoomPowerLevels, "")?
             .map(|ev| {
-                serde_json::from_str(ev.content.get())
-                    .map_err(|_| Error::bad_database("invalid m.room.power_levels event"))
+                serde_json::from_str(ev.content.get()).map_err(|_| {
+                    Error::bad_database("invalid m.room.power_levels event")
+                })
             })
             .transpose()?
             .unwrap_or_default();
@@ -228,11 +245,16 @@ impl Service {
             PusherKind::Http(http) => {
                 // TODO:
                 // Two problems with this
-                // 1. if "event_id_only" is the only format kind it seems we should never add more info
+                // 1. if "event_id_only" is the only format kind it seems we
+                //    should never add more info
                 // 2. can pusher/devices have conflicting formats
-                let event_id_only = http.format == Some(PushFormat::EventIdOnly);
+                let event_id_only =
+                    http.format == Some(PushFormat::EventIdOnly);
 
-                let mut device = Device::new(pusher.ids.app_id.clone(), pusher.ids.pushkey.clone());
+                let mut device = Device::new(
+                    pusher.ids.app_id.clone(),
+                    pusher.ids.pushkey.clone(),
+                );
                 device.data.default_payload = http.default_payload.clone();
                 device.data.format = http.format.clone();
 
@@ -251,32 +273,43 @@ impl Service {
                 notifi.counts = NotificationCounts::new(unread, uint!(0));
 
                 if event.kind == TimelineEventType::RoomEncrypted
-                    || tweaks
-                        .iter()
-                        .any(|t| matches!(t, Tweak::Highlight(true) | Tweak::Sound(_)))
+                    || tweaks.iter().any(|t| {
+                        matches!(t, Tweak::Highlight(true) | Tweak::Sound(_))
+                    })
                 {
                     notifi.prio = NotificationPriority::High;
                 }
 
                 if event_id_only {
-                    self.send_request(&http.url, send_event_notification::v1::Request::new(notifi))
-                        .await?;
+                    self.send_request(
+                        &http.url,
+                        send_event_notification::v1::Request::new(notifi),
+                    )
+                    .await?;
                 } else {
                     notifi.sender = Some(event.sender.clone());
                     notifi.event_type = Some(event.kind.clone());
-                    notifi.content = serde_json::value::to_raw_value(&event.content).ok();
+                    notifi.content =
+                        serde_json::value::to_raw_value(&event.content).ok();
 
                     if event.kind == TimelineEventType::RoomMember {
-                        notifi.user_is_target =
-                            event.state_key.as_deref() == Some(event.sender.as_str());
+                        notifi.user_is_target = event.state_key.as_deref()
+                            == Some(event.sender.as_str());
                     }
 
-                    notifi.sender_display_name = services().users.displayname(&event.sender)?;
+                    notifi.sender_display_name =
+                        services().users.displayname(&event.sender)?;
 
-                    notifi.room_name = services().rooms.state_accessor.get_name(&event.room_id)?;
+                    notifi.room_name = services()
+                        .rooms
+                        .state_accessor
+                        .get_name(&event.room_id)?;
 
-                    self.send_request(&http.url, send_event_notification::v1::Request::new(notifi))
-                        .await?;
+                    self.send_request(
+                        &http.url,
+                        send_event_notification::v1::Request::new(notifi),
+                    )
+                    .await?;
                 }
 
                 Ok(())

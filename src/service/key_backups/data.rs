@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::Result;
 use ruma::{
     api::client::backup::{BackupAlgorithm, KeyBackupData, RoomKeyBackup},
     serde::Raw,
     OwnedRoomId, RoomId, UserId,
 };
+
+use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
     fn create_backup(
@@ -23,12 +24,21 @@ pub(crate) trait Data: Send + Sync {
         backup_metadata: &Raw<BackupAlgorithm>,
     ) -> Result<String>;
 
-    fn get_latest_backup_version(&self, user_id: &UserId) -> Result<Option<String>>;
+    fn get_latest_backup_version(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>>;
 
-    fn get_latest_backup(&self, user_id: &UserId)
-        -> Result<Option<(String, Raw<BackupAlgorithm>)>>;
+    fn get_latest_backup(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<(String, Raw<BackupAlgorithm>)>>;
 
-    fn get_backup(&self, user_id: &UserId, version: &str) -> Result<Option<Raw<BackupAlgorithm>>>;
+    fn get_backup(
+        &self,
+        user_id: &UserId,
+        version: &str,
+    ) -> Result<Option<Raw<BackupAlgorithm>>>;
 
     fn add_key(
         &self,
@@ -66,7 +76,12 @@ pub(crate) trait Data: Send + Sync {
 
     fn delete_all_keys(&self, user_id: &UserId, version: &str) -> Result<()>;
 
-    fn delete_room_keys(&self, user_id: &UserId, version: &str, room_id: &RoomId) -> Result<()>;
+    fn delete_room_keys(
+        &self,
+        user_id: &UserId,
+        version: &str,
+        room_id: &RoomId,
+    ) -> Result<()>;
 
     fn delete_room_key(
         &self,

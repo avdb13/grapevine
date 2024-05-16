@@ -2,26 +2,32 @@ use std::sync::Arc;
 
 use ruma::{events::StateEventType, EventId, RoomId};
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, Result,
+};
 
 impl service::rooms::short::Data for KeyValueDatabase {
     fn get_or_create_shorteventid(&self, event_id: &EventId) -> Result<u64> {
-        if let Some(short) = self.eventidshort_cache.lock().unwrap().get_mut(event_id) {
+        if let Some(short) =
+            self.eventidshort_cache.lock().unwrap().get_mut(event_id)
+        {
             return Ok(*short);
         }
 
-        let short =
-            if let Some(shorteventid) = self.eventid_shorteventid.get(event_id.as_bytes())? {
-                utils::u64_from_bytes(&shorteventid)
-                    .map_err(|_| Error::bad_database("Invalid shorteventid in db."))?
-            } else {
-                let shorteventid = services().globals.next_count()?;
-                self.eventid_shorteventid
-                    .insert(event_id.as_bytes(), &shorteventid.to_be_bytes())?;
-                self.shorteventid_eventid
-                    .insert(&shorteventid.to_be_bytes(), event_id.as_bytes())?;
-                shorteventid
-            };
+        let short = if let Some(shorteventid) =
+            self.eventid_shorteventid.get(event_id.as_bytes())?
+        {
+            utils::u64_from_bytes(&shorteventid).map_err(|_| {
+                Error::bad_database("Invalid shorteventid in db.")
+            })?
+        } else {
+            let shorteventid = services().globals.next_count()?;
+            self.eventid_shorteventid
+                .insert(event_id.as_bytes(), &shorteventid.to_be_bytes())?;
+            self.shorteventid_eventid
+                .insert(&shorteventid.to_be_bytes(), event_id.as_bytes())?;
+            shorteventid
+        };
 
         self.eventidshort_cache
             .lock()
@@ -46,15 +52,16 @@ impl service::rooms::short::Data for KeyValueDatabase {
         }
 
         let mut db_key = event_type.to_string().as_bytes().to_vec();
-        db_key.push(0xff);
+        db_key.push(0xFF);
         db_key.extend_from_slice(state_key.as_bytes());
 
         let short = self
             .statekey_shortstatekey
             .get(&db_key)?
             .map(|shortstatekey| {
-                utils::u64_from_bytes(&shortstatekey)
-                    .map_err(|_| Error::bad_database("Invalid shortstatekey in db."))
+                utils::u64_from_bytes(&shortstatekey).map_err(|_| {
+                    Error::bad_database("Invalid shortstatekey in db.")
+                })
             })
             .transpose()?;
 
@@ -83,12 +90,15 @@ impl service::rooms::short::Data for KeyValueDatabase {
         }
 
         let mut db_key = event_type.to_string().as_bytes().to_vec();
-        db_key.push(0xff);
+        db_key.push(0xFF);
         db_key.extend_from_slice(state_key.as_bytes());
 
-        let short = if let Some(shortstatekey) = self.statekey_shortstatekey.get(&db_key)? {
-            utils::u64_from_bytes(&shortstatekey)
-                .map_err(|_| Error::bad_database("Invalid shortstatekey in db."))?
+        let short = if let Some(shortstatekey) =
+            self.statekey_shortstatekey.get(&db_key)?
+        {
+            utils::u64_from_bytes(&shortstatekey).map_err(|_| {
+                Error::bad_database("Invalid shortstatekey in db.")
+            })?
         } else {
             let shortstatekey = services().globals.next_count()?;
             self.statekey_shortstatekey
@@ -106,12 +116,12 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(short)
     }
 
-    fn get_eventid_from_short(&self, shorteventid: u64) -> Result<Arc<EventId>> {
-        if let Some(id) = self
-            .shorteventid_cache
-            .lock()
-            .unwrap()
-            .get_mut(&shorteventid)
+    fn get_eventid_from_short(
+        &self,
+        shorteventid: u64,
+    ) -> Result<Arc<EventId>> {
+        if let Some(id) =
+            self.shorteventid_cache.lock().unwrap().get_mut(&shorteventid)
         {
             return Ok(Arc::clone(id));
         }
@@ -119,12 +129,20 @@ impl service::rooms::short::Data for KeyValueDatabase {
         let bytes = self
             .shorteventid_eventid
             .get(&shorteventid.to_be_bytes())?
-            .ok_or_else(|| Error::bad_database("Shorteventid does not exist"))?;
+            .ok_or_else(|| {
+                Error::bad_database("Shorteventid does not exist")
+            })?;
 
-        let event_id = EventId::parse_arc(utils::string_from_bytes(&bytes).map_err(|_| {
-            Error::bad_database("EventID in shorteventid_eventid is invalid unicode.")
-        })?)
-        .map_err(|_| Error::bad_database("EventId in shorteventid_eventid is invalid."))?;
+        let event_id = EventId::parse_arc(
+            utils::string_from_bytes(&bytes).map_err(|_| {
+                Error::bad_database(
+                    "EventID in shorteventid_eventid is invalid unicode.",
+                )
+            })?,
+        )
+        .map_err(|_| {
+            Error::bad_database("EventId in shorteventid_eventid is invalid.")
+        })?;
 
         self.shorteventid_cache
             .lock()
@@ -134,12 +152,12 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(event_id)
     }
 
-    fn get_statekey_from_short(&self, shortstatekey: u64) -> Result<(StateEventType, String)> {
-        if let Some(id) = self
-            .shortstatekey_cache
-            .lock()
-            .unwrap()
-            .get_mut(&shortstatekey)
+    fn get_statekey_from_short(
+        &self,
+        shortstatekey: u64,
+    ) -> Result<(StateEventType, String)> {
+        if let Some(id) =
+            self.shortstatekey_cache.lock().unwrap().get_mut(&shortstatekey)
         {
             return Ok(id.clone());
         }
@@ -147,22 +165,31 @@ impl service::rooms::short::Data for KeyValueDatabase {
         let bytes = self
             .shortstatekey_statekey
             .get(&shortstatekey.to_be_bytes())?
-            .ok_or_else(|| Error::bad_database("Shortstatekey does not exist"))?;
+            .ok_or_else(|| {
+                Error::bad_database("Shortstatekey does not exist")
+            })?;
 
-        let mut parts = bytes.splitn(2, |&b| b == 0xff);
-        let eventtype_bytes = parts.next().expect("split always returns one entry");
-        let statekey_bytes = parts
-            .next()
-            .ok_or_else(|| Error::bad_database("Invalid statekey in shortstatekey_statekey."))?;
-
-        let event_type =
-            StateEventType::from(utils::string_from_bytes(eventtype_bytes).map_err(|_| {
-                Error::bad_database("Event type in shortstatekey_statekey is invalid unicode.")
-            })?);
-
-        let state_key = utils::string_from_bytes(statekey_bytes).map_err(|_| {
-            Error::bad_database("Statekey in shortstatekey_statekey is invalid unicode.")
+        let mut parts = bytes.splitn(2, |&b| b == 0xFF);
+        let eventtype_bytes =
+            parts.next().expect("split always returns one entry");
+        let statekey_bytes = parts.next().ok_or_else(|| {
+            Error::bad_database("Invalid statekey in shortstatekey_statekey.")
         })?;
+
+        let event_type = StateEventType::from(
+            utils::string_from_bytes(eventtype_bytes).map_err(|_| {
+                Error::bad_database(
+                    "Event type in shortstatekey_statekey is invalid unicode.",
+                )
+            })?,
+        );
+
+        let state_key =
+            utils::string_from_bytes(statekey_bytes).map_err(|_| {
+                Error::bad_database(
+                    "Statekey in shortstatekey_statekey is invalid unicode.",
+                )
+            })?;
 
         let result = (event_type, state_key);
 
@@ -175,12 +202,18 @@ impl service::rooms::short::Data for KeyValueDatabase {
     }
 
     /// Returns `(shortstatehash, already_existed)`
-    fn get_or_create_shortstatehash(&self, state_hash: &[u8]) -> Result<(u64, bool)> {
+    fn get_or_create_shortstatehash(
+        &self,
+        state_hash: &[u8],
+    ) -> Result<(u64, bool)> {
         Ok(
-            if let Some(shortstatehash) = self.statehash_shortstatehash.get(state_hash)? {
+            if let Some(shortstatehash) =
+                self.statehash_shortstatehash.get(state_hash)?
+            {
                 (
-                    utils::u64_from_bytes(&shortstatehash)
-                        .map_err(|_| Error::bad_database("Invalid shortstatehash in db."))?,
+                    utils::u64_from_bytes(&shortstatehash).map_err(|_| {
+                        Error::bad_database("Invalid shortstatehash in db.")
+                    })?,
                     true,
                 )
             } else {
@@ -196,17 +229,21 @@ impl service::rooms::short::Data for KeyValueDatabase {
         self.roomid_shortroomid
             .get(room_id.as_bytes())?
             .map(|bytes| {
-                utils::u64_from_bytes(&bytes)
-                    .map_err(|_| Error::bad_database("Invalid shortroomid in db."))
+                utils::u64_from_bytes(&bytes).map_err(|_| {
+                    Error::bad_database("Invalid shortroomid in db.")
+                })
             })
             .transpose()
     }
 
     fn get_or_create_shortroomid(&self, room_id: &RoomId) -> Result<u64> {
         Ok(
-            if let Some(short) = self.roomid_shortroomid.get(room_id.as_bytes())? {
-                utils::u64_from_bytes(&short)
-                    .map_err(|_| Error::bad_database("Invalid shortroomid in db."))?
+            if let Some(short) =
+                self.roomid_shortroomid.get(room_id.as_bytes())?
+            {
+                utils::u64_from_bytes(&short).map_err(|_| {
+                    Error::bad_database("Invalid shortroomid in db.")
+                })?
             } else {
                 let short = services().globals.next_count()?;
                 self.roomid_shortroomid

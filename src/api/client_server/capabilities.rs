@@ -1,12 +1,15 @@
-use crate::{services, Result, Ruma};
+use std::collections::BTreeMap;
+
 use ruma::api::client::discovery::get_capabilities::{
     self, Capabilities, RoomVersionStability, RoomVersionsCapability,
 };
-use std::collections::BTreeMap;
+
+use crate::{services, Result, Ruma};
 
 /// # `GET /_matrix/client/r0/capabilities`
 ///
-/// Get information on the supported feature set and other relevent capabilities of this server.
+/// Get information on the supported feature set and other relevent capabilities
+/// of this server.
 pub(crate) async fn get_capabilities_route(
     _body: Ruma<get_capabilities::v3::Request>,
 ) -> Result<get_capabilities::v3::Response> {
@@ -24,5 +27,7 @@ pub(crate) async fn get_capabilities_route(
         available,
     };
 
-    Ok(get_capabilities::v3::Response { capabilities })
+    Ok(get_capabilities::v3::Response {
+        capabilities,
+    })
 }

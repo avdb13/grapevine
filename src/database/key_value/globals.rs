@@ -6,10 +6,13 @@ use lru_cache::LruCache;
 use ruma::{
     api::federation::discovery::{ServerSigningKeys, VerifyKey},
     signatures::Ed25519KeyPair,
-    DeviceId, MilliSecondsSinceUnixEpoch, OwnedServerSigningKeyId, ServerName, UserId,
+    DeviceId, MilliSecondsSinceUnixEpoch, OwnedServerSigningKeyId, ServerName,
+    UserId,
 };
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, Result,
+};
 
 pub(crate) const COUNTER: &[u8] = b"c";
 
@@ -27,14 +30,18 @@ impl service::globals::Data for KeyValueDatabase {
         })
     }
 
-    async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()> {
+    async fn watch(
+        &self,
+        user_id: &UserId,
+        device_id: &DeviceId,
+    ) -> Result<()> {
         let userid_bytes = user_id.as_bytes().to_vec();
         let mut userid_prefix = userid_bytes.clone();
-        userid_prefix.push(0xff);
+        userid_prefix.push(0xFF);
 
         let mut userdeviceid_prefix = userid_prefix.clone();
         userdeviceid_prefix.extend_from_slice(device_id.as_bytes());
-        userdeviceid_prefix.push(0xff);
+        userdeviceid_prefix.push(0xFF);
 
         let mut futures = FuturesUnordered::new();
 
@@ -46,10 +53,10 @@ impl service::globals::Data for KeyValueDatabase {
         futures.push(self.userroomid_invitestate.watch_prefix(&userid_prefix));
         futures.push(self.userroomid_leftstate.watch_prefix(&userid_prefix));
         futures.push(
-            self.userroomid_notificationcount
-                .watch_prefix(&userid_prefix),
+            self.userroomid_notificationcount.watch_prefix(&userid_prefix),
         );
-        futures.push(self.userroomid_highlightcount.watch_prefix(&userid_prefix));
+        futures
+            .push(self.userroomid_highlightcount.watch_prefix(&userid_prefix));
 
         // Events for rooms we are in
         for room_id in services()
@@ -70,17 +77,24 @@ impl service::globals::Data for KeyValueDatabase {
 
             let roomid_bytes = room_id.as_bytes().to_vec();
             let mut roomid_prefix = roomid_bytes.clone();
-            roomid_prefix.push(0xff);
+            roomid_prefix.push(0xFF);
 
             // PDUs
             futures.push(self.pduid_pdu.watch_prefix(&short_roomid));
 
             // EDUs
             futures.push(Box::pin(async move {
-                let _result = services().rooms.edus.typing.wait_for_update(&room_id).await;
+                let _result = services()
+                    .rooms
+                    .edus
+                    .typing
+                    .wait_for_update(&room_id)
+                    .await;
             }));
 
-            futures.push(self.readreceiptid_readreceipt.watch_prefix(&roomid_prefix));
+            futures.push(
+                self.readreceiptid_readreceipt.watch_prefix(&roomid_prefix),
+            );
 
             // Key changes
             futures.push(self.keychangeid_userid.watch_prefix(&roomid_prefix));
@@ -90,12 +104,11 @@ impl service::globals::Data for KeyValueDatabase {
             roomuser_prefix.extend_from_slice(&userid_prefix);
 
             futures.push(
-                self.roomusertype_roomuserdataid
-                    .watch_prefix(&roomuser_prefix),
+                self.roomusertype_roomuserdataid.watch_prefix(&roomuser_prefix),
             );
         }
 
-        let mut globaluserdata_prefix = vec![0xff];
+        let mut globaluserdata_prefix = vec![0xFF];
         globaluserdata_prefix.extend_from_slice(&userid_prefix);
 
         futures.push(
@@ -107,7 +120,8 @@ impl service::globals::Data for KeyValueDatabase {
         futures.push(self.keychangeid_userid.watch_prefix(&userid_prefix));
 
         // One time keys
-        futures.push(self.userid_lastonetimekeyupdate.watch_prefix(&userid_bytes));
+        futures
+            .push(self.userid_lastonetimekeyupdate.watch_prefix(&userid_bytes));
 
         futures.push(Box::pin(services().globals.rotate.watch()));
 
@@ -126,10 +140,14 @@ impl service::globals::Data for KeyValueDatabase {
         let shorteventid_cache = self.shorteventid_cache.lock().unwrap().len();
         let auth_chain_cache = self.auth_chain_cache.lock().unwrap().len();
         let eventidshort_cache = self.eventidshort_cache.lock().unwrap().len();
-        let statekeyshort_cache = self.statekeyshort_cache.lock().unwrap().len();
-        let our_real_users_cache = self.our_real_users_cache.read().unwrap().len();
-        let appservice_in_room_cache = self.appservice_in_room_cache.read().unwrap().len();
-        let lasttimelinecount_cache = self.lasttimelinecount_cache.lock().unwrap().len();
+        let statekeyshort_cache =
+            self.statekeyshort_cache.lock().unwrap().len();
+        let our_real_users_cache =
+            self.our_real_users_cache.read().unwrap().len();
+        let appservice_in_room_cache =
+            self.appservice_in_room_cache.read().unwrap().len();
+        let lasttimelinecount_cache =
+            self.lasttimelinecount_cache.lock().unwrap().len();
 
         let mut response = format!(
             "\
@@ -194,27 +212,29 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
             |s| Ok(s.clone()),
         )?;
 
-        let mut parts = keypair_bytes.splitn(2, |&b| b == 0xff);
+        let mut parts = keypair_bytes.splitn(2, |&b| b == 0xFF);
 
         utils::string_from_bytes(
             // 1. version
-            parts
-                .next()
-                .expect("splitn always returns at least one element"),
+            parts.next().expect("splitn always returns at least one element"),
         )
         .map_err(|_| Error::bad_database("Invalid version bytes in keypair."))
         .and_then(|version| {
             // 2. key
             parts
                 .next()
-                .ok_or_else(|| Error::bad_database("Invalid keypair format in database."))
+                .ok_or_else(|| {
+                    Error::bad_database("Invalid keypair format in database.")
+                })
                 .map(|key| (version, key))
         })
         .and_then(|(version, key)| {
-            Ed25519KeyPair::from_der(key, version)
-                .map_err(|_| Error::bad_database("Private or public keys are invalid."))
+            Ed25519KeyPair::from_der(key, version).map_err(|_| {
+                Error::bad_database("Private or public keys are invalid.")
+            })
         })
     }
+
     fn remove_keypair(&self) -> Result<()> {
         self.global.remove(b"keypair")
     }
@@ -231,7 +251,10 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
             .and_then(|keys| serde_json::from_slice(&keys).ok())
             .unwrap_or_else(|| {
                 // Just insert "now", it doesn't matter
-                ServerSigningKeys::new(origin.to_owned(), MilliSecondsSinceUnixEpoch::now())
+                ServerSigningKeys::new(
+                    origin.to_owned(),
+                    MilliSecondsSinceUnixEpoch::now(),
+                )
             });
 
         let ServerSigningKeys {
@@ -245,7 +268,8 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
 
         self.server_signingkeys.insert(
             origin.as_bytes(),
-            &serde_json::to_vec(&keys).expect("serversigningkeys can be serialized"),
+            &serde_json::to_vec(&keys)
+                .expect("serversigningkeys can be serialized"),
         )?;
 
         let mut tree = keys.verify_keys;
@@ -258,7 +282,8 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
         Ok(tree)
     }
 
-    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found for the server.
+    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found
+    /// for the server.
     fn signing_keys_for(
         &self,
         origin: &ServerName,
@@ -283,8 +308,9 @@ lasttimelinecount_cache: {lasttimelinecount_cache}\n"
 
     fn database_version(&self) -> Result<u64> {
         self.global.get(b"version")?.map_or(Ok(0), |version| {
-            utils::u64_from_bytes(&version)
-                .map_err(|_| Error::bad_database("Database version id is invalid."))
+            utils::u64_from_bytes(&version).map_err(|_| {
+                Error::bad_database("Database version id is invalid.")
+            })
         })
     }
 

@@ -1,22 +1,25 @@
-use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH};
-use crate::{api::client_server, services, utils, Error, Result, Ruma};
+use register::RegistrationKind;
 use ruma::{
     api::client::{
         account::{
             change_password, deactivate, get_3pids, get_username_availability,
             register::{self, LoginType},
-            request_3pid_management_token_via_email, request_3pid_management_token_via_msisdn,
-            whoami, ThirdPartyIdRemovalStatus,
+            request_3pid_management_token_via_email,
+            request_3pid_management_token_via_msisdn, whoami,
+            ThirdPartyIdRemovalStatus,
         },
         error::ErrorKind,
         uiaa::{AuthFlow, AuthType, UiaaInfo},
     },
-    events::{room::message::RoomMessageEventContent, GlobalAccountDataEventType},
+    events::{
+        room::message::RoomMessageEventContent, GlobalAccountDataEventType,
+    },
     push, UserId,
 };
 use tracing::{info, warn};
 
-use register::RegistrationKind;
+use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH};
+use crate::{api::client_server, services, utils, Error, Result, Ruma};
 
 const RANDOM_USER_ID_LENGTH: usize = 10;
 
@@ -29,7 +32,8 @@ const RANDOM_USER_ID_LENGTH: usize = 10;
 /// - The server name of the user id matches this server
 /// - No user or appservice on this server already claimed this username
 ///
-/// Note: This will not reserve the username, so the username might become invalid when trying to register
+/// Note: This will not reserve the username, so the username might become
+/// invalid when trying to register
 pub(crate) async fn get_register_available_route(
     body: Ruma<get_username_availability::v3::Request>,
 ) -> Result<get_username_availability::v3::Response> {
@@ -40,7 +44,8 @@ pub(crate) async fn get_register_available_route(
     )
     .ok()
     .filter(|user_id| {
-        !user_id.is_historical() && user_id.server_name() == services().globals.server_name()
+        !user_id.is_historical()
+            && user_id.server_name() == services().globals.server_name()
     })
     .ok_or(Error::BadRequest(
         ErrorKind::InvalidUsername,
@@ -58,27 +63,35 @@ pub(crate) async fn get_register_available_route(
     // TODO add check for appservice namespaces
 
     // If no if check is true we have an username that's available to be used.
-    Ok(get_username_availability::v3::Response { available: true })
+    Ok(get_username_availability::v3::Response {
+        available: true,
+    })
 }
 
 /// # `POST /_matrix/client/r0/register`
 ///
 /// Register an account on this homeserver.
 ///
-/// You can use [`GET /_matrix/client/r0/register/available`](get_register_available_route)
+/// You can use [`GET
+/// /_matrix/client/r0/register/available`](get_register_available_route)
 /// to check if the user id is valid and available.
 ///
 /// - Only works if registration is enabled
-/// - If type is guest: ignores all parameters except `initial_device_display_name`
+/// - If type is guest: ignores all parameters except
+///   `initial_device_display_name`
 /// - If sender is not appservice: Requires UIAA (but we only use a dummy stage)
-/// - If type is not guest and no username is given: Always fails after UIAA check
+/// - If type is not guest and no username is given: Always fails after UIAA
+///   check
 /// - Creates a new account and populates it with default account data
-/// - If `inhibit_login` is false: Creates a device and returns `device_id` and `access_token`
+/// - If `inhibit_login` is false: Creates a device and returns `device_id` and
+///   `access_token`
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn register_route(
     body: Ruma<register::v3::Request>,
 ) -> Result<register::v3::Response> {
-    if !services().globals.allow_registration() && body.appservice_info.is_none() {
+    if !services().globals.allow_registration()
+        && body.appservice_info.is_none()
+    {
         return Err(Error::BadRequest(
             ErrorKind::Forbidden,
             "Registration has been disabled.",
@@ -158,7 +171,8 @@ pub(crate) async fn register_route(
         };
         body.appservice_info.is_some()
     } else {
-        // No registration token necessary, but clients must still go through the flow
+        // No registration token necessary, but clients must still go through
+        // the flow
         uiaainfo = UiaaInfo {
             flows: vec![AuthFlow {
                 stages: vec![AuthType::Dummy],
@@ -174,8 +188,11 @@ pub(crate) async fn register_route(
     if !skip_auth {
         if let Some(auth) = &body.auth {
             let (worked, uiaainfo) = services().uiaa.try_auth(
-                &UserId::parse_with_server_name("", services().globals.server_name())
-                    .expect("we know this is valid"),
+                &UserId::parse_with_server_name(
+                    "",
+                    services().globals.server_name(),
+                )
+                .expect("we know this is valid"),
                 "".into(),
                 auth,
                 &uiaainfo,
@@ -187,8 +204,11 @@ pub(crate) async fn register_route(
         } else if let Some(json) = body.json_body {
             uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
             services().uiaa.create(
-                &UserId::parse_with_server_name("", services().globals.server_name())
-                    .expect("we know this is valid"),
+                &UserId::parse_with_server_name(
+                    "",
+                    services().globals.server_name(),
+                )
+                .expect("we know this is valid"),
                 "".into(),
                 &uiaainfo,
                 &json,
@@ -211,9 +231,7 @@ pub(crate) async fn register_route(
     // Default to pretty displayname
     let displayname = user_id.localpart().to_owned();
 
-    services()
-        .users
-        .set_displayname(&user_id, Some(displayname.clone()))?;
+    services().users.set_displayname(&user_id, Some(displayname.clone()))?;
 
     // Initial account data
     services().account_data.update(
@@ -260,29 +278,24 @@ pub(crate) async fn register_route(
 
     info!("New user {} registered on this server.", user_id);
     if body.appservice_info.is_none() && !is_guest {
-        services()
-            .admin
-            .send_message(RoomMessageEventContent::notice_plain(format!(
-                "New user {user_id} registered on this server."
-            )));
+        services().admin.send_message(RoomMessageEventContent::notice_plain(
+            format!("New user {user_id} registered on this server."),
+        ));
     }
 
     // If this is the first real user, grant them admin privileges
     // Note: the server user, @grapevine:servername, is generated first
     if !is_guest {
         if let Some(admin_room) = services().admin.get_admin_room()? {
-            if services()
-                .rooms
-                .state_cache
-                .room_joined_count(&admin_room)?
+            if services().rooms.state_cache.room_joined_count(&admin_room)?
                 == Some(1)
             {
-                services()
-                    .admin
-                    .make_user_admin(&user_id, displayname)
-                    .await?;
+                services().admin.make_user_admin(&user_id, displayname).await?;
 
-                warn!("Granting {} admin privileges as the first user", user_id);
+                warn!(
+                    "Granting {} admin privileges as the first user",
+                    user_id
+                );
             }
         }
     }
@@ -302,19 +315,23 @@ pub(crate) async fn register_route(
 ///
 /// - Requires UIAA to verify user password
 /// - Changes the password of the sender user
-/// - The password hash is calculated using argon2 with 32 character salt, the plain password is
+/// - The password hash is calculated using argon2 with 32 character salt, the
+///   plain password is
 /// not saved
 ///
-/// If `logout_devices` is true it does the following for each device except the sender device:
+/// If `logout_devices` is true it does the following for each device except the
+/// sender device:
 /// - Invalidates access token
-/// - Deletes device metadata (device ID, device display name, last seen IP, last seen timestamp)
+/// - Deletes device metadata (device ID, device display name, last seen IP,
+///   last seen timestamp)
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn change_password_route(
     body: Ruma<change_password::v3::Request>,
 ) -> Result<change_password::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+    let sender_device =
+        body.sender_device.as_ref().expect("user is authenticated");
 
     let mut uiaainfo = UiaaInfo {
         flows: vec![AuthFlow {
@@ -327,27 +344,25 @@ pub(crate) async fn change_password_route(
     };
 
     if let Some(auth) = &body.auth {
-        let (worked, uiaainfo) =
-            services()
-                .uiaa
-                .try_auth(sender_user, sender_device, auth, &uiaainfo)?;
+        let (worked, uiaainfo) = services().uiaa.try_auth(
+            sender_user,
+            sender_device,
+            auth,
+            &uiaainfo,
+        )?;
         if !worked {
             return Err(Error::Uiaa(uiaainfo));
         }
     // Success!
     } else if let Some(json) = body.json_body {
         uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-        services()
-            .uiaa
-            .create(sender_user, sender_device, &uiaainfo, &json)?;
+        services().uiaa.create(sender_user, sender_device, &uiaainfo, &json)?;
         return Err(Error::Uiaa(uiaainfo));
     } else {
         return Err(Error::BadRequest(ErrorKind::NotJson, "Not json."));
     }
 
-    services()
-        .users
-        .set_password(sender_user, Some(&body.new_password))?;
+    services().users.set_password(sender_user, Some(&body.new_password))?;
 
     if body.logout_devices {
         // Logout all devices except the current one
@@ -362,11 +377,9 @@ pub(crate) async fn change_password_route(
     }
 
     info!("User {} changed their password.", sender_user);
-    services()
-        .admin
-        .send_message(RoomMessageEventContent::notice_plain(format!(
-            "User {sender_user} changed their password."
-        )));
+    services().admin.send_message(RoomMessageEventContent::notice_plain(
+        format!("User {sender_user} changed their password."),
+    ));
 
     Ok(change_password::v3::Response {})
 }
@@ -376,14 +389,17 @@ pub(crate) async fn change_password_route(
 /// Get `user_id` of the sender user.
 ///
 /// Note: Also works for Application Services
-pub(crate) async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoami::v3::Response> {
+pub(crate) async fn whoami_route(
+    body: Ruma<whoami::v3::Request>,
+) -> Result<whoami::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let device_id = body.sender_device.as_ref().cloned();
 
     Ok(whoami::v3::Response {
         user_id: sender_user.clone(),
         device_id,
-        is_guest: services().users.is_deactivated(sender_user)? && body.appservice_info.is_none(),
+        is_guest: services().users.is_deactivated(sender_user)?
+            && body.appservice_info.is_none(),
     })
 }
 
@@ -393,7 +409,8 @@ pub(crate) async fn whoami_route(body: Ruma<whoami::v3::Request>) -> Result<whoa
 ///
 /// - Leaves all rooms and rejects all invitations
 /// - Invalidates all access tokens
-/// - Deletes all device metadata (device id, device display name, last seen ip, last seen ts)
+/// - Deletes all device metadata (device id, device display name, last seen ip,
+///   last seen ts)
 /// - Forgets all to-device events
 /// - Triggers device list updates
 /// - Removes ability to log in again
@@ -401,7 +418,8 @@ pub(crate) async fn deactivate_route(
     body: Ruma<deactivate::v3::Request>,
 ) -> Result<deactivate::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+    let sender_device =
+        body.sender_device.as_ref().expect("user is authenticated");
 
     let mut uiaainfo = UiaaInfo {
         flows: vec![AuthFlow {
@@ -414,19 +432,19 @@ pub(crate) async fn deactivate_route(
     };
 
     if let Some(auth) = &body.auth {
-        let (worked, uiaainfo) =
-            services()
-                .uiaa
-                .try_auth(sender_user, sender_device, auth, &uiaainfo)?;
+        let (worked, uiaainfo) = services().uiaa.try_auth(
+            sender_user,
+            sender_device,
+            auth,
+            &uiaainfo,
+        )?;
         if !worked {
             return Err(Error::Uiaa(uiaainfo));
         }
     // Success!
     } else if let Some(json) = body.json_body {
         uiaainfo.session = Some(utils::random_string(SESSION_ID_LENGTH));
-        services()
-            .uiaa
-            .create(sender_user, sender_device, &uiaainfo, &json)?;
+        services().uiaa.create(sender_user, sender_device, &uiaainfo, &json)?;
         return Err(Error::Uiaa(uiaainfo));
     } else {
         return Err(Error::BadRequest(ErrorKind::NotJson, "Not json."));
@@ -439,11 +457,9 @@ pub(crate) async fn deactivate_route(
     services().users.deactivate_account(sender_user)?;
 
     info!("User {} deactivated their account.", sender_user);
-    services()
-        .admin
-        .send_message(RoomMessageEventContent::notice_plain(format!(
-            "User {sender_user} deactivated their account."
-        )));
+    services().admin.send_message(RoomMessageEventContent::notice_plain(
+        format!("User {sender_user} deactivated their account."),
+    ));
 
     Ok(deactivate::v3::Response {
         id_server_unbind_result: ThirdPartyIdRemovalStatus::NoSupport,
@@ -458,16 +474,19 @@ pub(crate) async fn deactivate_route(
 pub(crate) async fn third_party_route(
     body: Ruma<get_3pids::v3::Request>,
 ) -> Result<get_3pids::v3::Response> {
-    let _sender_user = body.sender_user.as_ref().expect("user is authenticated");
+    let _sender_user =
+        body.sender_user.as_ref().expect("user is authenticated");
 
     Ok(get_3pids::v3::Response::new(Vec::new()))
 }
 
 /// # `POST /_matrix/client/v3/account/3pid/email/requestToken`
 ///
-/// "This API should be used to request validation tokens when adding an email address to an account"
+/// "This API should be used to request validation tokens when adding an email
+/// address to an account"
 ///
-/// - 403 signals that The homeserver does not allow the third party identifier as a contact option.
+/// - 403 signals that The homeserver does not allow the third party identifier
+///   as a contact option.
 pub(crate) async fn request_3pid_management_token_via_email_route(
     _body: Ruma<request_3pid_management_token_via_email::v3::Request>,
 ) -> Result<request_3pid_management_token_via_email::v3::Response> {
@@ -479,9 +498,11 @@ pub(crate) async fn request_3pid_management_token_via_email_route(
 
 /// # `POST /_matrix/client/v3/account/3pid/msisdn/requestToken`
 ///
-/// "This API should be used to request validation tokens when adding an phone number to an account"
+/// "This API should be used to request validation tokens when adding an phone
+/// number to an account"
 ///
-/// - 403 signals that The homeserver does not allow the third party identifier as a contact option.
+/// - 403 signals that The homeserver does not allow the third party identifier
+///   as a contact option.
 pub(crate) async fn request_3pid_management_token_via_msisdn_route(
     _body: Ruma<request_3pid_management_token_via_msisdn::v3::Request>,
 ) -> Result<request_3pid_management_token_via_msisdn::v3::Response> {

@@ -3,7 +3,9 @@ use std::{collections::BTreeMap, iter::FromIterator, str};
 use axum::{
     async_trait,
     body::{Full, HttpBody},
-    extract::{rejection::TypedHeaderRejectionReason, FromRequest, Path, TypedHeader},
+    extract::{
+        rejection::TypedHeaderRejectionReason, FromRequest, Path, TypedHeader,
+    },
     headers::{
         authorization::{Bearer, Credentials},
         Authorization,
@@ -14,7 +16,9 @@ use axum::{
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use http::{Request, StatusCode};
 use ruma::{
-    api::{client::error::ErrorKind, AuthScheme, IncomingRequest, OutgoingResponse},
+    api::{
+        client::error::ErrorKind, AuthScheme, IncomingRequest, OutgoingResponse,
+    },
     CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
 };
 use serde::Deserialize;
@@ -41,7 +45,10 @@ where
     type Rejection = Error;
 
     #[allow(clippy::too_many_lines)]
-    async fn from_request(req: Request<B>, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(
+        req: Request<B>,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
         #[derive(Deserialize)]
         struct QueryParams {
             access_token: Option<String>,
@@ -51,22 +58,23 @@ where
         let (mut parts, mut body) = match req.with_limited_body() {
             Ok(limited_req) => {
                 let (parts, body) = limited_req.into_parts();
-                let body = to_bytes(body)
-                    .await
-                    .map_err(|_| Error::BadRequest(ErrorKind::MissingToken, "Missing token."))?;
+                let body = to_bytes(body).await.map_err(|_| {
+                    Error::BadRequest(ErrorKind::MissingToken, "Missing token.")
+                })?;
                 (parts, body)
             }
             Err(original_req) => {
                 let (parts, body) = original_req.into_parts();
-                let body = to_bytes(body)
-                    .await
-                    .map_err(|_| Error::BadRequest(ErrorKind::MissingToken, "Missing token."))?;
+                let body = to_bytes(body).await.map_err(|_| {
+                    Error::BadRequest(ErrorKind::MissingToken, "Missing token.")
+                })?;
                 (parts, body)
             }
         };
 
         let metadata = T::METADATA;
-        let auth_header: Option<TypedHeader<Authorization<Bearer>>> = parts.extract().await?;
+        let auth_header: Option<TypedHeader<Authorization<Bearer>>> =
+            parts.extract().await?;
         let path_params: Path<Vec<String>> = parts.extract().await?;
 
         let query = parts.uri.query().unwrap_or_default();
@@ -87,9 +95,13 @@ where
         };
 
         let token = if let Some(token) = token {
-            if let Some(reg_info) = services().appservice.find_from_token(token).await {
+            if let Some(reg_info) =
+                services().appservice.find_from_token(token).await
+            {
                 Token::Appservice(Box::new(reg_info.clone()))
-            } else if let Some((user_id, device_id)) = services().users.find_from_token(token)? {
+            } else if let Some((user_id, device_id)) =
+                services().users.find_from_token(token)?
+            {
                 Token::User((user_id, OwnedDeviceId::from(device_id)))
             } else {
                 Token::Invalid
@@ -98,13 +110,16 @@ where
             Token::None
         };
 
-        let mut json_body = serde_json::from_slice::<CanonicalJsonValue>(&body).ok();
+        let mut json_body =
+            serde_json::from_slice::<CanonicalJsonValue>(&body).ok();
 
         let (sender_user, sender_device, sender_servername, appservice_info) =
             match (metadata.authentication, token) {
                 (_, Token::Invalid) => {
                     return Err(Error::BadRequest(
-                        ErrorKind::UnknownToken { soft_logout: false },
+                        ErrorKind::UnknownToken {
+                            soft_logout: false,
+                        },
                         "Unknown access token.",
                     ))
                 }
@@ -121,7 +136,10 @@ where
                             UserId::parse,
                         )
                         .map_err(|_| {
-                            Error::BadRequest(ErrorKind::InvalidUsername, "Username is invalid.")
+                            Error::BadRequest(
+                                ErrorKind::InvalidUsername,
+                                "Username is invalid.",
+                            )
                         })?;
 
                     if !info.is_user_match(&user_id) {
@@ -153,7 +171,9 @@ where
                     ));
                 }
                 (
-                    AuthScheme::AccessToken | AuthScheme::AccessTokenOptional | AuthScheme::None,
+                    AuthScheme::AccessToken
+                    | AuthScheme::AccessTokenOptional
+                    | AuthScheme::None,
                     Token::User((user_id, device_id)),
                 ) => (Some(user_id), Some(device_id), None, None),
                 (AuthScheme::ServerSignatures, Token::None) => {
@@ -161,7 +181,10 @@ where
                         .extract::<TypedHeader<Authorization<XMatrix>>>()
                         .await
                         .map_err(|e| {
-                            warn!("Missing or invalid Authorization header: {}", e);
+                            warn!(
+                                "Missing or invalid Authorization header: {}",
+                                e
+                            );
 
                             let msg = match e.reason() {
                                 TypedHeaderRejectionReason::Missing => {
@@ -189,7 +212,9 @@ where
                     let mut request_map = BTreeMap::from_iter([
                         (
                             "method".to_owned(),
-                            CanonicalJsonValue::String(parts.method.to_string()),
+                            CanonicalJsonValue::String(
+                                parts.method.to_string(),
+                            ),
                         ),
                         (
                             "uri".to_owned(),
@@ -197,12 +222,18 @@ where
                         ),
                         (
                             "origin".to_owned(),
-                            CanonicalJsonValue::String(x_matrix.origin.as_str().to_owned()),
+                            CanonicalJsonValue::String(
+                                x_matrix.origin.as_str().to_owned(),
+                            ),
                         ),
                         (
                             "destination".to_owned(),
                             CanonicalJsonValue::String(
-                                services().globals.server_name().as_str().to_owned(),
+                                services()
+                                    .globals
+                                    .server_name()
+                                    .as_str()
+                                    .to_owned(),
                             ),
                         ),
                         (
@@ -212,13 +243,17 @@ where
                     ]);
 
                     if let Some(json_body) = &json_body {
-                        request_map.insert("content".to_owned(), json_body.clone());
+                        request_map
+                            .insert("content".to_owned(), json_body.clone());
                     };
 
                     let keys_result = services()
                         .rooms
                         .event_handler
-                        .fetch_signing_keys(&x_matrix.origin, vec![x_matrix.key.clone()])
+                        .fetch_signing_keys(
+                            &x_matrix.origin,
+                            vec![x_matrix.key.clone()],
+                        )
                         .await;
 
                     let keys = match keys_result {
@@ -232,22 +267,29 @@ where
                         }
                     };
 
-                    let pub_key_map =
-                        BTreeMap::from_iter([(x_matrix.origin.as_str().to_owned(), keys)]);
+                    let pub_key_map = BTreeMap::from_iter([(
+                        x_matrix.origin.as_str().to_owned(),
+                        keys,
+                    )]);
 
-                    match ruma::signatures::verify_json(&pub_key_map, &request_map) {
+                    match ruma::signatures::verify_json(
+                        &pub_key_map,
+                        &request_map,
+                    ) {
                         Ok(()) => (None, None, Some(x_matrix.origin), None),
                         Err(e) => {
                             warn!(
-                                "Failed to verify json request from {}: {}\n{:?}",
+                                "Failed to verify json request from {}: \
+                                 {}\n{:?}",
                                 x_matrix.origin, e, request_map
                             );
 
                             if parts.uri.to_string().contains('@') {
                                 warn!(
-                                    "Request uri contained '@' character. Make sure your \
-                                         reverse proxy gives Grapevine the raw uri (apache: use \
-                                         nocanon)"
+                                    "Request uri contained '@' character. \
+                                     Make sure your reverse proxy gives \
+                                     Grapevine the raw uri (apache: use \
+                                     nocanon)"
                                 );
                             }
 
@@ -264,27 +306,36 @@ where
                     | AuthScheme::AccessTokenOptional,
                     Token::None,
                 ) => (None, None, None, None),
-                (AuthScheme::ServerSignatures, Token::Appservice(_) | Token::User(_)) => {
+                (
+                    AuthScheme::ServerSignatures,
+                    Token::Appservice(_) | Token::User(_),
+                ) => {
                     return Err(Error::BadRequest(
                         ErrorKind::Unauthorized,
-                        "Only server signatures should be used on this endpoint.",
+                        "Only server signatures should be used on this \
+                         endpoint.",
                     ));
                 }
                 (AuthScheme::AppserviceToken, Token::User(_)) => {
                     return Err(Error::BadRequest(
                         ErrorKind::Unauthorized,
-                        "Only appservice access tokens should be used on this endpoint.",
+                        "Only appservice access tokens should be used on this \
+                         endpoint.",
                     ));
                 }
             };
 
-        let mut http_request = http::Request::builder().uri(parts.uri).method(parts.method);
+        let mut http_request =
+            http::Request::builder().uri(parts.uri).method(parts.method);
         *http_request.headers_mut().unwrap() = parts.headers;
 
         if let Some(CanonicalJsonValue::Object(json_body)) = &mut json_body {
             let user_id = sender_user.clone().unwrap_or_else(|| {
-                UserId::parse_with_server_name("", services().globals.server_name())
-                    .expect("we know this is valid")
+                UserId::parse_with_server_name(
+                    "",
+                    services().globals.server_name(),
+                )
+                .expect("we know this is valid")
             });
 
             let uiaa_request = json_body
@@ -300,14 +351,17 @@ where
                     )
                 });
 
-            if let Some(CanonicalJsonValue::Object(initial_request)) = uiaa_request {
+            if let Some(CanonicalJsonValue::Object(initial_request)) =
+                uiaa_request
+            {
                 for (key, value) in initial_request {
                     json_body.entry(key).or_insert(value);
                 }
             }
 
             let mut buf = BytesMut::new().writer();
-            serde_json::to_writer(&mut buf, json_body).expect("value serialization can't fail");
+            serde_json::to_writer(&mut buf, json_body)
+                .expect("value serialization can't fail");
             body = buf.into_inner().freeze();
         }
 
@@ -315,11 +369,15 @@ where
 
         debug!("{:?}", http_request);
 
-        let body = T::try_from_http_request(http_request, &path_params).map_err(|e| {
-            warn!("try_from_http_request failed: {:?}", e);
-            debug!("JSON body: {:?}", json_body);
-            Error::BadRequest(ErrorKind::BadJson, "Failed to deserialize request.")
-        })?;
+        let body = T::try_from_http_request(http_request, &path_params)
+            .map_err(|e| {
+                warn!("try_from_http_request failed: {:?}", e);
+                debug!("JSON body: {:?}", json_body);
+                Error::BadRequest(
+                    ErrorKind::BadJson,
+                    "Failed to deserialize request.",
+                )
+            })?;
 
         Ok(Ruma {
             body,
@@ -345,7 +403,8 @@ impl Credentials for XMatrix {
     fn decode(value: &http::HeaderValue) -> Option<Self> {
         debug_assert!(
             value.as_bytes().starts_with(b"X-Matrix "),
-            "HeaderValue to decode should start with \"X-Matrix ..\", received = {value:?}",
+            "HeaderValue to decode should start with \"X-Matrix ..\", \
+             received = {value:?}",
         );
 
         let parameters = str::from_utf8(&value.as_bytes()["X-Matrix ".len()..])
@@ -359,8 +418,9 @@ impl Credentials for XMatrix {
         for entry in parameters.split_terminator(',') {
             let (name, value) = entry.split_once('=')?;
 
-            // It's not at all clear why some fields are quoted and others not in the spec,
-            // let's simply accept either form for every field.
+            // It's not at all clear why some fields are quoted and others not
+            // in the spec, let's simply accept either form for
+            // every field.
             let value = value
                 .strip_prefix('"')
                 .and_then(|rest| rest.strip_suffix('"'))

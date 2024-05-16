@@ -9,7 +9,9 @@ use ruma::{
     OwnedRoomId, RoomId, UserId,
 };
 
-use crate::{database::KeyValueDatabase, service, services, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase, service, services, utils, Error, Result,
+};
 
 impl service::key_backups::Data for KeyValueDatabase {
     fn create_backup(
@@ -20,12 +22,13 @@ impl service::key_backups::Data for KeyValueDatabase {
         let version = services().globals.next_count()?.to_string();
 
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
         self.backupid_algorithm.insert(
             &key,
-            &serde_json::to_vec(backup_metadata).expect("BackupAlgorithm::to_vec always works"),
+            &serde_json::to_vec(backup_metadata)
+                .expect("BackupAlgorithm::to_vec always works"),
         )?;
         self.backupid_etag
             .insert(&key, &services().globals.next_count()?.to_be_bytes())?;
@@ -34,13 +37,13 @@ impl service::key_backups::Data for KeyValueDatabase {
 
     fn delete_backup(&self, user_id: &UserId, version: &str) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
         self.backupid_algorithm.remove(&key)?;
         self.backupid_etag.remove(&key)?;
 
-        key.push(0xff);
+        key.push(0xFF);
 
         for (outdated_key, _) in self.backupkeyid_backup.scan_prefix(key) {
             self.backupkeyid_backup.remove(&outdated_key)?;
@@ -56,7 +59,7 @@ impl service::key_backups::Data for KeyValueDatabase {
         backup_metadata: &Raw<BackupAlgorithm>,
     ) -> Result<String> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
         if self.backupid_algorithm.get(&key)?.is_none() {
@@ -73,9 +76,12 @@ impl service::key_backups::Data for KeyValueDatabase {
         Ok(version.to_owned())
     }
 
-    fn get_latest_backup_version(&self, user_id: &UserId) -> Result<Option<String>> {
+    fn get_latest_backup_version(
+        &self,
+        user_id: &UserId,
+    ) -> Result<Option<String>> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         let mut last_possible_key = prefix.clone();
         last_possible_key.extend_from_slice(&u64::MAX.to_be_bytes());
 
@@ -85,11 +91,13 @@ impl service::key_backups::Data for KeyValueDatabase {
             .next()
             .map(|(key, _)| {
                 utils::string_from_bytes(
-                    key.rsplit(|&b| b == 0xff)
+                    key.rsplit(|&b| b == 0xFF)
                         .next()
                         .expect("rsplit always returns an element"),
                 )
-                .map_err(|_| Error::bad_database("backupid_algorithm key is invalid."))
+                .map_err(|_| {
+                    Error::bad_database("backupid_algorithm key is invalid.")
+                })
             })
             .transpose()
     }
@@ -99,7 +107,7 @@ impl service::key_backups::Data for KeyValueDatabase {
         user_id: &UserId,
     ) -> Result<Option<(String, Raw<BackupAlgorithm>)>> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         let mut last_possible_key = prefix.clone();
         last_possible_key.extend_from_slice(&u64::MAX.to_be_bytes());
 
@@ -109,33 +117,42 @@ impl service::key_backups::Data for KeyValueDatabase {
             .next()
             .map(|(key, value)| {
                 let version = utils::string_from_bytes(
-                    key.rsplit(|&b| b == 0xff)
+                    key.rsplit(|&b| b == 0xFF)
                         .next()
                         .expect("rsplit always returns an element"),
                 )
-                .map_err(|_| Error::bad_database("backupid_algorithm key is invalid."))?;
+                .map_err(|_| {
+                    Error::bad_database("backupid_algorithm key is invalid.")
+                })?;
 
                 Ok((
                     version,
                     serde_json::from_slice(&value).map_err(|_| {
-                        Error::bad_database("Algorithm in backupid_algorithm is invalid.")
+                        Error::bad_database(
+                            "Algorithm in backupid_algorithm is invalid.",
+                        )
                     })?,
                 ))
             })
             .transpose()
     }
 
-    fn get_backup(&self, user_id: &UserId, version: &str) -> Result<Option<Raw<BackupAlgorithm>>> {
+    fn get_backup(
+        &self,
+        user_id: &UserId,
+        version: &str,
+    ) -> Result<Option<Raw<BackupAlgorithm>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
-        self.backupid_algorithm
-            .get(&key)?
-            .map_or(Ok(None), |bytes| {
-                serde_json::from_slice(&bytes)
-                    .map_err(|_| Error::bad_database("Algorithm in backupid_algorithm is invalid."))
+        self.backupid_algorithm.get(&key)?.map_or(Ok(None), |bytes| {
+            serde_json::from_slice(&bytes).map_err(|_| {
+                Error::bad_database(
+                    "Algorithm in backupid_algorithm is invalid.",
+                )
             })
+        })
     }
 
     fn add_key(
@@ -147,7 +164,7 @@ impl service::key_backups::Data for KeyValueDatabase {
         key_data: &Raw<KeyBackupData>,
     ) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
         if self.backupid_algorithm.get(&key)?.is_none() {
@@ -160,9 +177,9 @@ impl service::key_backups::Data for KeyValueDatabase {
         self.backupid_etag
             .insert(&key, &services().globals.next_count()?.to_be_bytes())?;
 
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(session_id.as_bytes());
 
         self.backupkeyid_backup
@@ -173,7 +190,7 @@ impl service::key_backups::Data for KeyValueDatabase {
 
     fn count_keys(&self, user_id: &UserId, version: &str) -> Result<usize> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(version.as_bytes());
 
         Ok(self.backupkeyid_backup.scan_prefix(prefix).count())
@@ -181,7 +198,7 @@ impl service::key_backups::Data for KeyValueDatabase {
 
     fn get_etag(&self, user_id: &UserId, version: &str) -> Result<String> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
 
         Ok(utils::u64_from_bytes(
@@ -200,39 +217,55 @@ impl service::key_backups::Data for KeyValueDatabase {
         version: &str,
     ) -> Result<BTreeMap<OwnedRoomId, RoomKeyBackup>> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(version.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         let mut rooms = BTreeMap::<OwnedRoomId, RoomKeyBackup>::new();
 
-        for result in self
-            .backupkeyid_backup
-            .scan_prefix(prefix)
-            .map(|(key, value)| {
-                let mut parts = key.rsplit(|&b| b == 0xff);
+        for result in
+            self.backupkeyid_backup.scan_prefix(prefix).map(|(key, value)| {
+                let mut parts = key.rsplit(|&b| b == 0xFF);
 
-                let session_id =
-                    utils::string_from_bytes(parts.next().ok_or_else(|| {
-                        Error::bad_database("backupkeyid_backup key is invalid.")
-                    })?)
-                    .map_err(|_| {
-                        Error::bad_database("backupkeyid_backup session_id is invalid.")
-                    })?;
-
-                let room_id = RoomId::parse(
-                    utils::string_from_bytes(parts.next().ok_or_else(|| {
-                        Error::bad_database("backupkeyid_backup key is invalid.")
-                    })?)
-                    .map_err(|_| Error::bad_database("backupkeyid_backup room_id is invalid."))?,
+                let session_id = utils::string_from_bytes(
+                    parts.next().ok_or_else(|| {
+                        Error::bad_database(
+                            "backupkeyid_backup key is invalid.",
+                        )
+                    })?,
                 )
                 .map_err(|_| {
-                    Error::bad_database("backupkeyid_backup room_id is invalid room id.")
+                    Error::bad_database(
+                        "backupkeyid_backup session_id is invalid.",
+                    )
                 })?;
 
-                let key_data = serde_json::from_slice(&value).map_err(|_| {
-                    Error::bad_database("KeyBackupData in backupkeyid_backup is invalid.")
+                let room_id = RoomId::parse(
+                    utils::string_from_bytes(parts.next().ok_or_else(
+                        || {
+                            Error::bad_database(
+                                "backupkeyid_backup key is invalid.",
+                            )
+                        },
+                    )?)
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "backupkeyid_backup room_id is invalid.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "backupkeyid_backup room_id is invalid room id.",
+                    )
                 })?;
+
+                let key_data =
+                    serde_json::from_slice(&value).map_err(|_| {
+                        Error::bad_database(
+                            "KeyBackupData in backupkeyid_backup is invalid.",
+                        )
+                    })?;
 
                 Ok::<_, Error>((room_id, session_id, key_data))
             })
@@ -257,29 +290,37 @@ impl service::key_backups::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Result<BTreeMap<String, Raw<KeyBackupData>>> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(version.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(room_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         Ok(self
             .backupkeyid_backup
             .scan_prefix(prefix)
             .map(|(key, value)| {
-                let mut parts = key.rsplit(|&b| b == 0xff);
+                let mut parts = key.rsplit(|&b| b == 0xFF);
 
-                let session_id =
-                    utils::string_from_bytes(parts.next().ok_or_else(|| {
-                        Error::bad_database("backupkeyid_backup key is invalid.")
-                    })?)
-                    .map_err(|_| {
-                        Error::bad_database("backupkeyid_backup session_id is invalid.")
-                    })?;
-
-                let key_data = serde_json::from_slice(&value).map_err(|_| {
-                    Error::bad_database("KeyBackupData in backupkeyid_backup is invalid.")
+                let session_id = utils::string_from_bytes(
+                    parts.next().ok_or_else(|| {
+                        Error::bad_database(
+                            "backupkeyid_backup key is invalid.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "backupkeyid_backup session_id is invalid.",
+                    )
                 })?;
+
+                let key_data =
+                    serde_json::from_slice(&value).map_err(|_| {
+                        Error::bad_database(
+                            "KeyBackupData in backupkeyid_backup is invalid.",
+                        )
+                    })?;
 
                 Ok::<_, Error>((session_id, key_data))
             })
@@ -295,18 +336,20 @@ impl service::key_backups::Data for KeyValueDatabase {
         session_id: &str,
     ) -> Result<Option<Raw<KeyBackupData>>> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(session_id.as_bytes());
 
         self.backupkeyid_backup
             .get(&key)?
             .map(|value| {
                 serde_json::from_slice(&value).map_err(|_| {
-                    Error::bad_database("KeyBackupData in backupkeyid_backup is invalid.")
+                    Error::bad_database(
+                        "KeyBackupData in backupkeyid_backup is invalid.",
+                    )
                 })
             })
             .transpose()
@@ -314,9 +357,9 @@ impl service::key_backups::Data for KeyValueDatabase {
 
     fn delete_all_keys(&self, user_id: &UserId, version: &str) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
 
         for (outdated_key, _) in self.backupkeyid_backup.scan_prefix(key) {
             self.backupkeyid_backup.remove(&outdated_key)?;
@@ -325,13 +368,18 @@ impl service::key_backups::Data for KeyValueDatabase {
         Ok(())
     }
 
-    fn delete_room_keys(&self, user_id: &UserId, version: &str, room_id: &RoomId) -> Result<()> {
+    fn delete_room_keys(
+        &self,
+        user_id: &UserId,
+        version: &str,
+        room_id: &RoomId,
+    ) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
 
         for (outdated_key, _) in self.backupkeyid_backup.scan_prefix(key) {
             self.backupkeyid_backup.remove(&outdated_key)?;
@@ -348,11 +396,11 @@ impl service::key_backups::Data for KeyValueDatabase {
         session_id: &str,
     ) -> Result<()> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(version.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(session_id.as_bytes());
 
         for (outdated_key, _) in self.backupkeyid_backup.scan_prefix(key) {

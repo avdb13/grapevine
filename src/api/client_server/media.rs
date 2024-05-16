@@ -1,13 +1,14 @@
 use std::time::Duration;
 
-use crate::{service::media::FileMeta, services, utils, Error, Result, Ruma};
 use ruma::api::client::{
     error::ErrorKind,
     media::{
-        create_content, get_content, get_content_as_filename, get_content_thumbnail,
-        get_media_config,
+        create_content, get_content, get_content_as_filename,
+        get_content_thumbnail, get_media_config,
     },
 };
+
+use crate::{service::media::FileMeta, services, utils, Error, Result, Ruma};
 
 const MXC_LENGTH: usize = 32;
 
@@ -110,9 +111,12 @@ pub(crate) async fn get_content_route(
             content_disposition,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
-    } else if &*body.server_name != services().globals.server_name() && body.allow_remote {
+    } else if &*body.server_name != services().globals.server_name()
+        && body.allow_remote
+    {
         let remote_content_response =
-            get_remote_content(&mxc, &body.server_name, body.media_id.clone()).await?;
+            get_remote_content(&mxc, &body.server_name, body.media_id.clone())
+                .await?;
         Ok(remote_content_response)
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
@@ -130,21 +134,32 @@ pub(crate) async fn get_content_as_filename_route(
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
-        content_type, file, ..
+        content_type,
+        file,
+        ..
     }) = services().media.get(mxc.clone()).await?
     {
         Ok(get_content_as_filename::v3::Response {
             file,
             content_type,
-            content_disposition: Some(format!("inline; filename={}", body.filename)),
+            content_disposition: Some(format!(
+                "inline; filename={}",
+                body.filename
+            )),
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
-    } else if &*body.server_name != services().globals.server_name() && body.allow_remote {
+    } else if &*body.server_name != services().globals.server_name()
+        && body.allow_remote
+    {
         let remote_content_response =
-            get_remote_content(&mxc, &body.server_name, body.media_id.clone()).await?;
+            get_remote_content(&mxc, &body.server_name, body.media_id.clone())
+                .await?;
 
         Ok(get_content_as_filename::v3::Response {
-            content_disposition: Some(format!("inline: filename={}", body.filename)),
+            content_disposition: Some(format!(
+                "inline: filename={}",
+                body.filename
+            )),
             content_type: remote_content_response.content_type,
             file: remote_content_response.file,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
@@ -165,17 +180,19 @@ pub(crate) async fn get_content_thumbnail_route(
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
-        content_type, file, ..
+        content_type,
+        file,
+        ..
     }) = services()
         .media
         .get_thumbnail(
             mxc.clone(),
-            body.width
-                .try_into()
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid."))?,
-            body.height
-                .try_into()
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid."))?,
+            body.width.try_into().map_err(|_| {
+                Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
+            })?,
+            body.height.try_into().map_err(|_| {
+                Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
+            })?,
         )
         .await?
     {
@@ -184,7 +201,9 @@ pub(crate) async fn get_content_thumbnail_route(
             content_type,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
-    } else if &*body.server_name != services().globals.server_name() && body.allow_remote {
+    } else if &*body.server_name != services().globals.server_name()
+        && body.allow_remote
+    {
         let get_thumbnail_response = services()
             .sending
             .send_federation_request(

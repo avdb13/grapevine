@@ -43,7 +43,8 @@ impl Service {
 
         let mut i = 0;
         for id in starting_events {
-            let short = services().rooms.short.get_or_create_shorteventid(&id)?;
+            let short =
+                services().rooms.short.get_or_create_shorteventid(&id)?;
             // I'm afraid to change this in case there is accidental reliance on
             // the truncation
             #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
@@ -64,7 +65,8 @@ impl Service {
                 continue;
             }
 
-            let chunk_key: Vec<u64> = chunk.iter().map(|(short, _)| short).copied().collect();
+            let chunk_key: Vec<u64> =
+                chunk.iter().map(|(short, _)| short).copied().collect();
             if let Some(cached) = services()
                 .rooms
                 .auth_chain
@@ -90,11 +92,13 @@ impl Service {
                     chunk_cache.extend(cached.iter().copied());
                 } else {
                     misses2 += 1;
-                    let auth_chain = Arc::new(self.get_auth_chain_inner(room_id, &event_id)?);
-                    services()
-                        .rooms
-                        .auth_chain
-                        .cache_auth_chain(vec![sevent_id], Arc::clone(&auth_chain))?;
+                    let auth_chain = Arc::new(
+                        self.get_auth_chain_inner(room_id, &event_id)?,
+                    );
+                    services().rooms.auth_chain.cache_auth_chain(
+                        vec![sevent_id],
+                        Arc::clone(&auth_chain),
+                    )?;
                     debug!(
                         event_id = ?event_id,
                         chain_length = ?auth_chain.len(),
@@ -129,13 +133,17 @@ impl Service {
             "Auth chain stats",
         );
 
-        Ok(full_auth_chain
-            .into_iter()
-            .filter_map(move |sid| services().rooms.short.get_eventid_from_short(sid).ok()))
+        Ok(full_auth_chain.into_iter().filter_map(move |sid| {
+            services().rooms.short.get_eventid_from_short(sid).ok()
+        }))
     }
 
     #[tracing::instrument(skip(self, event_id))]
-    fn get_auth_chain_inner(&self, room_id: &RoomId, event_id: &EventId) -> Result<HashSet<u64>> {
+    fn get_auth_chain_inner(
+        &self,
+        room_id: &RoomId,
+        event_id: &EventId,
+    ) -> Result<HashSet<u64>> {
         let mut todo = vec![Arc::from(event_id)];
         let mut found = HashSet::new();
 
@@ -143,7 +151,10 @@ impl Service {
             match services().rooms.timeline.get_pdu(&event_id) {
                 Ok(Some(pdu)) => {
                     if pdu.room_id != room_id {
-                        return Err(Error::BadRequest(ErrorKind::Forbidden, "Evil event in db"));
+                        return Err(Error::BadRequest(
+                            ErrorKind::Forbidden,
+                            "Evil event in db",
+                        ));
                     }
                     for auth_event in &pdu.auth_events {
                         let sauthevent = services()
@@ -158,10 +169,17 @@ impl Service {
                     }
                 }
                 Ok(None) => {
-                    warn!(?event_id, "Could not find pdu mentioned in auth events");
+                    warn!(
+                        ?event_id,
+                        "Could not find pdu mentioned in auth events"
+                    );
                 }
                 Err(error) => {
-                    error!(?event_id, ?error, "Could not load event in auth chain");
+                    error!(
+                        ?event_id,
+                        ?error,
+                        "Could not load event in auth chain"
+                    );
                 }
             }
         }

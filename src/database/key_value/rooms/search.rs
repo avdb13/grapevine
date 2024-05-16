@@ -4,7 +4,12 @@ use crate::{database::KeyValueDatabase, service, services, utils, Result};
 
 impl service::rooms::search::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
-    fn index_pdu(&self, shortroomid: u64, pdu_id: &[u8], message_body: &str) -> Result<()> {
+    fn index_pdu(
+        &self,
+        shortroomid: u64,
+        pdu_id: &[u8],
+        message_body: &str,
+    ) -> Result<()> {
         let mut batch = message_body
             .split_terminator(|c: char| !c.is_alphanumeric())
             .filter(|s| !s.is_empty())
@@ -13,7 +18,7 @@ impl service::rooms::search::Data for KeyValueDatabase {
             .map(|word| {
                 let mut key = shortroomid.to_be_bytes().to_vec();
                 key.extend_from_slice(word.as_bytes());
-                key.push(0xff);
+                key.push(0xFF);
                 // TODO: currently we save the room id a second time here
                 key.extend_from_slice(pdu_id);
                 (key, Vec::new())
@@ -28,7 +33,8 @@ impl service::rooms::search::Data for KeyValueDatabase {
         &'a self,
         room_id: &RoomId,
         search_string: &str,
-    ) -> Result<Option<(Box<dyn Iterator<Item = Vec<u8>> + 'a>, Vec<String>)>> {
+    ) -> Result<Option<(Box<dyn Iterator<Item = Vec<u8>> + 'a>, Vec<String>)>>
+    {
         let prefix = services()
             .rooms
             .short
@@ -46,7 +52,7 @@ impl service::rooms::search::Data for KeyValueDatabase {
         let iterators = words.clone().into_iter().map(move |word| {
             let mut prefix2 = prefix.clone();
             prefix2.extend_from_slice(word.as_bytes());
-            prefix2.push(0xff);
+            prefix2.push(0xFF);
             let prefix3 = prefix2.clone();
 
             let mut last_possible_id = prefix2.clone();
@@ -60,7 +66,9 @@ impl service::rooms::search::Data for KeyValueDatabase {
         });
 
         // We compare b with a because we reversed the iterator earlier
-        let Some(common_elements) = utils::common_elements(iterators, |a, b| b.cmp(a)) else {
+        let Some(common_elements) =
+            utils::common_elements(iterators, |a, b| b.cmp(a))
+        else {
             return Ok(None);
         };
 

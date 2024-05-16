@@ -11,11 +11,11 @@ impl service::rooms::lazy_loading::Data for KeyValueDatabase {
         ll_user: &UserId,
     ) -> Result<bool> {
         let mut key = user_id.as_bytes().to_vec();
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(device_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(room_id.as_bytes());
-        key.push(0xff);
+        key.push(0xFF);
         key.extend_from_slice(ll_user.as_bytes());
         Ok(self.lazyloadedids.get(&key)?.is_some())
     }
@@ -28,11 +28,11 @@ impl service::rooms::lazy_loading::Data for KeyValueDatabase {
         confirmed_user_ids: &mut dyn Iterator<Item = &UserId>,
     ) -> Result<()> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(device_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(room_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         for ll_id in confirmed_user_ids {
             let mut key = prefix.clone();
@@ -50,11 +50,11 @@ impl service::rooms::lazy_loading::Data for KeyValueDatabase {
         room_id: &RoomId,
     ) -> Result<()> {
         let mut prefix = user_id.as_bytes().to_vec();
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(device_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
         prefix.extend_from_slice(room_id.as_bytes());
-        prefix.push(0xff);
+        prefix.push(0xFF);
 
         for (key, _) in self.lazyloadedids.scan_prefix(prefix) {
             self.lazyloadedids.remove(&key)?;

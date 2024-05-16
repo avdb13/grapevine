@@ -1,7 +1,8 @@
-use crate::{
-    service::{pdu::PduBuilder, rooms::timeline::PduCount},
-    services, utils, Error, Result, Ruma,
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
 };
+
 use ruma::{
     api::client::{
         error::ErrorKind,
@@ -10,18 +11,21 @@ use ruma::{
     events::{StateEventType, TimelineEventType},
     uint,
 };
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
+
+use crate::{
+    service::{pdu::PduBuilder, rooms::timeline::PduCount},
+    services, utils, Error, Result, Ruma,
 };
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/send/{eventType}/{txnId}`
 ///
 /// Send a message event into the room.
 ///
-/// - Is a NOOP if the txn id was already used before and returns the same event id again
+/// - Is a NOOP if the txn id was already used before and returns the same event
+///   id again
 /// - The only requirement for the content is that it has to be valid json
-/// - Tries to send the event into the room, auth rules will determine if it is allowed
+/// - Tries to send the event into the room, auth rules will determine if it is
+///   allowed
 pub(crate) async fn send_message_event_route(
     body: Ruma<send_message_event::v3::Request>,
 ) -> Result<send_message_event::v3::Response> {
@@ -50,29 +54,37 @@ pub(crate) async fn send_message_event_route(
     }
 
     // Check if this is a new transaction id
-    if let Some(response) =
-        services()
-            .transaction_ids
-            .existing_txnid(sender_user, sender_device, &body.txn_id)?
-    {
+    if let Some(response) = services().transaction_ids.existing_txnid(
+        sender_user,
+        sender_device,
+        &body.txn_id,
+    )? {
         // The client might have sent a txnid of the /sendToDevice endpoint
         // This txnid has no response associated with it
         if response.is_empty() {
             return Err(Error::BadRequest(
                 ErrorKind::InvalidParam,
-                "Tried to use txn id already used for an incompatible endpoint.",
+                "Tried to use txn id already used for an incompatible \
+                 endpoint.",
             ));
         }
 
         let event_id = utils::string_from_bytes(&response)
-            .map_err(|_| Error::bad_database("Invalid txnid bytes in database."))?
+            .map_err(|_| {
+                Error::bad_database("Invalid txnid bytes in database.")
+            })?
             .try_into()
-            .map_err(|_| Error::bad_database("Invalid event id in txnid data."))?;
-        return Ok(send_message_event::v3::Response { event_id });
+            .map_err(|_| {
+                Error::bad_database("Invalid event id in txnid data.")
+            })?;
+        return Ok(send_message_event::v3::Response {
+            event_id,
+        });
     }
 
     let mut unsigned = BTreeMap::new();
-    unsigned.insert("transaction_id".to_owned(), body.txn_id.to_string().into());
+    unsigned
+        .insert("transaction_id".to_owned(), body.txn_id.to_string().into());
 
     let event_id = services()
         .rooms
@@ -81,7 +93,12 @@ pub(crate) async fn send_message_event_route(
             PduBuilder {
                 event_type: body.event_type.to_string().into(),
                 content: serde_json::from_str(body.body.body.json().get())
-                    .map_err(|_| Error::BadRequest(ErrorKind::BadJson, "Invalid JSON body."))?,
+                    .map_err(|_| {
+                        Error::BadRequest(
+                            ErrorKind::BadJson,
+                            "Invalid JSON body.",
+                        )
+                    })?,
                 unsigned: Some(unsigned),
                 state_key: None,
                 redacts: None,
@@ -101,23 +118,23 @@ pub(crate) async fn send_message_event_route(
 
     drop(state_lock);
 
-    Ok(send_message_event::v3::Response::new(
-        (*event_id).to_owned(),
-    ))
+    Ok(send_message_event::v3::Response::new((*event_id).to_owned()))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/messages`
 ///
 /// Allows paginating through room history.
 ///
-/// - Only works if the user is joined (TODO: always allow, but only show events where the user was
+/// - Only works if the user is joined (TODO: always allow, but only show events
+///   where the user was
 /// joined, depending on `history_visibility`)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn get_message_events_route(
     body: Ruma<get_message_events::v3::Request>,
 ) -> Result<get_message_events::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+    let sender_device =
+        body.sender_device.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
         Some(from) => PduCount::try_from_string(&from)?,
@@ -127,15 +144,17 @@ pub(crate) async fn get_message_events_route(
         },
     };
 
-    let to = body
-        .to
-        .as_ref()
-        .and_then(|t| PduCount::try_from_string(t).ok());
+    let to = body.to.as_ref().and_then(|t| PduCount::try_from_string(t).ok());
 
     services()
         .rooms
         .lazy_loading
-        .lazy_load_confirm_delivery(sender_user, sender_device, &body.room_id, from)
+        .lazy_load_confirm_delivery(
+            sender_user,
+            sender_device,
+            &body.room_id,
+            from,
+        )
         .await?;
 
     let limit = body
@@ -162,7 +181,11 @@ pub(crate) async fn get_message_events_route(
                     services()
                         .rooms
                         .state_accessor
-                        .user_can_see_event(sender_user, &body.room_id, &pdu.event_id)
+                        .user_can_see_event(
+                            sender_user,
+                            &body.room_id,
+                            &pdu.event_id,
+                        )
                         .unwrap_or(false)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
@@ -214,7 +237,11 @@ pub(crate) async fn get_message_events_route(
                     services()
                         .rooms
                         .state_accessor
-                        .user_can_see_event(sender_user, &body.room_id, &pdu.event_id)
+                        .user_can_see_event(
+                            sender_user,
+                            &body.room_id,
+                            &pdu.event_id,
+                        )
                         .unwrap_or(false)
                 })
                 .take_while(|&(k, _)| Some(k) != to)
@@ -254,11 +281,13 @@ pub(crate) async fn get_message_events_route(
 
     resp.state = Vec::new();
     for ll_id in &lazy_loaded {
-        if let Some(member_event) = services().rooms.state_accessor.room_state_get(
-            &body.room_id,
-            &StateEventType::RoomMember,
-            ll_id.as_str(),
-        )? {
+        if let Some(member_event) =
+            services().rooms.state_accessor.room_state_get(
+                &body.room_id,
+                &StateEventType::RoomMember,
+                ll_id.as_str(),
+            )?
+        {
             resp.state.push(member_event.to_state_event());
         }
     }

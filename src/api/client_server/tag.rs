@@ -1,4 +1,5 @@
-use crate::{services, Error, Result, Ruma};
+use std::collections::BTreeMap;
+
 use ruma::{
     api::client::tag::{create_tag, delete_tag, get_tags},
     events::{
@@ -6,7 +7,8 @@ use ruma::{
         RoomAccountDataEventType,
     },
 };
-use std::collections::BTreeMap;
+
+use crate::{services, Error, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/user/{userId}/rooms/{roomId}/tags/{tag}`
 ///
@@ -33,8 +35,9 @@ pub(crate) async fn update_tag_route(
             })
         },
         |e| {
-            serde_json::from_str(e.get())
-                .map_err(|_| Error::bad_database("Invalid account data event in db."))
+            serde_json::from_str(e.get()).map_err(|_| {
+                Error::bad_database("Invalid account data event in db.")
+            })
         },
     )?;
 
@@ -78,8 +81,9 @@ pub(crate) async fn delete_tag_route(
             })
         },
         |e| {
-            serde_json::from_str(e.get())
-                .map_err(|_| Error::bad_database("Invalid account data event in db."))
+            serde_json::from_str(e.get()).map_err(|_| {
+                Error::bad_database("Invalid account data event in db.")
+            })
         },
     )?;
 
@@ -120,8 +124,9 @@ pub(crate) async fn get_tags_route(
             })
         },
         |e| {
-            serde_json::from_str(e.get())
-                .map_err(|_| Error::bad_database("Invalid account data event in db."))
+            serde_json::from_str(e.get()).map_err(|_| {
+                Error::bad_database("Invalid account data event in db.")
+            })
         },
     )?;
 

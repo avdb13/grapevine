@@ -1,16 +1,20 @@
-use rocksdb::{
-    perf::get_memory_usage_stats, BlockBasedOptions, BoundColumnFamily, Cache,
-    ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType, DBRecoveryMode, DBWithThreadMode,
-    Direction, IteratorMode, MultiThreaded, Options, ReadOptions, WriteOptions,
-};
-
-use super::{super::Config, watchers::Watchers, KeyValueDatabaseEngine, KvTree};
-use crate::{utils, Result};
 use std::{
     future::Future,
     pin::Pin,
     sync::{Arc, RwLock},
 };
+
+use rocksdb::{
+    perf::get_memory_usage_stats, BlockBasedOptions, BoundColumnFamily, Cache,
+    ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType,
+    DBRecoveryMode, DBWithThreadMode, Direction, IteratorMode, MultiThreaded,
+    Options, ReadOptions, WriteOptions,
+};
+
+use super::{
+    super::Config, watchers::Watchers, KeyValueDatabaseEngine, KvTree,
+};
+use crate::{utils, Result};
 
 pub(crate) struct Engine {
     rocks: DBWithThreadMode<MultiThreaded>,
@@ -38,7 +42,8 @@ fn db_options(max_open_files: i32, rocksdb_cache: &Cache) -> Options {
     let mut db_opts = Options::default();
     db_opts.set_block_based_table_factory(&block_based_options);
     db_opts.create_if_missing(true);
-    db_opts.increase_parallelism(num_cpus::get().try_into().unwrap_or(i32::MAX));
+    db_opts
+        .increase_parallelism(num_cpus::get().try_into().unwrap_or(i32::MAX));
     db_opts.set_max_open_files(max_open_files);
     db_opts.set_compression_type(DBCompressionType::Lz4);
     db_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
@@ -69,13 +74,17 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             clippy::cast_sign_loss,
             clippy::cast_possible_truncation
         )]
-        let cache_capacity_bytes = (config.db_cache_capacity_mb * 1024.0 * 1024.0) as usize;
+        let cache_capacity_bytes =
+            (config.db_cache_capacity_mb * 1024.0 * 1024.0) as usize;
         let rocksdb_cache = Cache::new_lru_cache(cache_capacity_bytes);
 
         let db_opts = db_options(config.rocksdb_max_open_files, &rocksdb_cache);
 
-        let cfs = DBWithThreadMode::<MultiThreaded>::list_cf(&db_opts, &config.database_path)
-            .unwrap_or_default();
+        let cfs = DBWithThreadMode::<MultiThreaded>::list_cf(
+            &db_opts,
+            &config.database_path,
+        )
+        .unwrap_or_default();
 
         let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
             &db_opts,
@@ -119,14 +128,14 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
 
     #[allow(clippy::as_conversions, clippy::cast_precision_loss)]
     fn memory_usage(&self) -> Result<String> {
-        let stats = get_memory_usage_stats(Some(&[&self.rocks]), Some(&[&self.cache]))?;
+        let stats =
+            get_memory_usage_stats(Some(&[&self.rocks]), Some(&[&self.cache]))?;
         Ok(format!(
-            "Approximate memory usage of all the mem-tables: {:.3} MB\n\
-             Approximate memory usage of un-flushed mem-tables: {:.3} MB\n\
-             Approximate memory usage of all the table readers: {:.3} MB\n\
-             Approximate memory usage by cache: {:.3} MB\n\
-             Approximate memory usage by cache pinned: {:.3} MB\n\
-             ",
+            "Approximate memory usage of all the mem-tables: {:.3} \
+             MB\nApproximate memory usage of un-flushed mem-tables: {:.3} \
+             MB\nApproximate memory usage of all the table readers: {:.3} \
+             MB\nApproximate memory usage by cache: {:.3} MB\nApproximate \
+             memory usage by cache pinned: {:.3} MB\n",
             stats.mem_table_total as f64 / 1024.0 / 1024.0,
             stats.mem_table_unflushed as f64 / 1024.0 / 1024.0,
             stats.mem_table_readers_total as f64 / 1024.0 / 1024.0,
@@ -154,9 +163,7 @@ impl KvTree for RocksDbEngineTree<'_> {
     fn insert(&self, key: &[u8], value: &[u8]) -> Result<()> {
         let writeoptions = WriteOptions::default();
         let lock = self.write_lock.read().unwrap();
-        self.db
-            .rocks
-            .put_cf_opt(&self.cf(), key, value, &writeoptions)?;
+        self.db.rocks.put_cf_opt(&self.cf(), key, value, &writeoptions)?;
         drop(lock);
 
         self.watchers.wake(key);
@@ -164,12 +171,13 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(())
     }
 
-    fn insert_batch(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()> {
+    fn insert_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>,
+    ) -> Result<()> {
         let writeoptions = WriteOptions::default();
         for (key, value) in iter {
-            self.db
-                .rocks
-                .put_cf_opt(&self.cf(), key, value, &writeoptions)?;
+            self.db.rocks.put_cf_opt(&self.cf(), key, value, &writeoptions)?;
         }
 
         Ok(())
@@ -177,10 +185,7 @@ impl KvTree for RocksDbEngineTree<'_> {
 
     fn remove(&self, key: &[u8]) -> Result<()> {
         let writeoptions = WriteOptions::default();
-        Ok(self
-            .db
-            .rocks
-            .delete_cf_opt(&self.cf(), key, &writeoptions)?)
+        Ok(self.db.rocks.delete_cf_opt(&self.cf(), key, &writeoptions)?)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a> {
@@ -230,26 +235,26 @@ impl KvTree for RocksDbEngineTree<'_> {
 
         let old = self.db.rocks.get_cf_opt(&self.cf(), key, &readoptions)?;
         let new = utils::increment(old.as_deref());
-        self.db
-            .rocks
-            .put_cf_opt(&self.cf(), key, &new, &writeoptions)?;
+        self.db.rocks.put_cf_opt(&self.cf(), key, &new, &writeoptions)?;
 
         drop(lock);
         Ok(new)
     }
 
-    fn increment_batch(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()> {
+    fn increment_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = Vec<u8>>,
+    ) -> Result<()> {
         let readoptions = ReadOptions::default();
         let writeoptions = WriteOptions::default();
 
         let lock = self.write_lock.write().unwrap();
 
         for key in iter {
-            let old = self.db.rocks.get_cf_opt(&self.cf(), &key, &readoptions)?;
+            let old =
+                self.db.rocks.get_cf_opt(&self.cf(), &key, &readoptions)?;
             let new = utils::increment(old.as_deref());
-            self.db
-                .rocks
-                .put_cf_opt(&self.cf(), key, new, &writeoptions)?;
+            self.db.rocks.put_cf_opt(&self.cf(), key, new, &writeoptions)?;
         }
 
         drop(lock);
@@ -277,7 +282,10 @@ impl KvTree for RocksDbEngineTree<'_> {
         )
     }
 
-    fn watch_prefix<'a>(&'a self, prefix: &[u8]) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+    fn watch_prefix<'a>(
+        &'a self,
+        prefix: &[u8],
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
         self.watchers.watch(prefix)
     }
 }

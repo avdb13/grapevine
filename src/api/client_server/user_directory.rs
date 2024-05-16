@@ -1,4 +1,3 @@
-use crate::{services, Result, Ruma};
 use ruma::{
     api::client::user_directory::search_users,
     events::{
@@ -7,11 +6,14 @@ use ruma::{
     },
 };
 
+use crate::{services, Result, Ruma};
+
 /// # `POST /_matrix/client/r0/user_directory/search`
 ///
 /// Searches all known users for a match.
 ///
-/// - Hides any local users that aren't in any public rooms (i.e. those that have the join rule set to public)
+/// - Hides any local users that aren't in any public rooms (i.e. those that
+///   have the join rule set to public)
 /// and don't share a room with the sender
 pub(crate) async fn search_users_route(
     body: Ruma<search_users::v3::Request>,
@@ -38,8 +40,7 @@ pub(crate) async fn search_users_route(
             .display_name
             .as_ref()
             .filter(|name| {
-                name.to_lowercase()
-                    .contains(&body.search_term.to_lowercase())
+                name.to_lowercase().contains(&body.search_term.to_lowercase())
             })
             .is_some();
 
@@ -62,10 +63,12 @@ pub(crate) async fn search_users_route(
                     .room_state_get(&room, &StateEventType::RoomJoinRules, "")
                     .map_or(false, |event| {
                         event.map_or(false, |event| {
-                            serde_json::from_str(event.content.get())
-                                .map_or(false, |r: RoomJoinRulesEventContent| {
+                            serde_json::from_str(event.content.get()).map_or(
+                                false,
+                                |r: RoomJoinRulesEventContent| {
                                     r.join_rule == JoinRule::Public
-                                })
+                                },
+                            )
                         })
                     })
             });
@@ -96,5 +99,8 @@ pub(crate) async fn search_users_route(
     let results = users.by_ref().take(limit).collect();
     let limited = users.next().is_some();
 
-    Ok(search_users::v3::Response { results, limited })
+    Ok(search_users::v3::Response {
+        results,
+        limited,
+    })
 }

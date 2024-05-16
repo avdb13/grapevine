@@ -5,16 +5,19 @@ pub(crate) use data::Data;
 use ruma::{DeviceId, OwnedDeviceId, OwnedRoomId, OwnedUserId, RoomId, UserId};
 use tokio::sync::Mutex;
 
-use crate::Result;
-
 use super::timeline::PduCount;
+use crate::Result;
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
 
     #[allow(clippy::type_complexity)]
-    pub(crate) lazy_load_waiting:
-        Mutex<HashMap<(OwnedUserId, OwnedDeviceId, OwnedRoomId, PduCount), HashSet<OwnedUserId>>>,
+    pub(crate) lazy_load_waiting: Mutex<
+        HashMap<
+            (OwnedUserId, OwnedDeviceId, OwnedRoomId, PduCount),
+            HashSet<OwnedUserId>,
+        >,
+    >,
 }
 
 impl Service {
@@ -26,8 +29,7 @@ impl Service {
         room_id: &RoomId,
         ll_user: &UserId,
     ) -> Result<bool> {
-        self.db
-            .lazy_load_was_sent_before(user_id, device_id, room_id, ll_user)
+        self.db.lazy_load_was_sent_before(user_id, device_id, room_id, ll_user)
     }
 
     #[tracing::instrument(skip(self))]

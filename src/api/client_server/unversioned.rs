@@ -6,14 +6,16 @@ use crate::{Result, Ruma};
 
 /// # `GET /_matrix/client/versions`
 ///
-/// Get the versions of the specification and unstable features supported by this server.
+/// Get the versions of the specification and unstable features supported by
+/// this server.
 ///
 /// - Versions take the form MAJOR.MINOR.PATCH
 /// - Only the latest PATCH release will be reported for each MAJOR.MINOR value
-/// - Unstable features are namespaced and may include version information in their name
+/// - Unstable features are namespaced and may include version information in
+///   their name
 ///
-/// Note: Unstable features are used while developing new features. Clients should avoid using
-/// unstable features in their stable releases
+/// Note: Unstable features are used while developing new features. Clients
+/// should avoid using unstable features in their stable releases
 pub(crate) async fn get_supported_versions_route(
     _body: Ruma<get_supported_versions::Request>,
 ) -> Result<get_supported_versions::Response> {
@@ -27,7 +29,10 @@ pub(crate) async fn get_supported_versions_route(
             "v1.4".to_owned(),
             "v1.5".to_owned(),
         ],
-        unstable_features: BTreeMap::from_iter([("org.matrix.e2e_cross_signing".to_owned(), true)]),
+        unstable_features: BTreeMap::from_iter([(
+            "org.matrix.e2e_cross_signing".to_owned(),
+            true,
+        )]),
     };
 
     Ok(resp)

@@ -24,9 +24,10 @@ use crate::Result;
 /// ## Include vs. Exclude
 /// If include is an empty list, it is assumed to be `["*"]`.
 ///
-/// If a domain matches both the exclude and include list, the proxy will only be used if it was
-/// included because of a more specific rule than it was excluded. In the above example, the proxy
-/// would be used for `ordinary.onion`, `matrix.myspecial.onion`, but not `hello.myspecial.onion`.
+/// If a domain matches both the exclude and include list, the proxy will only
+/// be used if it was included because of a more specific rule than it was
+/// excluded. In the above example, the proxy would be used for
+/// `ordinary.onion`, `matrix.myspecial.onion`, but not `hello.myspecial.onion`.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -43,7 +44,9 @@ impl ProxyConfig {
     pub(crate) fn to_proxy(&self) -> Result<Option<Proxy>> {
         Ok(match self.clone() {
             ProxyConfig::None => None,
-            ProxyConfig::Global { url } => Some(Proxy::all(url)?),
+            ProxyConfig::Global {
+                url,
+            } => Some(Proxy::all(url)?),
             ProxyConfig::ByDomain(proxies) => Some(Proxy::custom(move |url| {
                 // first matching proxy
                 proxies.iter().find_map(|proxy| proxy.for_url(url)).cloned()
@@ -112,25 +115,32 @@ impl WildCardedDomain {
             WildCardedDomain::Exact(d) => domain == d,
         }
     }
+
     pub(crate) fn more_specific_than(&self, other: &Self) -> bool {
         match (self, other) {
             (WildCardedDomain::WildCard, WildCardedDomain::WildCard) => false,
             (_, WildCardedDomain::WildCard) => true,
-            (WildCardedDomain::Exact(a), WildCardedDomain::WildCarded(_)) => other.matches(a),
-            (WildCardedDomain::WildCarded(a), WildCardedDomain::WildCarded(b)) => {
-                a != b && a.ends_with(b)
+            (WildCardedDomain::Exact(a), WildCardedDomain::WildCarded(_)) => {
+                other.matches(a)
             }
+            (
+                WildCardedDomain::WildCarded(a),
+                WildCardedDomain::WildCarded(b),
+            ) => a != b && a.ends_with(b),
             _ => false,
         }
     }
 }
 impl std::str::FromStr for WildCardedDomain {
     type Err = std::convert::Infallible;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // maybe do some domain validation?
         Ok(s.strip_prefix("*.")
             .map(|x| WildCardedDomain::WildCarded(x.to_owned()))
-            .or_else(|| (s == "*").then(|| WildCardedDomain::WildCarded(String::new())))
+            .or_else(|| {
+                (s == "*").then(|| WildCardedDomain::WildCarded(String::new()))
+            })
             .unwrap_or_else(|| WildCardedDomain::Exact(s.to_owned())))
     }
 }

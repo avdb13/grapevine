@@ -1,5 +1,6 @@
-use crate::Result;
 use ruma::{DeviceId, TransactionId, UserId};
+
+use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
     fn add_txnid(

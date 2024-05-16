@@ -4,12 +4,14 @@ use std::{
     pin::Pin,
     sync::RwLock,
 };
+
 use tokio::sync::watch;
 
 #[derive(Default)]
 pub(super) struct Watchers {
     #[allow(clippy::type_complexity)]
-    watchers: RwLock<HashMap<Vec<u8>, (watch::Sender<()>, watch::Receiver<()>)>>,
+    watchers:
+        RwLock<HashMap<Vec<u8>, (watch::Sender<()>, watch::Receiver<()>)>>,
 }
 
 impl Watchers {
@@ -17,7 +19,8 @@ impl Watchers {
         &'a self,
         prefix: &[u8],
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
-        let mut rx = match self.watchers.write().unwrap().entry(prefix.to_vec()) {
+        let mut rx = match self.watchers.write().unwrap().entry(prefix.to_vec())
+        {
             hash_map::Entry::Occupied(o) => o.get().1.clone(),
             hash_map::Entry::Vacant(v) => {
                 let (tx, rx) = tokio::sync::watch::channel(());
@@ -31,6 +34,7 @@ impl Watchers {
             rx.changed().await.unwrap();
         })
     }
+
     pub(super) fn wake(&self, key: &[u8]) {
         let watchers = self.watchers.read().unwrap();
         let mut triggered = Vec::new();

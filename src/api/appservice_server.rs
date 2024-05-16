@@ -1,14 +1,18 @@
-use crate::{services, utils, Error, Result};
+use std::{fmt::Debug, mem, time::Duration};
+
 use bytes::BytesMut;
 use ruma::api::{
-    appservice::Registration, IncomingResponse, MatrixVersion, OutgoingRequest, SendAccessToken,
+    appservice::Registration, IncomingResponse, MatrixVersion, OutgoingRequest,
+    SendAccessToken,
 };
-use std::{fmt::Debug, mem, time::Duration};
 use tracing::warn;
+
+use crate::{services, utils, Error, Result};
 
 /// Sends a request to an appservice
 ///
-/// Only returns None if there is no url specified in the appservice registration file
+/// Only returns None if there is no url specified in the appservice
+/// registration file
 #[tracing::instrument(skip(request))]
 pub(crate) async fn send_request<T: OutgoingRequest>(
     registration: Registration,
@@ -45,7 +49,8 @@ where
             .parse()
             .unwrap(),
     );
-    *http_request.uri_mut() = parts.try_into().expect("our manipulation is always valid");
+    *http_request.uri_mut() =
+        parts.try_into().expect("our manipulation is always valid");
 
     let mut reqwest_request = reqwest::Request::try_from(http_request)?;
 
@@ -70,9 +75,8 @@ where
 
     // reqwest::Response -> http::Response conversion
     let status = response.status();
-    let mut http_response_builder = http::Response::builder()
-        .status(status)
-        .version(response.version());
+    let mut http_response_builder =
+        http::Response::builder().status(status).version(response.version());
     mem::swap(
         response.headers_mut(),
         http_response_builder

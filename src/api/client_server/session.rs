@@ -1,5 +1,3 @@
-use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
-use crate::{services, utils, Error, Result, Ruma};
 use ruma::{
     api::client::{
         error::ErrorKind,
@@ -17,6 +15,9 @@ use ruma::{
 use serde::Deserialize;
 use tracing::{info, warn};
 
+use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
+use crate::{services, utils, Error, Result, Ruma};
+
 #[derive(Debug, Deserialize)]
 struct Claims {
     sub: String,
@@ -24,30 +25,36 @@ struct Claims {
 
 /// # `GET /_matrix/client/r0/login`
 ///
-/// Get the supported login types of this server. One of these should be used as the `type` field
-/// when logging in.
+/// Get the supported login types of this server. One of these should be used as
+/// the `type` field when logging in.
 pub(crate) async fn get_login_types_route(
     _body: Ruma<get_login_types::v3::Request>,
 ) -> Result<get_login_types::v3::Response> {
     Ok(get_login_types::v3::Response::new(vec![
         get_login_types::v3::LoginType::Password(PasswordLoginType::default()),
-        get_login_types::v3::LoginType::ApplicationService(ApplicationServiceLoginType::default()),
+        get_login_types::v3::LoginType::ApplicationService(
+            ApplicationServiceLoginType::default(),
+        ),
     ]))
 }
 
 /// # `POST /_matrix/client/r0/login`
 ///
-/// Authenticates the user and returns an access token it can use in subsequent requests.
+/// Authenticates the user and returns an access token it can use in subsequent
+/// requests.
 ///
-/// - The user needs to authenticate using their password (or if enabled using a json web token)
+/// - The user needs to authenticate using their password (or if enabled using a
+///   json web token)
 /// - If `device_id` is known: invalidates old access token of that device
 /// - If `device_id` is unknown: creates a new device
 /// - Returns access token that is associated with the user and device
 ///
-/// Note: You can use [`GET /_matrix/client/r0/login`](get_login_types_route) to see
-/// supported login types.
+/// Note: You can use [`GET /_matrix/client/r0/login`](get_login_types_route) to
+/// see supported login types.
 #[allow(clippy::too_many_lines)]
-pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login::v3::Response> {
+pub(crate) async fn login_route(
+    body: Ruma<login::v3::Request>,
+) -> Result<login::v3::Response> {
     // To allow deprecated login methods
     #![allow(deprecated)]
     // Validate login method
@@ -59,18 +66,29 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
             user,
             ..
         }) => {
-            let user_id = if let Some(UserIdentifier::UserIdOrLocalpart(user_id)) = identifier {
-                UserId::parse_with_server_name(
-                    user_id.to_lowercase(),
-                    services().globals.server_name(),
-                )
-            } else if let Some(user) = user {
-                UserId::parse(user)
-            } else {
-                warn!("Bad login type: {:?}", &body.login_info);
-                return Err(Error::BadRequest(ErrorKind::Forbidden, "Bad login type."));
-            }
-            .map_err(|_| Error::BadRequest(ErrorKind::InvalidUsername, "Username is invalid."))?;
+            let user_id =
+                if let Some(UserIdentifier::UserIdOrLocalpart(user_id)) =
+                    identifier
+                {
+                    UserId::parse_with_server_name(
+                        user_id.to_lowercase(),
+                        services().globals.server_name(),
+                    )
+                } else if let Some(user) = user {
+                    UserId::parse(user)
+                } else {
+                    warn!("Bad login type: {:?}", &body.login_info);
+                    return Err(Error::BadRequest(
+                        ErrorKind::Forbidden,
+                        "Bad login type.",
+                    ));
+                }
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidUsername,
+                        "Username is invalid.",
+                    )
+                })?;
 
             if services().appservice.is_exclusive_user_id(&user_id).await {
                 return Err(Error::BadRequest(
@@ -79,13 +97,12 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
                 ));
             }
 
-            let hash = services()
-                .users
-                .password_hash(&user_id)?
-                .ok_or(Error::BadRequest(
+            let hash = services().users.password_hash(&user_id)?.ok_or(
+                Error::BadRequest(
                     ErrorKind::Forbidden,
                     "Wrong username or password.",
-                ))?;
+                ),
+            )?;
 
             if hash.is_empty() {
                 return Err(Error::BadRequest(
@@ -94,7 +111,9 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
                 ));
             }
 
-            let hash_matches = argon2::verify_encoded(&hash, password.as_bytes()).unwrap_or(false);
+            let hash_matches =
+                argon2::verify_encoded(&hash, password.as_bytes())
+                    .unwrap_or(false);
 
             if !hash_matches {
                 return Err(Error::BadRequest(
@@ -105,20 +124,34 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
 
             user_id
         }
-        login::v3::LoginInfo::Token(login::v3::Token { token }) => {
-            if let Some(jwt_decoding_key) = services().globals.jwt_decoding_key() {
+        login::v3::LoginInfo::Token(login::v3::Token {
+            token,
+        }) => {
+            if let Some(jwt_decoding_key) =
+                services().globals.jwt_decoding_key()
+            {
                 let token = jsonwebtoken::decode::<Claims>(
                     token,
                     jwt_decoding_key,
                     &jsonwebtoken::Validation::default(),
                 )
-                .map_err(|_| Error::BadRequest(ErrorKind::InvalidUsername, "Token is invalid."))?;
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidUsername,
+                        "Token is invalid.",
+                    )
+                })?;
                 let username = token.claims.sub.to_lowercase();
-                let user_id =
-                    UserId::parse_with_server_name(username, services().globals.server_name())
-                        .map_err(|_| {
-                            Error::BadRequest(ErrorKind::InvalidUsername, "Username is invalid.")
-                        })?;
+                let user_id = UserId::parse_with_server_name(
+                    username,
+                    services().globals.server_name(),
+                )
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidUsername,
+                        "Username is invalid.",
+                    )
+                })?;
 
                 if services().appservice.is_exclusive_user_id(&user_id).await {
                     return Err(Error::BadRequest(
@@ -131,26 +164,40 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
             } else {
                 return Err(Error::BadRequest(
                     ErrorKind::Unknown,
-                    "Token login is not supported (server has no jwt decoding key).",
+                    "Token login is not supported (server has no jwt decoding \
+                     key).",
                 ));
             }
         }
-        login::v3::LoginInfo::ApplicationService(login::v3::ApplicationService {
-            identifier,
-            user,
-        }) => {
-            let user_id = if let Some(UserIdentifier::UserIdOrLocalpart(user_id)) = identifier {
-                UserId::parse_with_server_name(
-                    user_id.to_lowercase(),
-                    services().globals.server_name(),
-                )
-            } else if let Some(user) = user {
-                UserId::parse(user)
-            } else {
-                warn!("Bad login type: {:?}", &body.login_info);
-                return Err(Error::BadRequest(ErrorKind::Forbidden, "Bad login type."));
-            }
-            .map_err(|_| Error::BadRequest(ErrorKind::InvalidUsername, "Username is invalid."))?;
+        login::v3::LoginInfo::ApplicationService(
+            login::v3::ApplicationService {
+                identifier,
+                user,
+            },
+        ) => {
+            let user_id =
+                if let Some(UserIdentifier::UserIdOrLocalpart(user_id)) =
+                    identifier
+                {
+                    UserId::parse_with_server_name(
+                        user_id.to_lowercase(),
+                        services().globals.server_name(),
+                    )
+                } else if let Some(user) = user {
+                    UserId::parse(user)
+                } else {
+                    warn!("Bad login type: {:?}", &body.login_info);
+                    return Err(Error::BadRequest(
+                        ErrorKind::Forbidden,
+                        "Bad login type.",
+                    ));
+                }
+                .map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidUsername,
+                        "Username is invalid.",
+                    )
+                })?;
 
             if let Some(info) = &body.appservice_info {
                 if !info.is_user_match(&user_id) {
@@ -225,12 +272,16 @@ pub(crate) async fn login_route(body: Ruma<login::v3::Request>) -> Result<login:
 /// Log out the current device.
 ///
 /// - Invalidates access token
-/// - Deletes device metadata (device id, device display name, last seen ip, last seen ts)
+/// - Deletes device metadata (device id, device display name, last seen ip,
+///   last seen ts)
 /// - Forgets to-device events
 /// - Triggers device list updates
-pub(crate) async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logout::v3::Response> {
+pub(crate) async fn logout_route(
+    body: Ruma<logout::v3::Request>,
+) -> Result<logout::v3::Response> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let sender_device = body.sender_device.as_ref().expect("user is authenticated");
+    let sender_device =
+        body.sender_device.as_ref().expect("user is authenticated");
 
     if let Some(info) = &body.appservice_info {
         if !info.is_user_match(sender_user) {
@@ -251,12 +302,13 @@ pub(crate) async fn logout_route(body: Ruma<logout::v3::Request>) -> Result<logo
 /// Log out all devices of this user.
 ///
 /// - Invalidates all access tokens
-/// - Deletes all device metadata (device id, device display name, last seen ip, last seen ts)
+/// - Deletes all device metadata (device id, device display name, last seen ip,
+///   last seen ts)
 /// - Forgets all to-device events
 /// - Triggers device list updates
 ///
-/// Note: This is equivalent to calling [`GET /_matrix/client/r0/logout`](logout_route)
-/// from each device of this user.
+/// Note: This is equivalent to calling [`GET
+/// /_matrix/client/r0/logout`](logout_route) from each device of this user.
 pub(crate) async fn logout_all_route(
     body: Ruma<logout_all::v3::Request>,
 ) -> Result<logout_all::v3::Response> {

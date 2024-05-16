@@ -20,8 +20,7 @@ impl service::appservice::Data for KeyValueDatabase {
     ///
     /// * `service_name` - the name you send to register the service previously
     fn unregister_appservice(&self, service_name: &str) -> Result<()> {
-        self.id_appserviceregistrations
-            .remove(service_name.as_bytes())?;
+        self.id_appserviceregistrations.remove(service_name.as_bytes())?;
         Ok(())
     }
 
@@ -30,20 +29,25 @@ impl service::appservice::Data for KeyValueDatabase {
             .get(id.as_bytes())?
             .map(|bytes| {
                 serde_yaml::from_slice(&bytes).map_err(|_| {
-                    Error::bad_database("Invalid registration bytes in id_appserviceregistrations.")
+                    Error::bad_database(
+                        "Invalid registration bytes in \
+                         id_appserviceregistrations.",
+                    )
                 })
             })
             .transpose()
     }
 
-    fn iter_ids<'a>(&'a self) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
-        Ok(Box::new(self.id_appserviceregistrations.iter().map(
-            |(id, _)| {
-                utils::string_from_bytes(&id).map_err(|_| {
-                    Error::bad_database("Invalid id bytes in id_appserviceregistrations.")
-                })
-            },
-        )))
+    fn iter_ids<'a>(
+        &'a self,
+    ) -> Result<Box<dyn Iterator<Item = Result<String>> + 'a>> {
+        Ok(Box::new(self.id_appserviceregistrations.iter().map(|(id, _)| {
+            utils::string_from_bytes(&id).map_err(|_| {
+                Error::bad_database(
+                    "Invalid id bytes in id_appserviceregistrations.",
+                )
+            })
+        })))
     }
 
     fn all(&self) -> Result<Vec<(String, Registration)>> {

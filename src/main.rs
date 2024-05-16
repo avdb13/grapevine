@@ -12,7 +12,9 @@ use axum::{
     routing::{any, get, on, MethodFilter},
     Router,
 };
-use axum_server::{bind, bind_rustls, tls_rustls::RustlsConfig, Handle as ServerHandle};
+use axum_server::{
+    bind, bind_rustls, tls_rustls::RustlsConfig, Handle as ServerHandle,
+};
 use figment::{
     providers::{Env, Format, Toml},
     Figment,
@@ -50,16 +52,16 @@ use api::{client_server, server_server};
 pub(crate) use config::Config;
 pub(crate) use database::KeyValueDatabase;
 pub(crate) use service::{pdu::PduEvent, Services};
-pub(crate) use utils::error::{Error, Result};
-
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 use tikv_jemallocator::Jemalloc;
+pub(crate) use utils::error::{Error, Result};
 
 #[cfg(all(not(target_env = "msvc"), feature = "jemalloc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-pub(crate) static SERVICES: RwLock<Option<&'static Services>> = RwLock::new(None);
+pub(crate) static SERVICES: RwLock<Option<&'static Services>> =
+    RwLock::new(None);
 
 /// Convenient access to the global [`Services`] instance
 pub(crate) fn services() -> &'static Services {
@@ -71,9 +73,9 @@ pub(crate) fn services() -> &'static Services {
 
 /// Returns the current version of the crate with extra info if supplied
 ///
-/// Set the environment variable `GRAPEVINE_VERSION_EXTRA` to any UTF-8 string to
-/// include it in parenthesis after the SemVer version. A common value are git
-/// commit hashes.
+/// Set the environment variable `GRAPEVINE_VERSION_EXTRA` to any UTF-8 string
+/// to include it in parenthesis after the SemVer version. A common value are
+/// git commit hashes.
 fn version() -> String {
     let cargo_pkg_version = env!("CARGO_PKG_VERSION");
 
@@ -91,7 +93,8 @@ async fn main() {
     let raw_config = Figment::new()
         .merge(
             Toml::file(Env::var("GRAPEVINE_CONFIG").expect(
-                "The GRAPEVINE_CONFIG env var needs to be set. Example: /etc/grapevine.toml",
+                "The GRAPEVINE_CONFIG env var needs to be set. Example: \
+                 /etc/grapevine.toml",
             ))
             .nested(),
         )
@@ -100,7 +103,10 @@ async fn main() {
     let config = match raw_config.extract::<Config>() {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("It looks like your config is invalid. The following error occurred: {e}");
+            eprintln!(
+                "It looks like your config is invalid. The following error \
+                 occurred: {e}"
+            );
             std::process::exit(1);
         }
     };
@@ -108,7 +114,9 @@ async fn main() {
     config.warn_deprecated();
 
     if config.allow_jaeger {
-        opentelemetry::global::set_text_map_propagator(opentelemetry_jaeger::Propagator::new());
+        opentelemetry::global::set_text_map_propagator(
+            opentelemetry_jaeger::Propagator::new(),
+        );
         let tracer = opentelemetry_jaeger::new_agent_pipeline()
             .with_auto_split_batch(true)
             .with_service_name("grapevine")
@@ -120,7 +128,8 @@ async fn main() {
             Ok(s) => s,
             Err(e) => {
                 eprintln!(
-                    "It looks like your log config is invalid. The following error occurred: {e}"
+                    "It looks like your log config is invalid. The following \
+                     error occurred: {e}"
                 );
                 EnvFilter::try_new("warn").unwrap()
             }
@@ -146,7 +155,10 @@ async fn main() {
         let filter_layer = match EnvFilter::try_new(&config.log) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("It looks like your config is invalid. The following error occured while parsing it: {e}");
+                eprintln!(
+                    "It looks like your config is invalid. The following \
+                     error occured while parsing it: {e}"
+                );
                 EnvFilter::try_new("warn").unwrap()
             }
         };
@@ -163,7 +175,8 @@ async fn main() {
     // * https://www.freedesktop.org/software/systemd/man/systemd.exec.html#id-1.12.2.1.17.6
     // * https://github.com/systemd/systemd/commit/0abf94923b4a95a7d89bc526efc84e7ca2b71741
     #[cfg(unix)]
-    maximize_fd_limit().expect("should be able to increase the soft limit to the hard limit");
+    maximize_fd_limit()
+        .expect("should be able to increase the soft limit to the hard limit");
 
     info!("Loading database");
     if let Err(error) = KeyValueDatabase::load_or_create(config).await {
@@ -190,17 +203,19 @@ async fn run_server() -> io::Result<()> {
     let middlewares = ServiceBuilder::new()
         .sensitive_headers([header::AUTHORIZATION])
         .layer(axum::middleware::from_fn(spawn_task))
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &http::Request<_>| {
-                let path = if let Some(path) = request.extensions().get::<MatchedPath>() {
+        .layer(TraceLayer::new_for_http().make_span_with(
+            |request: &http::Request<_>| {
+                let path = if let Some(path) =
+                    request.extensions().get::<MatchedPath>()
+                {
                     path.as_str()
                 } else {
                     request.uri().path()
                 };
 
                 tracing::info_span!("http_request", %path)
-            }),
-        )
+            },
+        ))
         .layer(axum::middleware::from_fn(unrecognized_method))
         .layer(
             CorsLayer::new()
@@ -235,7 +250,8 @@ async fn run_server() -> io::Result<()> {
 
     match &config.tls {
         Some(tls) => {
-            let conf = RustlsConfig::from_pem_file(&tls.certs, &tls.key).await?;
+            let conf =
+                RustlsConfig::from_pem_file(&tls.certs, &tls.key).await?;
             let server = bind_rustls(addr, conf).handle(handle).serve(app);
 
             #[cfg(feature = "systemd")]
@@ -411,9 +427,10 @@ fn routes(config: &Config) -> Router {
         .ruma_route(c2s::get_relating_events_route)
         .ruma_route(c2s::get_hierarchy_route);
 
-    // Ruma doesn't have support for multiple paths for a single endpoint yet, and these routes
-    // share one Ruma request / response type pair with {get,send}_state_event_for_key_route.
-    // These two endpoints also allow trailing slashes.
+    // Ruma doesn't have support for multiple paths for a single endpoint yet,
+    // and these routes share one Ruma request / response type pair with
+    // {get,send}_state_event_for_key_route. These two endpoints also allow
+    // trailing slashes.
     let router = router
         .route(
             "/_matrix/client/r0/rooms/:room_id/state/:event_type",
@@ -483,9 +500,7 @@ fn routes(config: &Config) -> Router {
 
 async fn shutdown_signal(handle: ServerHandle) {
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
@@ -554,9 +569,9 @@ impl RouterExt for Router {
 }
 
 pub(crate) trait RumaHandler<T> {
-    // Can't transform to a handler without boxing or relying on the nightly-only
-    // impl-trait-in-traits feature. Moving a small amount of extra logic into the trait
-    // allows bypassing both.
+    // Can't transform to a handler without boxing or relying on the
+    // nightly-only impl-trait-in-traits feature. Moving a small amount of
+    // extra logic into the trait allows bypassing both.
     fn add_to_router(self, router: Router) -> Router;
 }
 

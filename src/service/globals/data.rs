@@ -13,7 +13,8 @@ use crate::Result;
 pub(crate) trait Data: Send + Sync {
     fn next_count(&self) -> Result<u64>;
     fn current_count(&self) -> Result<u64>;
-    async fn watch(&self, user_id: &UserId, device_id: &DeviceId) -> Result<()>;
+    async fn watch(&self, user_id: &UserId, device_id: &DeviceId)
+        -> Result<()>;
     fn cleanup(&self) -> Result<()>;
     fn memory_usage(&self) -> String;
     fn clear_caches(&self, amount: u32);
@@ -25,7 +26,8 @@ pub(crate) trait Data: Send + Sync {
         new_keys: ServerSigningKeys,
     ) -> Result<BTreeMap<OwnedServerSigningKeyId, VerifyKey>>;
 
-    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found for the server.
+    /// This returns an empty `Ok(BTreeMap<..>)` when there are no keys found
+    /// for the server.
     fn signing_keys_for(
         &self,
         origin: &ServerName,

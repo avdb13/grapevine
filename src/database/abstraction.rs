@@ -1,7 +1,7 @@
+use std::{future::Future, pin::Pin, sync::Arc};
+
 use super::Config;
 use crate::Result;
-
-use std::{future::Future, pin::Pin, sync::Arc};
 
 #[cfg(feature = "sqlite")]
 pub(crate) mod sqlite;
@@ -22,7 +22,8 @@ pub(crate) trait KeyValueDatabaseEngine: Send + Sync {
         Ok(())
     }
     fn memory_usage(&self) -> Result<String> {
-        Ok("Current database engine does not support memory usage reporting.".to_owned())
+        Ok("Current database engine does not support memory usage reporting."
+            .to_owned())
     }
     fn clear_caches(&self) {}
 }
@@ -31,7 +32,10 @@ pub(crate) trait KvTree: Send + Sync {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>>;
 
     fn insert(&self, key: &[u8], value: &[u8]) -> Result<()>;
-    fn insert_batch(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()>;
+    fn insert_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>,
+    ) -> Result<()>;
 
     fn remove(&self, key: &[u8]) -> Result<()>;
 
@@ -44,14 +48,20 @@ pub(crate) trait KvTree: Send + Sync {
     ) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a>;
 
     fn increment(&self, key: &[u8]) -> Result<Vec<u8>>;
-    fn increment_batch(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()>;
+    fn increment_batch(
+        &self,
+        iter: &mut dyn Iterator<Item = Vec<u8>>,
+    ) -> Result<()>;
 
     fn scan_prefix<'a>(
         &'a self,
         prefix: Vec<u8>,
     ) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a>;
 
-    fn watch_prefix<'a>(&'a self, prefix: &[u8]) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
+    fn watch_prefix<'a>(
+        &'a self,
+        prefix: &[u8],
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 
     fn clear(&self) -> Result<()> {
         for (key, _) in self.iter() {
