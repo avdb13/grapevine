@@ -21,7 +21,7 @@ pub(crate) struct Service {
         LruCache<
             u64,
             Vec<(
-                u64,                                // sstatehash
+                u64,                                // shortstatehash
                 Arc<HashSet<CompressedStateEvent>>, // full state
                 Arc<HashSet<CompressedStateEvent>>, // added
                 Arc<HashSet<CompressedStateEvent>>, // removed
@@ -41,7 +41,7 @@ impl Service {
         shortstatehash: u64,
     ) -> Result<
         Vec<(
-            u64,                                // sstatehash
+            u64,                                // shortstatehash
             Arc<HashSet<CompressedStateEvent>>, // full state
             Arc<HashSet<CompressedStateEvent>>, // added
             Arc<HashSet<CompressedStateEvent>>, // removed
@@ -152,7 +152,7 @@ impl Service {
         statediffremoved: Arc<HashSet<CompressedStateEvent>>,
         diff_to_sibling: usize,
         mut parent_states: Vec<(
-            u64,                                // sstatehash
+            u64,                                // shortstatehash
             Arc<HashSet<CompressedStateEvent>>, // full state
             Arc<HashSet<CompressedStateEvent>>, // added
             Arc<HashSet<CompressedStateEvent>>, // removed
