@@ -15,8 +15,10 @@ use super::{watchers::Watchers, KeyValueDatabaseEngine, KvTree};
 use crate::{database::Config, Result};
 
 thread_local! {
-    static READ_CONNECTION: RefCell<Option<&'static Connection>> = RefCell::new(None);
-    static READ_CONNECTION_ITERATOR: RefCell<Option<&'static Connection>> = RefCell::new(None);
+    static READ_CONNECTION: RefCell<Option<&'static Connection>> =
+        RefCell::new(None);
+    static READ_CONNECTION_ITERATOR: RefCell<Option<&'static Connection>> =
+        RefCell::new(None);
 }
 
 struct PreparedStatementIterator<'a> {

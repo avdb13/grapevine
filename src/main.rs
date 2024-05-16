@@ -595,9 +595,15 @@ macro_rules! impl_ruma_handler {
                 for path in meta.history.all_paths() {
                     let handler = self.clone();
 
-                    router = router.route(path, on(method_filter, |$( $ty: $ty, )* req| async move {
-                        handler($($ty,)* req).await.map(RumaResponse)
-                    }))
+                    router = router.route(
+                        path,
+                        on(
+                            method_filter,
+                            |$( $ty: $ty, )* req| async move {
+                                handler($($ty,)* req).await.map(RumaResponse)
+                            }
+                        )
+                    )
                 }
 
                 router

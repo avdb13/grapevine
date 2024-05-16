@@ -243,7 +243,9 @@ impl Service {
                     Some(event) = receiver.recv() => {
                         let message_content = match event {
                             AdminRoomEvent::SendMessage(content) => content,
-                            AdminRoomEvent::ProcessMessage(room_message) => self.process_admin_message(room_message).await
+                            AdminRoomEvent::ProcessMessage(room_message) => {
+                                self.process_admin_message(room_message).await
+                            }
                         };
 
                         let mutex_state = Arc::clone(

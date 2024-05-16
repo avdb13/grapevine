@@ -21,6 +21,8 @@ pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
 }
 
+type RoomsLeft = (OwnedRoomId, Vec<Raw<AnySyncStateEvent>>);
+
 impl Service {
     /// Update current membership data.
     #[tracing::instrument(skip(self, last_state))]
@@ -390,8 +392,7 @@ impl Service {
     pub(crate) fn rooms_left<'a>(
         &'a self,
         user_id: &UserId,
-    ) -> impl Iterator<Item = Result<(OwnedRoomId, Vec<Raw<AnySyncStateEvent>>)>> + 'a
-    {
+    ) -> impl Iterator<Item = Result<RoomsLeft>> + 'a {
         self.db.rooms_left(user_id)
     }
 
