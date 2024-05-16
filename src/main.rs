@@ -61,9 +61,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 pub(crate) static SERVICES: RwLock<Option<&'static Services>> = RwLock::new(None);
 
-// Not async due to services() being used in many closures, and async closures are not stable as of writing
-// This is the case for every other occurence of sync Mutex/RwLock, except for database related ones, where
-// the previous maintainer has asked to not modify those
+/// Convenient access to the global [`Services`] instance
 pub(crate) fn services() -> &'static Services {
     SERVICES
         .read()
