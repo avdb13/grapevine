@@ -1,7 +1,5 @@
-mod data;
 use std::io::Cursor;
 
-pub(crate) use data::Data;
 use image::imageops::FilterType;
 use tokio::{
     fs::File,
@@ -9,6 +7,10 @@ use tokio::{
 };
 
 use crate::{services, Result};
+
+mod data;
+
+pub(crate) use data::Data;
 
 pub(crate) struct FileMeta {
     pub(crate) content_disposition: Option<String>,
