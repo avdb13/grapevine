@@ -23,15 +23,12 @@ use hyper::{
 };
 use reqwest::dns::{Addrs, Resolve, Resolving};
 use ruma::{
-    api::{
-        client::sync::sync_events,
-        federation::discovery::{ServerSigningKeys, VerifyKey},
-    },
+    api::federation::discovery::{ServerSigningKeys, VerifyKey},
     serde::Base64,
-    DeviceId, OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedServerSigningKeyId, OwnedUserId, RoomVersionId, ServerName, UserId,
+    DeviceId, OwnedEventId, OwnedRoomId, OwnedServerName,
+    OwnedServerSigningKeyId, RoomVersionId, ServerName, UserId,
 };
-use tokio::sync::{broadcast, watch::Receiver, Mutex, RwLock, Semaphore};
+use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
 use tracing::{error, info};
 use trust_dns_resolver::TokioAsyncResolver;
 
@@ -41,12 +38,6 @@ type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
 // Time if last failed try, number of failed tries
 type RateLimitState = (Instant, u32);
-type SyncHandle = (
-    // since
-    Option<String>,
-    // rx
-    Receiver<Option<Result<sync_events::v3::Response>>>,
-);
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -70,8 +61,6 @@ pub(crate) struct Service {
         Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
     pub(crate) servername_ratelimiter:
         Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
-    pub(crate) sync_receivers:
-        RwLock<HashMap<(OwnedUserId, OwnedDeviceId), SyncHandle>>,
     pub(crate) roomid_mutex_insert:
         RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
     pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
@@ -237,7 +226,6 @@ impl Service {
             roomid_mutex_federation: RwLock::new(HashMap::new()),
             roomid_federationhandletime: RwLock::new(HashMap::new()),
             stateres_mutex: Arc::new(Mutex::new(())),
-            sync_receivers: RwLock::new(HashMap::new()),
             rotate: RotationHandler::new(),
             shutdown: AtomicBool::new(false),
         };
