@@ -134,7 +134,7 @@ where
     T: Debug,
 {
     if !services().globals.allow_federation() {
-        return Err(Error::bad_config("Federation is disabled."));
+        return Err(Error::BadConfig("Federation is disabled."));
     }
 
     if destination == services().globals.server_name() {
