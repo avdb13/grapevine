@@ -35,24 +35,50 @@ pub(crate) async fn report_event_route(
         ));
     };
 
-    services().admin
+    services()
+        .admin
         .send_message(message::RoomMessageEventContent::text_html(
             format!(
-                "Report received from: {}\n\n\
-                Event ID: {:?}\n\
-                Room ID: {:?}\n\
-                Sent By: {:?}\n\n\
-                Report Score: {:?}\n\
-                Report Reason: {:?}",
+                "Report received from: {}\n\nEvent ID: {:?}\nRoom ID: {:?}\nSent \
+                 By: {:?}\n\nReport Score: {:?}\nReport Reason: {:?}",
                 sender_user, pdu.event_id, pdu.room_id, pdu.sender, body.score, body.reason
             ),
             format!(
-                "<details><summary>Report received from: <a href=\"https://matrix.to/#/{0:?}\">{0:?}\
-                </a></summary><ul><li>Event Info<ul><li>Event ID: <code>{1:?}</code>\
-                <a href=\"https://matrix.to/#/{2:?}/{1:?}\">🔗</a></li><li>Room ID: <code>{2:?}</code>\
-                </li><li>Sent By: <a href=\"https://matrix.to/#/{3:?}\">{3:?}</a></li></ul></li><li>\
-                Report Info<ul><li>Report Score: {4:?}</li><li>Report Reason: {5}</li></ul></li>\
-                </ul></details>",
+                r#"
+                <details>
+                    <summary>
+                        Report received from:
+                        <a href="https://matrix.to/#/{0:?}">{0:?}</a>
+                    </summary>
+                    <ul>
+                        <li>
+                            Event Info
+                            <ul>
+                                <li>
+                                    Event ID:
+                                    <code>{1:?}</code>
+                                    <a href="https://matrix.to/#/{2:?}/{1:?}">🔗</a>
+                                </li>
+                                <li>
+                                    Room ID:
+                                    <code>{2:?}</code>
+                                </li>
+                                <li>
+                                    Sent By:
+                                    <a href="https://matrix.to/#/{3:?}">{3:?}</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            Report Info
+                            <ul>
+                                <li>Report Score: {4:?}</li>
+                                <li>Report Reason: {5}</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </details>
+                "#,
                 sender_user,
                 pdu.event_id,
                 pdu.room_id,
