@@ -94,14 +94,14 @@ pub(crate) enum FedDest {
 }
 
 impl FedDest {
-    fn into_https_string(self) -> String {
+    fn to_https_string(&self) -> String {
         match self {
             Self::Literal(addr) => format!("https://{addr}"),
             Self::Named(host, port) => format!("https://{host}{port}"),
         }
     }
 
-    fn into_uri_string(self) -> String {
+    fn to_uri_string(&self) -> String {
         match self {
             Self::Literal(addr) => addr.to_string(),
             Self::Named(host, port) => format!("{host}{port}"),
@@ -162,10 +162,10 @@ where
 
         let result = find_actual_destination(destination).await;
 
-        (result.0, result.1.into_uri_string())
+        (result.0, result.1.to_uri_string())
     };
 
-    let actual_destination_str = actual_destination.clone().into_https_string();
+    let actual_destination_str = actual_destination.to_https_string();
 
     let mut http_request = request
         .try_into_http_request::<Vec<u8>>(
@@ -378,7 +378,7 @@ async fn find_actual_destination(
                 {
                     debug!("3: A .well-known file is available");
                     hostname = add_port_to_hostname(&delegated_hostname)
-                        .into_uri_string();
+                        .to_uri_string();
                     if let Some(host_and_port) =
                         get_ip_with_port(&delegated_hostname)
                     {
