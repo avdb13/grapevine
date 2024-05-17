@@ -1,3 +1,9 @@
+use rocksdb::{
+    perf::get_memory_usage_stats, BlockBasedOptions, BoundColumnFamily, Cache,
+    ColumnFamilyDescriptor, DBCompactionStyle, DBCompressionType, DBRecoveryMode, DBWithThreadMode,
+    Direction, IteratorMode, MultiThreaded, Options, ReadOptions, WriteOptions,
+};
+
 use super::{super::Config, watchers::Watchers, KeyValueDatabaseEngine, KvTree};
 use crate::{utils, Result};
 use std::{
@@ -7,9 +13,9 @@ use std::{
 };
 
 pub(crate) struct Engine {
-    rocks: rocksdb::DBWithThreadMode<rocksdb::MultiThreaded>,
+    rocks: DBWithThreadMode<MultiThreaded>,
     max_open_files: i32,
-    cache: rocksdb::Cache,
+    cache: Cache,
     old_cfs: Vec<String>,
 }
 
@@ -20,8 +26,8 @@ pub(crate) struct RocksDbEngineTree<'a> {
     write_lock: RwLock<()>,
 }
 
-fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::Options {
-    let mut block_based_options = rocksdb::BlockBasedOptions::default();
+fn db_options(max_open_files: i32, rocksdb_cache: &Cache) -> Options {
+    let mut block_based_options = BlockBasedOptions::default();
     block_based_options.set_block_cache(rocksdb_cache);
     block_based_options.set_bloom_filter(10.0, false);
     block_based_options.set_block_size(4 * 1024);
@@ -29,14 +35,14 @@ fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::O
     block_based_options.set_pin_l0_filter_and_index_blocks_in_cache(true);
     block_based_options.set_optimize_filters_for_memory(true);
 
-    let mut db_opts = rocksdb::Options::default();
+    let mut db_opts = Options::default();
     db_opts.set_block_based_table_factory(&block_based_options);
     db_opts.create_if_missing(true);
     db_opts.increase_parallelism(num_cpus::get().try_into().unwrap_or(i32::MAX));
     db_opts.set_max_open_files(max_open_files);
-    db_opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
-    db_opts.set_bottommost_compression_type(rocksdb::DBCompressionType::Zstd);
-    db_opts.set_compaction_style(rocksdb::DBCompactionStyle::Level);
+    db_opts.set_compression_type(DBCompressionType::Lz4);
+    db_opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    db_opts.set_compaction_style(DBCompactionStyle::Level);
 
     // https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning
     db_opts.set_level_compaction_dynamic_level_bytes(true);
@@ -51,7 +57,7 @@ fn db_options(max_open_files: i32, rocksdb_cache: &rocksdb::Cache) -> rocksdb::O
     // Unclean shutdowns of a Matrix homeserver are likely to be fine when
     // recovered in this manner as it's likely any lost information will be
     // restored via federation.
-    db_opts.set_wal_recovery_mode(rocksdb::DBRecoveryMode::TolerateCorruptedTailRecords);
+    db_opts.set_wal_recovery_mode(DBRecoveryMode::TolerateCorruptedTailRecords);
 
     db_opts
 }
@@ -64,21 +70,18 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             clippy::cast_possible_truncation
         )]
         let cache_capacity_bytes = (config.db_cache_capacity_mb * 1024.0 * 1024.0) as usize;
-        let rocksdb_cache = rocksdb::Cache::new_lru_cache(cache_capacity_bytes);
+        let rocksdb_cache = Cache::new_lru_cache(cache_capacity_bytes);
 
         let db_opts = db_options(config.rocksdb_max_open_files, &rocksdb_cache);
 
-        let cfs = rocksdb::DBWithThreadMode::<rocksdb::MultiThreaded>::list_cf(
-            &db_opts,
-            &config.database_path,
-        )
-        .unwrap_or_default();
+        let cfs = DBWithThreadMode::<MultiThreaded>::list_cf(&db_opts, &config.database_path)
+            .unwrap_or_default();
 
-        let db = rocksdb::DBWithThreadMode::<rocksdb::MultiThreaded>::open_cf_descriptors(
+        let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
             &db_opts,
             &config.database_path,
             cfs.iter().map(|name| {
-                rocksdb::ColumnFamilyDescriptor::new(
+                ColumnFamilyDescriptor::new(
                     name,
                     db_options(config.rocksdb_max_open_files, &rocksdb_cache),
                 )
@@ -116,8 +119,7 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
 
     #[allow(clippy::as_conversions, clippy::cast_precision_loss)]
     fn memory_usage(&self) -> Result<String> {
-        let stats =
-            rocksdb::perf::get_memory_usage_stats(Some(&[&self.rocks]), Some(&[&self.cache]))?;
+        let stats = get_memory_usage_stats(Some(&[&self.rocks]), Some(&[&self.cache]))?;
         Ok(format!(
             "Approximate memory usage of all the mem-tables: {:.3} MB\n\
              Approximate memory usage of un-flushed mem-tables: {:.3} MB\n\
@@ -137,20 +139,20 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
 }
 
 impl RocksDbEngineTree<'_> {
-    fn cf(&self) -> Arc<rocksdb::BoundColumnFamily<'_>> {
+    fn cf(&self) -> Arc<BoundColumnFamily<'_>> {
         self.db.rocks.cf_handle(self.name).unwrap()
     }
 }
 
 impl KvTree for RocksDbEngineTree<'_> {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        let readoptions = rocksdb::ReadOptions::default();
+        let readoptions = ReadOptions::default();
 
         Ok(self.db.rocks.get_cf_opt(&self.cf(), key, &readoptions)?)
     }
 
     fn insert(&self, key: &[u8], value: &[u8]) -> Result<()> {
-        let writeoptions = rocksdb::WriteOptions::default();
+        let writeoptions = WriteOptions::default();
         let lock = self.write_lock.read().unwrap();
         self.db
             .rocks
@@ -163,7 +165,7 @@ impl KvTree for RocksDbEngineTree<'_> {
     }
 
     fn insert_batch(&self, iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>) -> Result<()> {
-        let writeoptions = rocksdb::WriteOptions::default();
+        let writeoptions = WriteOptions::default();
         for (key, value) in iter {
             self.db
                 .rocks
@@ -174,7 +176,7 @@ impl KvTree for RocksDbEngineTree<'_> {
     }
 
     fn remove(&self, key: &[u8]) -> Result<()> {
-        let writeoptions = rocksdb::WriteOptions::default();
+        let writeoptions = WriteOptions::default();
         Ok(self
             .db
             .rocks
@@ -182,12 +184,12 @@ impl KvTree for RocksDbEngineTree<'_> {
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a> {
-        let readoptions = rocksdb::ReadOptions::default();
+        let readoptions = ReadOptions::default();
 
         Box::new(
             self.db
                 .rocks
-                .iterator_cf_opt(&self.cf(), readoptions, rocksdb::IteratorMode::Start)
+                .iterator_cf_opt(&self.cf(), readoptions, IteratorMode::Start)
                 .map(Result::unwrap)
                 .map(|(k, v)| (Vec::from(k), Vec::from(v))),
         )
@@ -198,7 +200,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         from: &[u8],
         backwards: bool,
     ) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a> {
-        let readoptions = rocksdb::ReadOptions::default();
+        let readoptions = ReadOptions::default();
 
         Box::new(
             self.db
@@ -206,12 +208,12 @@ impl KvTree for RocksDbEngineTree<'_> {
                 .iterator_cf_opt(
                     &self.cf(),
                     readoptions,
-                    rocksdb::IteratorMode::From(
+                    IteratorMode::From(
                         from,
                         if backwards {
-                            rocksdb::Direction::Reverse
+                            Direction::Reverse
                         } else {
-                            rocksdb::Direction::Forward
+                            Direction::Forward
                         },
                     ),
                 )
@@ -221,8 +223,8 @@ impl KvTree for RocksDbEngineTree<'_> {
     }
 
     fn increment(&self, key: &[u8]) -> Result<Vec<u8>> {
-        let readoptions = rocksdb::ReadOptions::default();
-        let writeoptions = rocksdb::WriteOptions::default();
+        let readoptions = ReadOptions::default();
+        let writeoptions = WriteOptions::default();
 
         let lock = self.write_lock.write().unwrap();
 
@@ -237,8 +239,8 @@ impl KvTree for RocksDbEngineTree<'_> {
     }
 
     fn increment_batch(&self, iter: &mut dyn Iterator<Item = Vec<u8>>) -> Result<()> {
-        let readoptions = rocksdb::ReadOptions::default();
-        let writeoptions = rocksdb::WriteOptions::default();
+        let readoptions = ReadOptions::default();
+        let writeoptions = WriteOptions::default();
 
         let lock = self.write_lock.write().unwrap();
 
@@ -259,7 +261,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         &'a self,
         prefix: Vec<u8>,
     ) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a> {
-        let readoptions = rocksdb::ReadOptions::default();
+        let readoptions = ReadOptions::default();
 
         Box::new(
             self.db
@@ -267,7 +269,7 @@ impl KvTree for RocksDbEngineTree<'_> {
                 .iterator_cf_opt(
                     &self.cf(),
                     readoptions,
-                    rocksdb::IteratorMode::From(&prefix, rocksdb::Direction::Forward),
+                    IteratorMode::From(&prefix, Direction::Forward),
                 )
                 .map(Result::unwrap)
                 .map(|(k, v)| (Vec::from(k), Vec::from(v)))

@@ -1,4 +1,7 @@
-use ruma::{events::SyncEphemeralRoomEvent, OwnedRoomId, OwnedUserId, RoomId, UserId};
+use ruma::{
+    events::{typing::TypingEventContent, SyncEphemeralRoomEvent},
+    OwnedRoomId, OwnedUserId, RoomId, UserId,
+};
 use std::collections::BTreeMap;
 use tokio::sync::{broadcast, RwLock};
 use tracing::trace;
@@ -116,9 +119,9 @@ impl Service {
     pub(crate) async fn typings_all(
         &self,
         room_id: &RoomId,
-    ) -> Result<SyncEphemeralRoomEvent<ruma::events::typing::TypingEventContent>> {
+    ) -> Result<SyncEphemeralRoomEvent<TypingEventContent>> {
         Ok(SyncEphemeralRoomEvent {
-            content: ruma::events::typing::TypingEventContent {
+            content: TypingEventContent {
                 user_ids: self
                     .typing
                     .read()

@@ -2,7 +2,7 @@ use crate::{services, Error, Result, Ruma};
 use rand::seq::SliceRandom;
 use ruma::{
     api::{
-        appservice,
+        appservice::query::query_room_alias,
         client::{
             alias::{create_alias, delete_alias, get_alias},
             error::ErrorKind,
@@ -143,7 +143,7 @@ pub(crate) async fn get_alias_helper(
                             .sending
                             .send_appservice_request(
                                 appservice.registration.clone(),
-                                appservice::query::query_room_alias::v1::Request {
+                                query_room_alias::v1::Request {
                                     room_alias: room_alias.clone(),
                                 },
                             )

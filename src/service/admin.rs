@@ -11,6 +11,7 @@ use regex::Regex;
 use ruma::{
     api::appservice::Registration,
     events::{
+        push_rules::{PushRulesEvent, PushRulesEventContent},
         room::{
             canonical_alias::RoomCanonicalAliasEventContent,
             create::RoomCreateEventContent,
@@ -644,8 +645,8 @@ impl Service {
                     ruma::events::GlobalAccountDataEventType::PushRules
                         .to_string()
                         .into(),
-                    &serde_json::to_value(ruma::events::push_rules::PushRulesEvent {
-                        content: ruma::events::push_rules::PushRulesEventContent {
+                    &serde_json::to_value(PushRulesEvent {
+                        content: PushRulesEventContent {
                             global: ruma::push::Ruleset::server_default(&user_id),
                         },
                     })
