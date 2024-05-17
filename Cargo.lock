@@ -2120,9 +2120,9 @@ dependencies = [
 
 [[package]]
 name = "rust-librocksdb-sys"
-version = "0.20.0+9.1.0"
+version = "0.21.0+9.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48b14f4848d8574c074bb26445b43e63735d802ef2fc5cc40c1b015134baee0c"
+checksum = "75cb7b9cd5ce3b3ce0757ceab2240f7471826780b8700845c0cfd418cb7e398d"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -2136,9 +2136,9 @@ dependencies = [
 
 [[package]]
 name = "rust-rocksdb"
-version = "0.24.0"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d36eae38b1d3d0018e273191f791343bd3eb030d7da63aaa20350e41c0182881"
+checksum = "2bcfb31b5bf2e3274686ebfdf9a946e9a327a3bc54adc7e5cda9f4fdcc4b55f1"
 dependencies = [
  "libc",
  "rust-librocksdb-sys",
