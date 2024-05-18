@@ -13,7 +13,13 @@ mod data;
 pub(crate) use data::Data;
 
 pub(crate) struct FileMeta {
+    // This gets written to the database but we no longer read it
+    //
+    // TODO: Write a database migration to get rid of this and instead store
+    // only the filename instead of the entire `Content-Disposition` header.
+    #[allow(dead_code)]
     pub(crate) content_disposition: Option<String>,
+
     pub(crate) content_type: Option<String>,
     pub(crate) file: Vec<u8>,
 }
