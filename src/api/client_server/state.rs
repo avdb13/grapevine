@@ -14,9 +14,7 @@ use ruma::{
 };
 use tracing::log::warn;
 
-use crate::{
-    service::pdu::PduBuilder, services, Error, Result, Ruma, RumaResponse,
-};
+use crate::{service::pdu::PduBuilder, services, Error, Ra, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/state/{eventType}/{stateKey}`
 ///
@@ -28,7 +26,7 @@ use crate::{
 /// - If event is new `canonical_alias`: Rejects if alias is incorrect
 pub(crate) async fn send_state_event_for_key_route(
     body: Ruma<send_state_event::v3::Request>,
-) -> Result<RumaResponse<send_state_event::v3::Response>> {
+) -> Result<Ra<send_state_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event_id = send_state_event_for_key_helper(
@@ -42,7 +40,7 @@ pub(crate) async fn send_state_event_for_key_route(
     .await?;
 
     let event_id = (*event_id).to_owned();
-    Ok(RumaResponse(send_state_event::v3::Response {
+    Ok(Ra(send_state_event::v3::Response {
         event_id,
     }))
 }
@@ -57,7 +55,7 @@ pub(crate) async fn send_state_event_for_key_route(
 /// - If event is new `canonical_alias`: Rejects if alias is incorrect
 pub(crate) async fn send_state_event_for_empty_key_route(
     body: Ruma<send_state_event::v3::Request>,
-) -> Result<RumaResponse<send_state_event::v3::Response>> {
+) -> Result<Ra<send_state_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     // Forbid m.room.encryption if encryption is disabled
@@ -94,7 +92,7 @@ pub(crate) async fn send_state_event_for_empty_key_route(
 ///   readable
 pub(crate) async fn get_state_events_route(
     body: Ruma<get_state_events::v3::Request>,
-) -> Result<RumaResponse<get_state_events::v3::Response>> {
+) -> Result<Ra<get_state_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services()
@@ -108,7 +106,7 @@ pub(crate) async fn get_state_events_route(
         ));
     }
 
-    Ok(RumaResponse(get_state_events::v3::Response {
+    Ok(Ra(get_state_events::v3::Response {
         room_state: services()
             .rooms
             .state_accessor
@@ -128,7 +126,7 @@ pub(crate) async fn get_state_events_route(
 ///   readable
 pub(crate) async fn get_state_events_for_key_route(
     body: Ruma<get_state_events_for_key::v3::Request>,
-) -> Result<RumaResponse<get_state_events_for_key::v3::Response>> {
+) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services()
@@ -154,7 +152,7 @@ pub(crate) async fn get_state_events_for_key_route(
             Error::BadRequest(ErrorKind::NotFound, "State event not found.")
         })?;
 
-    Ok(RumaResponse(get_state_events_for_key::v3::Response {
+    Ok(Ra(get_state_events_for_key::v3::Response {
         content: serde_json::from_str(event.content.get()).map_err(|_| {
             Error::bad_database("Invalid event content in database")
         })?,
@@ -169,7 +167,7 @@ pub(crate) async fn get_state_events_for_key_route(
 ///   readable
 pub(crate) async fn get_state_events_for_empty_key_route(
     body: Ruma<get_state_events_for_key::v3::Request>,
-) -> Result<RumaResponse<get_state_events_for_key::v3::Response>> {
+) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services()

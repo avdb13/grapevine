@@ -24,7 +24,7 @@ use ruma::{
 use serde::Deserialize;
 use tracing::{debug, error, warn};
 
-use super::{Ruma, RumaResponse};
+use super::{Ra, Ruma};
 use crate::{service::appservice::RegistrationInfo, services, Error, Result};
 
 enum Token {
@@ -450,7 +450,7 @@ impl Credentials for XMatrix {
     }
 }
 
-impl<T: OutgoingResponse> IntoResponse for RumaResponse<T> {
+impl<T: OutgoingResponse> IntoResponse for Ra<T> {
     fn into_response(self) -> Response {
         match self.0.try_into_http_response::<BytesMut>() {
             Ok(res) => res.map(BytesMut::freeze).map(Full::new).into_response(),

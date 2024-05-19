@@ -6,18 +6,13 @@ use ruma::{
     uint,
 };
 
-use crate::{
-    service::rooms::timeline::PduCount, services, Result, Ruma, RumaResponse,
-};
+use crate::{service::rooms::timeline::PduCount, services, Ra, Result, Ruma};
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}/{relType}/{eventType}`
 pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
     body: Ruma<get_relating_events_with_rel_type_and_event_type::v1::Request>,
-) -> Result<
-    RumaResponse<
-        get_relating_events_with_rel_type_and_event_type::v1::Response,
-    >,
-> {
+) -> Result<Ra<get_relating_events_with_rel_type_and_event_type::v1::Response>>
+{
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -50,19 +45,17 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
         limit,
     )?;
 
-    Ok(RumaResponse(
-        get_relating_events_with_rel_type_and_event_type::v1::Response {
-            chunk: res.chunk,
-            next_batch: res.next_batch,
-            prev_batch: res.prev_batch,
-        },
-    ))
+    Ok(Ra(get_relating_events_with_rel_type_and_event_type::v1::Response {
+        chunk: res.chunk,
+        next_batch: res.next_batch,
+        prev_batch: res.prev_batch,
+    }))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}/{relType}`
 pub(crate) async fn get_relating_events_with_rel_type_route(
     body: Ruma<get_relating_events_with_rel_type::v1::Request>,
-) -> Result<RumaResponse<get_relating_events_with_rel_type::v1::Response>> {
+) -> Result<Ra<get_relating_events_with_rel_type::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -95,7 +88,7 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
         limit,
     )?;
 
-    Ok(RumaResponse(get_relating_events_with_rel_type::v1::Response {
+    Ok(Ra(get_relating_events_with_rel_type::v1::Response {
         chunk: res.chunk,
         next_batch: res.next_batch,
         prev_batch: res.prev_batch,
@@ -105,7 +98,7 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}`
 pub(crate) async fn get_relating_events_route(
     body: Ruma<get_relating_events::v1::Request>,
-) -> Result<RumaResponse<get_relating_events::v1::Response>> {
+) -> Result<Ra<get_relating_events::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -140,5 +133,5 @@ pub(crate) async fn get_relating_events_route(
             to,
             limit,
         )
-        .map(RumaResponse)
+        .map(Ra)
 }

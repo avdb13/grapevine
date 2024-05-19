@@ -4,14 +4,14 @@ use ruma::{
     int,
 };
 
-use crate::{services, Error, Result, Ruma, RumaResponse};
+use crate::{services, Error, Ra, Result, Ruma};
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/report/{eventId}`
 ///
 /// Reports an inappropriate event to homeserver admins
 pub(crate) async fn report_event_route(
     body: Ruma<report_content::v3::Request>,
-) -> Result<RumaResponse<report_content::v3::Response>> {
+) -> Result<Ra<report_content::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let Some(pdu) = services().rooms.timeline.get_pdu(&body.event_id)? else {
@@ -91,5 +91,5 @@ pub(crate) async fn report_event_route(
         ),
     ));
 
-    Ok(RumaResponse(report_content::v3::Response {}))
+    Ok(Ra(report_content::v3::Response {}))
 }

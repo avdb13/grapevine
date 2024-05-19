@@ -36,7 +36,7 @@ use tracing::{debug, error, info, warn};
 use super::get_alias_helper;
 use crate::{
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils, Error, PduEvent, Result, Ruma, RumaResponse,
+    services, utils, Error, PduEvent, Ra, Result, Ruma,
 };
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/join`
@@ -49,7 +49,7 @@ use crate::{
 ///   federation
 pub(crate) async fn join_room_by_id_route(
     body: Ruma<join_room_by_id::v3::Request>,
-) -> Result<RumaResponse<join_room_by_id::v3::Response>> {
+) -> Result<Ra<join_room_by_id::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     // There is no body.server_name for /roomId/join
@@ -83,7 +83,7 @@ pub(crate) async fn join_room_by_id_route(
         body.third_party_signed.as_ref(),
     )
     .await
-    .map(RumaResponse)
+    .map(Ra)
 }
 
 /// # `POST /_matrix/client/r0/join/{roomIdOrAlias}`
@@ -96,7 +96,7 @@ pub(crate) async fn join_room_by_id_route(
 ///   federation
 pub(crate) async fn join_room_by_id_or_alias_route(
     body: Ruma<join_room_by_id_or_alias::v3::Request>,
-) -> Result<RumaResponse<join_room_by_id_or_alias::v3::Response>> {
+) -> Result<Ra<join_room_by_id_or_alias::v3::Response>> {
     let sender_user =
         body.sender_user.as_deref().expect("user is authenticated");
     let body = body.body;
@@ -148,7 +148,7 @@ pub(crate) async fn join_room_by_id_or_alias_route(
     )
     .await?;
 
-    Ok(RumaResponse(join_room_by_id_or_alias::v3::Response {
+    Ok(Ra(join_room_by_id_or_alias::v3::Response {
         room_id: join_room_response.room_id,
     }))
 }
@@ -160,12 +160,12 @@ pub(crate) async fn join_room_by_id_or_alias_route(
 /// - This should always work if the user is currently joined.
 pub(crate) async fn leave_room_route(
     body: Ruma<leave_room::v3::Request>,
-) -> Result<RumaResponse<leave_room::v3::Response>> {
+) -> Result<Ra<leave_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     leave_room(sender_user, &body.room_id, body.reason.clone()).await?;
 
-    Ok(RumaResponse(leave_room::v3::Response::new()))
+    Ok(Ra(leave_room::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/invite`
@@ -173,7 +173,7 @@ pub(crate) async fn leave_room_route(
 /// Tries to send an invite event into the room.
 pub(crate) async fn invite_user_route(
     body: Ruma<invite_user::v3::Request>,
-) -> Result<RumaResponse<invite_user::v3::Response>> {
+) -> Result<Ra<invite_user::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let invite_user::v3::InvitationRecipient::UserId {
@@ -188,7 +188,7 @@ pub(crate) async fn invite_user_route(
             false,
         )
         .await?;
-        Ok(RumaResponse(invite_user::v3::Response {}))
+        Ok(Ra(invite_user::v3::Response {}))
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "User not found."))
     }
@@ -199,13 +199,13 @@ pub(crate) async fn invite_user_route(
 /// Tries to send a kick event into the room.
 pub(crate) async fn kick_user_route(
     body: Ruma<kick_user::v3::Request>,
-) -> Result<RumaResponse<kick_user::v3::Response>> {
+) -> Result<Ra<kick_user::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Ok(true) =
         services().rooms.state_cache.is_left(sender_user, &body.room_id)
     {
-        return Ok(RumaResponse(kick_user::v3::Response {}));
+        return Ok(Ra(kick_user::v3::Response {}));
     }
 
     let mut event: RoomMemberEventContent = serde_json::from_str(
@@ -260,7 +260,7 @@ pub(crate) async fn kick_user_route(
 
     drop(state_lock);
 
-    Ok(RumaResponse(kick_user::v3::Response::new()))
+    Ok(Ra(kick_user::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/ban`
@@ -268,14 +268,14 @@ pub(crate) async fn kick_user_route(
 /// Tries to send a ban event into the room.
 pub(crate) async fn ban_user_route(
     body: Ruma<ban_user::v3::Request>,
-) -> Result<RumaResponse<ban_user::v3::Response>> {
+) -> Result<Ra<ban_user::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Ok(Some(membership_event)) =
         services().rooms.state_accessor.get_member(&body.room_id, sender_user)
     {
         if membership_event.membership == MembershipState::Ban {
-            return Ok(RumaResponse(ban_user::v3::Response {}));
+            return Ok(Ra(ban_user::v3::Response {}));
         }
     }
 
@@ -344,7 +344,7 @@ pub(crate) async fn ban_user_route(
 
     drop(state_lock);
 
-    Ok(RumaResponse(ban_user::v3::Response::new()))
+    Ok(Ra(ban_user::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/unban`
@@ -352,14 +352,14 @@ pub(crate) async fn ban_user_route(
 /// Tries to send an unban event into the room.
 pub(crate) async fn unban_user_route(
     body: Ruma<unban_user::v3::Request>,
-) -> Result<RumaResponse<unban_user::v3::Response>> {
+) -> Result<Ra<unban_user::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Ok(Some(membership_event)) =
         services().rooms.state_accessor.get_member(&body.room_id, sender_user)
     {
         if membership_event.membership != MembershipState::Ban {
-            return Ok(RumaResponse(unban_user::v3::Response {}));
+            return Ok(Ra(unban_user::v3::Response {}));
         }
     }
 
@@ -415,7 +415,7 @@ pub(crate) async fn unban_user_route(
 
     drop(state_lock);
 
-    Ok(RumaResponse(unban_user::v3::Response::new()))
+    Ok(Ra(unban_user::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/forget`
@@ -429,12 +429,12 @@ pub(crate) async fn unban_user_route(
 /// forgotten, so this has to be called from every device
 pub(crate) async fn forget_room_route(
     body: Ruma<forget_room::v3::Request>,
-) -> Result<RumaResponse<forget_room::v3::Response>> {
+) -> Result<Ra<forget_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     services().rooms.state_cache.forget(&body.room_id, sender_user)?;
 
-    Ok(RumaResponse(forget_room::v3::Response::new()))
+    Ok(Ra(forget_room::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/joined_rooms`
@@ -442,10 +442,10 @@ pub(crate) async fn forget_room_route(
 /// Lists all rooms the user has joined.
 pub(crate) async fn joined_rooms_route(
     body: Ruma<joined_rooms::v3::Request>,
-) -> Result<RumaResponse<joined_rooms::v3::Response>> {
+) -> Result<Ra<joined_rooms::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    Ok(RumaResponse(joined_rooms::v3::Response {
+    Ok(Ra(joined_rooms::v3::Response {
         joined_rooms: services()
             .rooms
             .state_cache
@@ -463,7 +463,7 @@ pub(crate) async fn joined_rooms_route(
 /// - Only works if the user is currently joined
 pub(crate) async fn get_member_events_route(
     body: Ruma<get_member_events::v3::Request>,
-) -> Result<RumaResponse<get_member_events::v3::Response>> {
+) -> Result<Ra<get_member_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services()
@@ -477,7 +477,7 @@ pub(crate) async fn get_member_events_route(
         ));
     }
 
-    Ok(RumaResponse(get_member_events::v3::Response {
+    Ok(Ra(get_member_events::v3::Response {
         chunk: services()
             .rooms
             .state_accessor
@@ -498,7 +498,7 @@ pub(crate) async fn get_member_events_route(
 /// - TODO: An appservice just needs a puppet joined
 pub(crate) async fn joined_members_route(
     body: Ruma<joined_members::v3::Request>,
-) -> Result<RumaResponse<joined_members::v3::Response>> {
+) -> Result<Ra<joined_members::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services()
@@ -531,7 +531,7 @@ pub(crate) async fn joined_members_route(
         );
     }
 
-    Ok(RumaResponse(joined_members::v3::Response {
+    Ok(Ra(joined_members::v3::Response {
         joined,
     }))
 }

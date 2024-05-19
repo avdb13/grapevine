@@ -29,7 +29,7 @@ use ruma::{
 };
 use tracing::{error, info, warn};
 
-use crate::{services, Error, Result, Ruma, RumaResponse};
+use crate::{services, Error, Ra, Result, Ruma};
 
 /// # `POST /_matrix/client/r0/publicRooms`
 ///
@@ -38,7 +38,7 @@ use crate::{services, Error, Result, Ruma, RumaResponse};
 /// - Rooms are ordered by the number of joined members
 pub(crate) async fn get_public_rooms_filtered_route(
     body: Ruma<get_public_rooms_filtered::v3::Request>,
-) -> Result<RumaResponse<get_public_rooms_filtered::v3::Response>> {
+) -> Result<Ra<get_public_rooms_filtered::v3::Response>> {
     get_public_rooms_filtered_helper(
         body.server.as_deref(),
         body.limit,
@@ -47,7 +47,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
         &body.room_network,
     )
     .await
-    .map(RumaResponse)
+    .map(Ra)
 }
 
 /// # `GET /_matrix/client/r0/publicRooms`
@@ -57,7 +57,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 /// - Rooms are ordered by the number of joined members
 pub(crate) async fn get_public_rooms_route(
     body: Ruma<get_public_rooms::v3::Request>,
-) -> Result<RumaResponse<get_public_rooms::v3::Response>> {
+) -> Result<Ra<get_public_rooms::v3::Response>> {
     let response = get_public_rooms_filtered_helper(
         body.server.as_deref(),
         body.limit,
@@ -67,7 +67,7 @@ pub(crate) async fn get_public_rooms_route(
     )
     .await?;
 
-    Ok(RumaResponse(get_public_rooms::v3::Response {
+    Ok(Ra(get_public_rooms::v3::Response {
         chunk: response.chunk,
         prev_batch: response.prev_batch,
         next_batch: response.next_batch,
@@ -82,7 +82,7 @@ pub(crate) async fn get_public_rooms_route(
 /// - TODO: Access control checks
 pub(crate) async fn set_room_visibility_route(
     body: Ruma<set_room_visibility::v3::Request>,
-) -> Result<RumaResponse<set_room_visibility::v3::Response>> {
+) -> Result<Ra<set_room_visibility::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services().rooms.metadata.exists(&body.room_id)? {
@@ -106,7 +106,7 @@ pub(crate) async fn set_room_visibility_route(
         }
     }
 
-    Ok(RumaResponse(set_room_visibility::v3::Response {}))
+    Ok(Ra(set_room_visibility::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/directory/list/room/{roomId}`
@@ -114,13 +114,13 @@ pub(crate) async fn set_room_visibility_route(
 /// Gets the visibility of a given room in the room directory.
 pub(crate) async fn get_room_visibility_route(
     body: Ruma<get_room_visibility::v3::Request>,
-) -> Result<RumaResponse<get_room_visibility::v3::Response>> {
+) -> Result<Ra<get_room_visibility::v3::Response>> {
     if !services().rooms.metadata.exists(&body.room_id)? {
         // Return 404 if the room doesn't exist
         return Err(Error::BadRequest(ErrorKind::NotFound, "Room not found"));
     }
 
-    Ok(RumaResponse(get_room_visibility::v3::Response {
+    Ok(Ra(get_room_visibility::v3::Response {
         visibility: if services()
             .rooms
             .directory

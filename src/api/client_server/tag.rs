@@ -8,7 +8,7 @@ use ruma::{
     },
 };
 
-use crate::{services, Error, Result, Ruma, RumaResponse};
+use crate::{services, Error, Ra, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/user/{userId}/rooms/{roomId}/tags/{tag}`
 ///
@@ -17,7 +17,7 @@ use crate::{services, Error, Result, Ruma, RumaResponse};
 /// - Inserts the tag into the tag event of the room account data.
 pub(crate) async fn update_tag_route(
     body: Ruma<create_tag::v3::Request>,
-) -> Result<RumaResponse<create_tag::v3::Response>> {
+) -> Result<Ra<create_tag::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services().account_data.get(
@@ -53,7 +53,7 @@ pub(crate) async fn update_tag_route(
         &serde_json::to_value(tags_event).expect("to json value always works"),
     )?;
 
-    Ok(RumaResponse(create_tag::v3::Response {}))
+    Ok(Ra(create_tag::v3::Response {}))
 }
 
 /// # `DELETE /_matrix/client/r0/user/{userId}/rooms/{roomId}/tags/{tag}`
@@ -63,7 +63,7 @@ pub(crate) async fn update_tag_route(
 /// - Removes the tag from the tag event of the room account data.
 pub(crate) async fn delete_tag_route(
     body: Ruma<delete_tag::v3::Request>,
-) -> Result<RumaResponse<delete_tag::v3::Response>> {
+) -> Result<Ra<delete_tag::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services().account_data.get(
@@ -96,7 +96,7 @@ pub(crate) async fn delete_tag_route(
         &serde_json::to_value(tags_event).expect("to json value always works"),
     )?;
 
-    Ok(RumaResponse(delete_tag::v3::Response {}))
+    Ok(Ra(delete_tag::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/user/{userId}/rooms/{roomId}/tags`
@@ -106,7 +106,7 @@ pub(crate) async fn delete_tag_route(
 /// - Gets the tag event of the room account data.
 pub(crate) async fn get_tags_route(
     body: Ruma<get_tags::v3::Request>,
-) -> Result<RumaResponse<get_tags::v3::Response>> {
+) -> Result<Ra<get_tags::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services().account_data.get(
@@ -130,7 +130,7 @@ pub(crate) async fn get_tags_route(
         },
     )?;
 
-    Ok(RumaResponse(get_tags::v3::Response {
+    Ok(Ra(get_tags::v3::Response {
         tags: tags_event.content.tags,
     }))
 }

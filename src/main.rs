@@ -47,7 +47,7 @@ mod database;
 mod service;
 mod utils;
 
-pub(crate) use api::ruma_wrapper::{Ruma, RumaResponse};
+pub(crate) use api::ruma_wrapper::{Ra, Ruma};
 use api::{client_server, server_server};
 pub(crate) use config::Config;
 pub(crate) use database::KeyValueDatabase;
@@ -295,7 +295,7 @@ async fn unrecognized_method<B: Send>(
     let inner = next.run(req).await;
     if inner.status() == axum::http::StatusCode::METHOD_NOT_ALLOWED {
         warn!("Method not allowed: {method} {uri}");
-        return Ok(RumaResponse(UiaaResponse::MatrixError(RumaError {
+        return Ok(Ra(UiaaResponse::MatrixError(RumaError {
             body: ErrorBody::Standard {
                 kind: ErrorKind::Unrecognized,
                 message: "M_UNRECOGNIZED: Unrecognized request".to_owned(),

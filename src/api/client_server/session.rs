@@ -16,7 +16,7 @@ use serde::Deserialize;
 use tracing::{info, warn};
 
 use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
-use crate::{services, utils, Error, Result, Ruma, RumaResponse};
+use crate::{services, utils, Error, Ra, Result, Ruma};
 
 #[derive(Debug, Deserialize)]
 struct Claims {
@@ -29,8 +29,8 @@ struct Claims {
 /// the `type` field when logging in.
 pub(crate) async fn get_login_types_route(
     _body: Ruma<get_login_types::v3::Request>,
-) -> Result<RumaResponse<get_login_types::v3::Response>> {
-    Ok(RumaResponse(get_login_types::v3::Response::new(vec![
+) -> Result<Ra<get_login_types::v3::Response>> {
+    Ok(Ra(get_login_types::v3::Response::new(vec![
         get_login_types::v3::LoginType::Password(PasswordLoginType::default()),
         get_login_types::v3::LoginType::ApplicationService(
             ApplicationServiceLoginType::default(),
@@ -54,7 +54,7 @@ pub(crate) async fn get_login_types_route(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn login_route(
     body: Ruma<login::v3::Request>,
-) -> Result<RumaResponse<login::v3::Response>> {
+) -> Result<Ra<login::v3::Response>> {
     // To allow deprecated login methods
     #![allow(deprecated)]
     // Validate login method
@@ -256,7 +256,7 @@ pub(crate) async fn login_route(
 
     // Homeservers are still required to send the `home_server` field
     #[allow(deprecated)]
-    Ok(RumaResponse(login::v3::Response {
+    Ok(Ra(login::v3::Response {
         user_id,
         access_token: token,
         home_server: Some(services().globals.server_name().to_owned()),
@@ -278,7 +278,7 @@ pub(crate) async fn login_route(
 /// - Triggers device list updates
 pub(crate) async fn logout_route(
     body: Ruma<logout::v3::Request>,
-) -> Result<RumaResponse<logout::v3::Response>> {
+) -> Result<Ra<logout::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -294,7 +294,7 @@ pub(crate) async fn logout_route(
 
     services().users.remove_device(sender_user, sender_device)?;
 
-    Ok(RumaResponse(logout::v3::Response::new()))
+    Ok(Ra(logout::v3::Response::new()))
 }
 
 /// # `POST /_matrix/client/r0/logout/all`
@@ -311,7 +311,7 @@ pub(crate) async fn logout_route(
 /// /_matrix/client/r0/logout`](logout_route) from each device of this user.
 pub(crate) async fn logout_all_route(
     body: Ruma<logout_all::v3::Request>,
-) -> Result<RumaResponse<logout_all::v3::Response>> {
+) -> Result<Ra<logout_all::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Some(info) = &body.appservice_info {
@@ -332,5 +332,5 @@ pub(crate) async fn logout_all_route(
         services().users.remove_device(sender_user, &device_id)?;
     }
 
-    Ok(RumaResponse(logout_all::v3::Response::new()))
+    Ok(Ra(logout_all::v3::Response::new()))
 }

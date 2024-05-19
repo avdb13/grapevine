@@ -28,16 +28,20 @@ impl<T> Deref for Ruma<T> {
     }
 }
 
+/// A wrapper to convert Ruma data to an Axum response
+///
+/// Named so because this converts from **R**uma to **A**xum. See also [`Ruma`],
+/// which is roughly the inverse of this type.
 #[derive(Clone)]
-pub(crate) struct RumaResponse<T>(pub(crate) T);
+pub(crate) struct Ra<T>(pub(crate) T);
 
-impl<T> From<T> for RumaResponse<T> {
+impl<T> From<T> for Ra<T> {
     fn from(t: T) -> Self {
         Self(t)
     }
 }
 
-impl From<Error> for RumaResponse<UiaaResponse> {
+impl From<Error> for Ra<UiaaResponse> {
     fn from(t: Error) -> Self {
         t.to_response()
     }

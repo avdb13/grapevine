@@ -31,7 +31,7 @@ use tracing::{info, warn};
 
 use crate::{
     api::client_server::invite_helper, service::pdu::PduBuilder, services,
-    Error, Result, Ruma, RumaResponse,
+    Error, Ra, Result, Ruma,
 };
 
 /// # `POST /_matrix/client/r0/createRoom`
@@ -53,7 +53,7 @@ use crate::{
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn create_room_route(
     body: Ruma<create_room::v3::Request>,
-) -> Result<RumaResponse<create_room::v3::Response>> {
+) -> Result<Ra<create_room::v3::Response>> {
     use create_room::v3::RoomPreset;
 
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -538,7 +538,7 @@ pub(crate) async fn create_room_route(
 
     info!("{} created a room", sender_user);
 
-    Ok(RumaResponse(create_room::v3::Response::new(room_id)))
+    Ok(Ra(create_room::v3::Response::new(room_id)))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/event/{eventId}`
@@ -549,7 +549,7 @@ pub(crate) async fn create_room_route(
 ///   visibility)
 pub(crate) async fn get_room_event_route(
     body: Ruma<get_room_event::v3::Request>,
-) -> Result<RumaResponse<get_room_event::v3::Response>> {
+) -> Result<Ra<get_room_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services().rooms.timeline.get_pdu(&body.event_id)?.ok_or_else(
@@ -573,7 +573,7 @@ pub(crate) async fn get_room_event_route(
     let mut event = (*event).clone();
     event.add_age()?;
 
-    Ok(RumaResponse(get_room_event::v3::Response {
+    Ok(Ra(get_room_event::v3::Response {
         event: event.to_room_event(),
     }))
 }
@@ -586,7 +586,7 @@ pub(crate) async fn get_room_event_route(
 ///   user to call it if `history_visibility` is world readable
 pub(crate) async fn get_room_aliases_route(
     body: Ruma<aliases::v3::Request>,
-) -> Result<RumaResponse<aliases::v3::Response>> {
+) -> Result<Ra<aliases::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services().rooms.state_cache.is_joined(sender_user, &body.room_id)? {
@@ -596,7 +596,7 @@ pub(crate) async fn get_room_aliases_route(
         ));
     }
 
-    Ok(RumaResponse(aliases::v3::Response {
+    Ok(Ra(aliases::v3::Response {
         aliases: services()
             .rooms
             .alias
@@ -619,7 +619,7 @@ pub(crate) async fn get_room_aliases_route(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn upgrade_room_route(
     body: Ruma<upgrade_room::v3::Request>,
-) -> Result<RumaResponse<upgrade_room::v3::Response>> {
+) -> Result<Ra<upgrade_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if !services().globals.supported_room_versions().contains(&body.new_version)
@@ -914,7 +914,7 @@ pub(crate) async fn upgrade_room_route(
     drop(state_lock);
 
     // Return the replacement room id
-    Ok(RumaResponse(upgrade_room::v3::Response {
+    Ok(Ra(upgrade_room::v3::Response {
         replacement_room,
     }))
 }

@@ -1,6 +1,6 @@
 use ruma::{api::client::space::get_hierarchy, uint};
 
-use crate::{services, Result, Ruma, RumaResponse};
+use crate::{services, Ra, Result, Ruma};
 
 /// # `GET /_matrix/client/v1/rooms/{room_id}/hierarchy`
 ///
@@ -8,7 +8,7 @@ use crate::{services, Result, Ruma, RumaResponse};
 /// of a given space.
 pub(crate) async fn get_hierarchy_route(
     body: Ruma<get_hierarchy::v1::Request>,
-) -> Result<RumaResponse<get_hierarchy::v1::Response>> {
+) -> Result<Ra<get_hierarchy::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let skip =
@@ -40,5 +40,5 @@ pub(crate) async fn get_hierarchy_route(
             body.suggested_only,
         )
         .await
-        .map(RumaResponse)
+        .map(Ra)
 }

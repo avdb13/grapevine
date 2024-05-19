@@ -29,7 +29,7 @@ use tracing::{debug, error};
 
 use crate::{
     service::{pdu::EventHash, rooms::timeline::PduCount},
-    services, utils, Error, PduEvent, Result, Ruma, RumaResponse,
+    services, utils, Error, PduEvent, Ra, Result, Ruma,
 };
 
 /// # `GET /_matrix/client/r0/sync`
@@ -74,8 +74,7 @@ use crate::{
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn sync_events_route(
     body: Ruma<sync_events::v3::Request>,
-) -> Result<RumaResponse<sync_events::v3::Response>, RumaResponse<UiaaResponse>>
-{
+) -> Result<Ra<sync_events::v3::Response>, Ra<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");
     let sender_device = body.sender_device.expect("user is authenticated");
     let body = body.body;
@@ -458,10 +457,10 @@ pub(crate) async fn sync_events_route(
             Ok(x) => x.expect("watcher should succeed"),
             Err(error) => debug!(%error, "timed out"),
         };
-        Ok(RumaResponse(response))
+        Ok(Ra(response))
     } else {
         // Only cache if we made progress
-        Ok(RumaResponse(response))
+        Ok(Ra(response))
     }
 }
 
@@ -1128,8 +1127,7 @@ fn share_encrypted_room(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn sync_events_v4_route(
     body: Ruma<sync_events::v4::Request>,
-) -> Result<RumaResponse<sync_events::v4::Response>, RumaResponse<UiaaResponse>>
-{
+) -> Result<Ra<sync_events::v4::Response>, Ra<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");
     let sender_device = body.sender_device.expect("user is authenticated");
     let mut body = body.body;
@@ -1702,7 +1700,7 @@ pub(crate) async fn sync_events_v4_route(
         };
     }
 
-    Ok(RumaResponse(sync_events::v4::Response {
+    Ok(Ra(sync_events::v4::Response {
         initial: globalsince == 0,
         txn_id: body.txn_id.clone(),
         pos: next_batch.to_string(),

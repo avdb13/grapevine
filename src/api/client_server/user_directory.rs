@@ -6,7 +6,7 @@ use ruma::{
     },
 };
 
-use crate::{services, Result, Ruma, RumaResponse};
+use crate::{services, Ra, Result, Ruma};
 
 /// # `POST /_matrix/client/r0/user_directory/search`
 ///
@@ -17,7 +17,7 @@ use crate::{services, Result, Ruma, RumaResponse};
 /// and don't share a room with the sender
 pub(crate) async fn search_users_route(
     body: Ruma<search_users::v3::Request>,
-) -> Result<RumaResponse<search_users::v3::Response>> {
+) -> Result<Ra<search_users::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let limit = body.limit.try_into().unwrap_or(usize::MAX);
 
@@ -99,7 +99,7 @@ pub(crate) async fn search_users_route(
     let results = users.by_ref().take(limit).collect();
     let limited = users.next().is_some();
 
-    Ok(RumaResponse(search_users::v3::Response {
+    Ok(Ra(search_users::v3::Response {
         results,
         limited,
     }))

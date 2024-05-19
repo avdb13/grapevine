@@ -11,7 +11,7 @@ use ruma::{
 use thiserror::Error;
 use tracing::{error, info};
 
-use crate::RumaResponse;
+use crate::Ra;
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -95,7 +95,7 @@ impl Error {
         Self::BadConfig(message)
     }
 
-    pub(crate) fn to_response(&self) -> RumaResponse<UiaaResponse> {
+    pub(crate) fn to_response(&self) -> Ra<UiaaResponse> {
         use ErrorKind::{
             Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken,
             NotFound, ThreepidAuthFailed, ThreepidDenied, TooLarge,
@@ -104,7 +104,7 @@ impl Error {
         };
 
         if let Self::Uiaa(uiaainfo) = self {
-            return RumaResponse(UiaaResponse::AuthResponse(uiaainfo.clone()));
+            return Ra(UiaaResponse::AuthResponse(uiaainfo.clone()));
         }
 
         if let Self::Federation(origin, error) = self {
@@ -113,7 +113,7 @@ impl Error {
                 kind: Unknown,
                 message: format!("Answer from {origin}: {error}"),
             };
-            return RumaResponse(UiaaResponse::MatrixError(error));
+            return Ra(UiaaResponse::MatrixError(error));
         }
 
         let message = format!("{self}");
@@ -149,7 +149,7 @@ impl Error {
 
         info!("Returning an error: {}: {}", status_code, message);
 
-        RumaResponse(UiaaResponse::MatrixError(RumaError {
+        Ra(UiaaResponse::MatrixError(RumaError {
             body: ErrorBody::Standard {
                 kind,
                 message,

@@ -8,14 +8,14 @@ use ruma::{
     to_device::DeviceIdOrAllDevices,
 };
 
-use crate::{services, Error, Result, Ruma, RumaResponse};
+use crate::{services, Error, Ra, Result, Ruma};
 
 /// # `PUT /_matrix/client/r0/sendToDevice/{eventType}/{txnId}`
 ///
 /// Send a to-device event to a set of client devices.
 pub(crate) async fn send_event_to_device_route(
     body: Ruma<send_event_to_device::v3::Request>,
-) -> Result<RumaResponse<send_event_to_device::v3::Response>> {
+) -> Result<Ra<send_event_to_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_deref();
 
@@ -25,7 +25,7 @@ pub(crate) async fn send_event_to_device_route(
         .existing_txnid(sender_user, sender_device, &body.txn_id)?
         .is_some()
     {
-        return Ok(RumaResponse(send_event_to_device::v3::Response {}));
+        return Ok(Ra(send_event_to_device::v3::Response {}));
     }
 
     for (target_user_id, map) in &body.messages {
@@ -103,5 +103,5 @@ pub(crate) async fn send_event_to_device_route(
         &[],
     )?;
 
-    Ok(RumaResponse(send_event_to_device::v3::Response {}))
+    Ok(Ra(send_event_to_device::v3::Response {}))
 }
