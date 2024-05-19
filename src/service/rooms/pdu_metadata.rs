@@ -51,6 +51,7 @@ impl Service {
         // Allowed because this function uses `services()`
         clippy::unused_self,
     )]
+    #[tracing::instrument(skip(self))]
     pub(crate) fn paginate_relations_with_filter(
         &self,
         sender_user: &UserId,
@@ -178,6 +179,7 @@ impl Service {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub(crate) fn relations_until<'a>(
         &'a self,
         user_id: &'a UserId,

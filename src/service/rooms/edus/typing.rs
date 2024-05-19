@@ -21,6 +21,7 @@ pub(crate) struct Service {
 impl Service {
     /// Sets a user as typing until the timeout timestamp is reached or
     /// `roomtyping_remove` is called.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn typing_add(
         &self,
         user_id: &UserId,
@@ -47,6 +48,7 @@ impl Service {
     }
 
     /// Removes a user from typing before the timeout is reached.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn typing_remove(
         &self,
         user_id: &UserId,
@@ -71,6 +73,7 @@ impl Service {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn wait_for_update(&self, room_id: &RoomId) -> Result<()> {
         let mut receiver = self.typing_update_sender.subscribe();
         while let Ok(next) = receiver.recv().await {
@@ -83,6 +86,7 @@ impl Service {
     }
 
     /// Makes sure that typing events with old timestamps get removed.
+    #[tracing::instrument(skip(self, room_id))]
     async fn typings_maintain(&self, room_id: &RoomId) -> Result<()> {
         let current_timestamp = utils::millis_since_unix_epoch();
         let mut removable = Vec::new();
@@ -119,6 +123,7 @@ impl Service {
     }
 
     /// Returns the count of the last typing update in this room.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn last_typing_update(
         &self,
         room_id: &RoomId,
@@ -134,6 +139,7 @@ impl Service {
     }
 
     /// Returns a new typing EDU.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn typings_all(
         &self,
         room_id: &RoomId,

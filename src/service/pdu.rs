@@ -351,7 +351,7 @@ impl PduEvent {
     }
 
     /// This does not return a full `Pdu` it is only to satisfy ruma's types.
-    #[tracing::instrument]
+    #[tracing::instrument(skip(pdu_json))]
     pub(crate) fn convert_to_outgoing_federation_event(
         mut pdu_json: CanonicalJsonObject,
     ) -> Box<RawJsonValue> {

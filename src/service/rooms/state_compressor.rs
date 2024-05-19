@@ -286,6 +286,7 @@ impl Service {
     /// Returns the new shortstatehash, and the state diff from the previous
     /// room state
     #[allow(clippy::type_complexity)]
+    #[tracing::instrument(skip(self, new_state_ids_compressed))]
     pub(crate) fn save_state(
         &self,
         room_id: &RoomId,

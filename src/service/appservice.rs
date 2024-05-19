@@ -136,6 +136,7 @@ impl Service {
     }
 
     /// Registers an appservice and returns the ID to the caller.
+    #[tracing::instrument(skip(self, yaml), fields(appservice_id = yaml.id))]
     pub(crate) async fn register_appservice(
         &self,
         yaml: Registration,
@@ -154,6 +155,7 @@ impl Service {
     /// # Arguments
     ///
     /// * `service_name` - the name you send to register the service previously
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn unregister_appservice(
         &self,
         service_name: &str,
@@ -171,6 +173,7 @@ impl Service {
         self.db.unregister_appservice(service_name)
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn get_registration(
         &self,
         id: &str,
@@ -187,6 +190,7 @@ impl Service {
         self.registration_info.read().await.keys().cloned().collect()
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn find_from_token(
         &self,
         token: &str,
@@ -199,6 +203,7 @@ impl Service {
     }
 
     // Checks if a given user id matches any exclusive appservice regex
+    #[tracing::instrument(skip(self), ret(level = "trace"))]
     pub(crate) async fn is_exclusive_user_id(&self, user_id: &UserId) -> bool {
         self.read()
             .await
@@ -207,6 +212,7 @@ impl Service {
     }
 
     // Checks if a given room alias matches any exclusive appservice regex
+    #[tracing::instrument(skip(self), ret(level = "trace"))]
     pub(crate) async fn is_exclusive_alias(&self, alias: &RoomAliasId) -> bool {
         self.read()
             .await

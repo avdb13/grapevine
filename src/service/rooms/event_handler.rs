@@ -1085,6 +1085,7 @@ impl Service {
         Ok(pdu_id)
     }
 
+    #[tracing::instrument(skip(self, room_version_id, incoming_state))]
     async fn resolve_state(
         &self,
         room_id: &RoomId,
@@ -1397,6 +1398,8 @@ impl Service {
         })
     }
 
+    #[tracing::instrument(skip_all)]
+    #[allow(clippy::type_complexity)]
     async fn fetch_unknown_prev_events(
         &self,
         origin: &ServerName,
@@ -1558,6 +1561,7 @@ impl Service {
     // Gets a list of servers for which we don't have the signing key yet. We go
     // over the PDUs and either cache the key or add it to the list that
     // needs to be retrieved.
+    #[tracing::instrument(skip_all)]
     async fn get_server_keys_from_cache(
         &self,
         pdu: &RawJsonValue,
@@ -1797,6 +1801,7 @@ impl Service {
     /// Returns Ok if the acl allows the server
     // Allowed because this function uses `services()`
     #[allow(clippy::unused_self)]
+    #[tracing::instrument(skip_all)]
     pub(crate) fn acl_check(
         &self,
         server_name: &ServerName,
@@ -2010,6 +2015,7 @@ impl Service {
         Err(Error::BadServerResponse("Failed to find public key for server"))
     }
 
+    #[tracing::instrument(skip_all)]
     fn check_room_id(room_id: &RoomId, pdu: &PduEvent) -> Result<()> {
         if pdu.room_id != room_id {
             warn!("Found event from room {} in room {}", pdu.room_id, room_id);

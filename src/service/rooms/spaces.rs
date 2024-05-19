@@ -51,6 +51,7 @@ pub(crate) struct Service {
 
 impl Service {
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn get_hierarchy(
         &self,
         sender_user: &UserId,
@@ -326,6 +327,7 @@ impl Service {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self, sender_user, children))]
     fn get_room_chunk(
         &self,
         sender_user: &UserId,
@@ -525,6 +527,7 @@ impl Service {
         Ok(allowed)
     }
 
+    #[tracing::instrument(skip(self, sender_user))]
     fn handle_join_rule(
         &self,
         join_rule: &JoinRule,

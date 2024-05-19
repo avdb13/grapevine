@@ -40,7 +40,7 @@ use tracing::{debug, error, warn};
 use crate::{
     api::{appservice_server, server_server},
     services,
-    utils::calculate_hash,
+    utils::{calculate_hash, debug_slice_truncated},
     Config, Error, PduEvent, Result,
 };
 
@@ -301,12 +301,13 @@ impl Service {
         }
     }
 
-    #[tracing::instrument(skip(
-        self,
-        outgoing_kind,
-        new_events,
-        current_transaction_status
-    ))]
+    #[tracing::instrument(
+        skip(self, new_events, current_transaction_status),
+        fields(
+            new_events = debug_slice_truncated(&new_events, 3),
+            current_status = ?current_transaction_status.get(outgoing_kind),
+        ),
+    )]
     fn select_events(
         &self,
         outgoing_kind: &OutgoingKind,
@@ -386,7 +387,7 @@ impl Service {
         Ok(Some(events))
     }
 
-    #[tracing::instrument(skip(self, server_name))]
+    #[tracing::instrument(skip(self))]
     pub(crate) fn select_edus(
         &self,
         server_name: &ServerName,
@@ -598,7 +599,7 @@ impl Service {
         Ok(())
     }
 
-    #[tracing::instrument(skip(events, kind))]
+    #[tracing::instrument(skip(events))]
     async fn handle_events(
         kind: OutgoingKind,
         events: Vec<SendingEventType>,
@@ -876,7 +877,7 @@ impl Service {
         }
     }
 
-    #[tracing::instrument(skip(self, destination, request))]
+    #[tracing::instrument(skip(self, request))]
     pub(crate) async fn send_federation_request<T: OutgoingRequest>(
         &self,
         destination: &ServerName,
@@ -906,7 +907,10 @@ impl Service {
     ///
     /// Only returns None if there is no url specified in the appservice
     /// registration file
-    #[tracing::instrument(skip(self, registration, request))]
+    #[tracing::instrument(
+        skip(self, registration, request),
+        fields(appservice_id = registration.id),
+    )]
     pub(crate) async fn send_appservice_request<T: OutgoingRequest>(
         &self,
         registration: Registration,

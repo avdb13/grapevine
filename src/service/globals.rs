@@ -29,7 +29,7 @@ use ruma::{
     OwnedServerSigningKeyId, RoomVersionId, ServerName, UserId,
 };
 use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
-use tracing::{error, info};
+use tracing::{error, info, Instrument};
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{api::server_server::FedDest, services, Config, Error, Result};
@@ -126,6 +126,7 @@ impl Resolver {
 }
 
 impl Resolve for Resolver {
+    #[tracing::instrument(skip(self))]
     fn resolve(&self, name: Name) -> Resolving {
         self.overrides
             .read()
@@ -144,18 +145,25 @@ impl Resolve for Resolver {
             })
             .unwrap_or_else(|| {
                 let this = &mut self.inner.clone();
-                Box::pin(HyperService::<Name>::call(this, name).map(|result| {
-                    result.map(|addrs| -> Addrs { Box::new(addrs) }).map_err(
-                        |err| -> Box<dyn StdError + Send + Sync> {
-                            Box::new(err)
-                        },
-                    )
-                }))
+                Box::pin(
+                    HyperService::<Name>::call(this, name)
+                        .map(|result| {
+                            result
+                                .map(|addrs| -> Addrs { Box::new(addrs) })
+                                .map_err(
+                                    |err| -> Box<dyn StdError + Send + Sync> {
+                                        Box::new(err)
+                                    },
+                                )
+                        })
+                        .in_current_span(),
+                )
             })
     }
 }
 
 impl Service {
+    #[tracing::instrument(skip_all)]
     pub(crate) fn load(db: &'static dyn Data, config: Config) -> Result<Self> {
         let keypair = db.load_keypair();
 

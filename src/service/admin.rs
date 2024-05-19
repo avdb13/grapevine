@@ -38,11 +38,12 @@ use tracing::warn;
 use super::pdu::PduBuilder;
 use crate::{
     api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
-    services, utils, Error, PduEvent, Result,
+    services,
+    utils::{self, truncate_str_for_debug},
+    Error, PduEvent, Result,
 };
 
-#[cfg_attr(test, derive(Debug))]
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(name = "@grapevine:server.name:", version = env!("CARGO_PKG_VERSION"))]
 enum AdminCommand {
     #[command(verbatim_doc_comment)]
@@ -298,10 +299,17 @@ impl Service {
             .unwrap();
     }
 
+    #[tracing::instrument(
+        skip(self, room_message),
+        fields(
+            room_message = truncate_str_for_debug(&room_message, 50).as_ref(),
+        ),
+    )]
     pub(crate) fn process_message(&self, room_message: String) {
         self.sender.send(AdminRoomEvent::ProcessMessage(room_message)).unwrap();
     }
 
+    #[tracing::instrument(skip(self, message_content))]
     pub(crate) fn send_message(
         &self,
         message_content: RoomMessageEventContent,
@@ -310,6 +318,12 @@ impl Service {
     }
 
     // Parse and process a message from the admin room
+    #[tracing::instrument(
+        skip(self, room_message),
+        fields(
+            room_message = truncate_str_for_debug(&room_message, 50).as_ref(),
+        ),
+    )]
     async fn process_admin_message(
         &self,
         room_message: String,
@@ -355,6 +369,12 @@ impl Service {
     }
 
     // Parse chat messages from the admin room into an AdminCommand object
+    #[tracing::instrument(
+        skip(command_line),
+        fields(
+            command_line = truncate_str_for_debug(command_line, 50).as_ref(),
+        ),
+    )]
     fn parse_admin_command(
         command_line: &str,
     ) -> std::result::Result<AdminCommand, String> {
@@ -380,6 +400,7 @@ impl Service {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self, body))]
     async fn process_admin_command(
         &self,
         command: AdminCommand,
@@ -1067,6 +1088,7 @@ impl Service {
     }
 
     // Utility to turn clap's `--help` text to HTML.
+    #[tracing::instrument(skip_all)]
     fn usage_to_html(text: &str, server_name: &ServerName) -> String {
         // Replace `@grapevine:servername:-subcmdname` with
         // `@grapevine:servername: subcmdname`
@@ -1151,6 +1173,7 @@ impl Service {
     /// be used to issue admin commands by talking to the server user inside
     /// it.
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn create_admin_room(&self) -> Result<()> {
         let room_id = RoomId::new(services().globals.server_name());
 
@@ -1435,6 +1458,7 @@ impl Service {
     /// Invite the user to the grapevine admin room.
     ///
     /// In grapevine, this is equivalent to granting admin privileges.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn make_user_admin(
         &self,
         user_id: &UserId,

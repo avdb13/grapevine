@@ -47,6 +47,7 @@ impl Service {
         self.db.state_full_ids(shortstatehash).await
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn state_full(
         &self,
         shortstatehash: u64,
@@ -68,6 +69,7 @@ impl Service {
 
     /// Returns a single PDU from `room_id` with key (`event_type`,
     /// `state_key`).
+    #[tracing::instrument(skip(self))]
     pub(crate) fn state_get(
         &self,
         shortstatehash: u64,
@@ -78,6 +80,7 @@ impl Service {
     }
 
     /// Get membership for given user in state
+    #[tracing::instrument(skip(self))]
     fn user_membership(
         &self,
         shortstatehash: u64,
@@ -100,6 +103,7 @@ impl Service {
     }
 
     /// The user was a joined member at this state (potentially in the past)
+    #[tracing::instrument(skip(self), ret(level = "trace"))]
     fn user_was_joined(&self, shortstatehash: u64, user_id: &UserId) -> bool {
         self.user_membership(shortstatehash, user_id)
             .map(|s| s == MembershipState::Join)
@@ -108,6 +112,7 @@ impl Service {
 
     /// The user was an invited or joined room member at this state (potentially
     /// in the past)
+    #[tracing::instrument(skip(self), ret(level = "trace"))]
     fn user_was_invited(&self, shortstatehash: u64, user_id: &UserId) -> bool {
         self.user_membership(shortstatehash, user_id)
             .map(|s| s == MembershipState::Join || s == MembershipState::Invite)
@@ -294,6 +299,7 @@ impl Service {
     }
 
     /// Returns the state hash for this pdu.
+    #[tracing::instrument(skip(self))]
     pub(crate) fn pdu_shortstatehash(
         &self,
         event_id: &EventId,
@@ -334,6 +340,7 @@ impl Service {
         self.db.room_state_get(room_id, event_type, state_key)
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_name(&self, room_id: &RoomId) -> Result<Option<String>> {
         self.room_state_get(room_id, &StateEventType::RoomName, "")?.map_or(
             Ok(None),
@@ -354,6 +361,7 @@ impl Service {
         )
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_avatar(
         &self,
         room_id: &RoomId,
@@ -372,6 +380,7 @@ impl Service {
 
     // Allowed because this function uses `services()`
     #[allow(clippy::unused_self)]
+    #[tracing::instrument(skip(self), ret(level = "trace"))]
     pub(crate) fn user_can_invite(
         &self,
         room_id: &RoomId,
@@ -398,6 +407,7 @@ impl Service {
             .is_ok()
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_member(
         &self,
         room_id: &RoomId,
@@ -420,6 +430,7 @@ impl Service {
     /// If `federation` is `true`, it allows redaction events from any user of
     /// the same server as the original event sender, [as required by room
     /// versions >= v3](https://spec.matrix.org/v1.10/rooms/v11/#handling-redactions)
+    #[tracing::instrument(skip(self))]
     pub(crate) fn user_can_redact(
         &self,
         redacts: &EventId,

@@ -20,7 +20,11 @@ use tokio::sync::MutexGuard;
 use tracing::warn;
 
 use super::state_compressor::CompressedStateEvent;
-use crate::{services, utils::calculate_hash, Error, PduEvent, Result};
+use crate::{
+    services,
+    utils::{calculate_hash, debug_slice_truncated},
+    Error, PduEvent, Result,
+};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -28,6 +32,12 @@ pub(crate) struct Service {
 
 impl Service {
     /// Set the room to the given statehash and update caches.
+    #[tracing::instrument(skip(
+        self,
+        statediffnew,
+        _statediffremoved,
+        state_lock
+    ))]
     pub(crate) async fn force_state(
         &self,
         room_id: &RoomId,
@@ -354,6 +364,7 @@ impl Service {
         Ok(create_event_content.room_version)
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_room_shortstatehash(
         &self,
         room_id: &RoomId,
@@ -361,6 +372,7 @@ impl Service {
         self.db.get_room_shortstatehash(room_id)
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_forward_extremities(
         &self,
         room_id: &RoomId,
@@ -368,6 +380,10 @@ impl Service {
         self.db.get_forward_extremities(room_id)
     }
 
+    #[tracing::instrument(
+        skip(self, event_ids, state_lock),
+        fields(event_ids = debug_slice_truncated(&event_ids, 5)),
+    )]
     pub(crate) fn set_forward_extremities(
         &self,
         room_id: &RoomId,

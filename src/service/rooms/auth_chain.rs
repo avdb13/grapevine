@@ -8,7 +8,7 @@ pub(crate) use data::Data;
 use ruma::{api::client::error::ErrorKind, EventId, RoomId};
 use tracing::{debug, error, warn};
 
-use crate::{services, Error, Result};
+use crate::{services, utils::debug_slice_truncated, Error, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -31,7 +31,10 @@ impl Service {
         self.db.cache_auth_chain(key, auth_chain)
     }
 
-    #[tracing::instrument(skip(self, starting_events))]
+    #[tracing::instrument(
+        skip(self, starting_events),
+        fields(starting_events = debug_slice_truncated(&starting_events, 5)),
+    )]
     pub(crate) async fn get_auth_chain<'a>(
         &self,
         room_id: &RoomId,
@@ -138,7 +141,7 @@ impl Service {
         }))
     }
 
-    #[tracing::instrument(skip(self, event_id))]
+    #[tracing::instrument(skip(self))]
     fn get_auth_chain_inner(
         &self,
         room_id: &RoomId,

@@ -30,6 +30,7 @@ pub(crate) struct Service {
 
 impl Service {
     /// Uploads a file.
+    #[tracing::instrument(skip(self, file))]
     pub(crate) async fn create(
         &self,
         mxc: String,
@@ -54,6 +55,7 @@ impl Service {
 
     /// Uploads or replaces a file thumbnail.
     #[allow(clippy::too_many_arguments)]
+    #[tracing::instrument(skip(self, file))]
     pub(crate) async fn upload_thumbnail(
         &self,
         mxc: String,
@@ -79,6 +81,7 @@ impl Service {
     }
 
     /// Downloads a file.
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn get(&self, mxc: String) -> Result<Option<FileMeta>> {
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc, 0, 0)
@@ -129,6 +132,7 @@ impl Service {
     /// For width,height <= 96 the server uses another thumbnailing algorithm
     /// which crops the image afterwards.
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn get_thumbnail(
         &self,
         mxc: String,
