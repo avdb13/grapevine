@@ -274,6 +274,10 @@ async fn run_server() -> io::Result<()> {
     Ok(())
 }
 
+/// Ensures the request runs in a new tokio thread.
+///
+/// The axum request handler task gets cancelled if the connection is shut down;
+/// by spawning our own task, processing continue after the client disconnects.
 async fn spawn_task<B: Send + 'static>(
     req: axum::http::Request<B>,
     next: axum::middleware::Next<B>,
