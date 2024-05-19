@@ -14,7 +14,7 @@ use ruma::{
     uint,
 };
 
-use crate::{services, Error, Result, Ruma};
+use crate::{services, Error, Result, Ruma, RumaResponse};
 
 /// # `POST /_matrix/client/r0/search`
 ///
@@ -25,7 +25,7 @@ use crate::{services, Error, Result, Ruma};
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn search_events_route(
     body: Ruma<search_events::v3::Request>,
-) -> Result<search_events::v3::Response> {
+) -> Result<RumaResponse<search_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let search_criteria = body.search_categories.room_events.as_ref().unwrap();
@@ -136,7 +136,7 @@ pub(crate) async fn search_events_route(
         Some((skip + limit).to_string())
     };
 
-    Ok(search_events::v3::Response::new(ResultCategories {
+    Ok(RumaResponse(search_events::v3::Response::new(ResultCategories {
         room_events: ResultRoomEvents {
             count: None,
             // TODO
@@ -151,5 +151,5 @@ pub(crate) async fn search_events_route(
                 .map(str::to_lowercase)
                 .collect(),
         },
-    }))
+    })))
 }

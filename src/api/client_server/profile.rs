@@ -18,7 +18,9 @@ use ruma::{
 use serde_json::value::to_raw_value;
 use tracing::warn;
 
-use crate::{service::pdu::PduBuilder, services, Error, Result, Ruma};
+use crate::{
+    service::pdu::PduBuilder, services, Error, Result, Ruma, RumaResponse,
+};
 
 /// # `PUT /_matrix/client/r0/profile/{userId}/displayname`
 ///
@@ -27,7 +29,7 @@ use crate::{service::pdu::PduBuilder, services, Error, Result, Ruma};
 /// - Also makes sure other users receive the update using presence EDUs
 pub(crate) async fn set_displayname_route(
     body: Ruma<set_display_name::v3::Request>,
-) -> Result<set_display_name::v3::Response> {
+) -> Result<RumaResponse<set_display_name::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     services().users.set_displayname(sender_user, body.displayname.clone())?;
@@ -107,7 +109,7 @@ pub(crate) async fn set_displayname_route(
         }
     }
 
-    Ok(set_display_name::v3::Response {})
+    Ok(RumaResponse(set_display_name::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/profile/{userId}/displayname`
@@ -117,7 +119,7 @@ pub(crate) async fn set_displayname_route(
 /// - If user is on another server: Fetches displayname over federation
 pub(crate) async fn get_displayname_route(
     body: Ruma<get_display_name::v3::Request>,
-) -> Result<get_display_name::v3::Response> {
+) -> Result<RumaResponse<get_display_name::v3::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         let response = services()
             .sending
@@ -130,14 +132,14 @@ pub(crate) async fn get_displayname_route(
             )
             .await?;
 
-        return Ok(get_display_name::v3::Response {
+        return Ok(RumaResponse(get_display_name::v3::Response {
             displayname: response.displayname,
-        });
+        }));
     }
 
-    Ok(get_display_name::v3::Response {
+    Ok(RumaResponse(get_display_name::v3::Response {
         displayname: services().users.displayname(&body.user_id)?,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/client/r0/profile/{userId}/avatar_url`
@@ -147,7 +149,7 @@ pub(crate) async fn get_displayname_route(
 /// - Also makes sure other users receive the update using presence EDUs
 pub(crate) async fn set_avatar_url_route(
     body: Ruma<set_avatar_url::v3::Request>,
-) -> Result<set_avatar_url::v3::Response> {
+) -> Result<RumaResponse<set_avatar_url::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     services().users.set_avatar_url(sender_user, body.avatar_url.clone())?;
@@ -229,7 +231,7 @@ pub(crate) async fn set_avatar_url_route(
         };
     }
 
-    Ok(set_avatar_url::v3::Response {})
+    Ok(RumaResponse(set_avatar_url::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/profile/{userId}/avatar_url`
@@ -240,7 +242,7 @@ pub(crate) async fn set_avatar_url_route(
 ///   federation
 pub(crate) async fn get_avatar_url_route(
     body: Ruma<get_avatar_url::v3::Request>,
-) -> Result<get_avatar_url::v3::Response> {
+) -> Result<RumaResponse<get_avatar_url::v3::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         let response = services()
             .sending
@@ -253,16 +255,16 @@ pub(crate) async fn get_avatar_url_route(
             )
             .await?;
 
-        return Ok(get_avatar_url::v3::Response {
+        return Ok(RumaResponse(get_avatar_url::v3::Response {
             avatar_url: response.avatar_url,
             blurhash: response.blurhash,
-        });
+        }));
     }
 
-    Ok(get_avatar_url::v3::Response {
+    Ok(RumaResponse(get_avatar_url::v3::Response {
         avatar_url: services().users.avatar_url(&body.user_id)?,
         blurhash: services().users.blurhash(&body.user_id)?,
-    })
+    }))
 }
 
 /// # `GET /_matrix/client/r0/profile/{userId}`
@@ -272,7 +274,7 @@ pub(crate) async fn get_avatar_url_route(
 /// - If user is on another server: Fetches profile over federation
 pub(crate) async fn get_profile_route(
     body: Ruma<get_profile::v3::Request>,
-) -> Result<get_profile::v3::Response> {
+) -> Result<RumaResponse<get_profile::v3::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         let response = services()
             .sending
@@ -285,11 +287,11 @@ pub(crate) async fn get_profile_route(
             )
             .await?;
 
-        return Ok(get_profile::v3::Response {
+        return Ok(RumaResponse(get_profile::v3::Response {
             displayname: response.displayname,
             avatar_url: response.avatar_url,
             blurhash: response.blurhash,
-        });
+        }));
     }
 
     if !services().users.exists(&body.user_id)? {
@@ -300,9 +302,9 @@ pub(crate) async fn get_profile_route(
         ));
     }
 
-    Ok(get_profile::v3::Response {
+    Ok(RumaResponse(get_profile::v3::Response {
         avatar_url: services().users.avatar_url(&body.user_id)?,
         blurhash: services().users.blurhash(&body.user_id)?,
         displayname: services().users.displayname(&body.user_id)?,
-    })
+    }))
 }

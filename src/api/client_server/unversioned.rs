@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, iter::FromIterator};
 
 use ruma::api::client::discovery::get_supported_versions;
 
-use crate::{Result, Ruma};
+use crate::{Result, Ruma, RumaResponse};
 
 /// # `GET /_matrix/client/versions`
 ///
@@ -18,7 +18,7 @@ use crate::{Result, Ruma};
 /// should avoid using unstable features in their stable releases
 pub(crate) async fn get_supported_versions_route(
     _body: Ruma<get_supported_versions::Request>,
-) -> Result<get_supported_versions::Response> {
+) -> Result<RumaResponse<get_supported_versions::Response>> {
     let resp = get_supported_versions::Response {
         versions: vec![
             "r0.5.0".to_owned(),
@@ -35,5 +35,5 @@ pub(crate) async fn get_supported_versions_route(
         )]),
     };
 
-    Ok(resp)
+    Ok(RumaResponse(resp))
 }

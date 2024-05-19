@@ -8,14 +8,14 @@ use ruma::api::client::{
 };
 
 use super::SESSION_ID_LENGTH;
-use crate::{services, utils, Error, Result, Ruma};
+use crate::{services, utils, Error, Result, Ruma, RumaResponse};
 
 /// # `GET /_matrix/client/r0/devices`
 ///
 /// Get metadata on all devices of the sender user.
 pub(crate) async fn get_devices_route(
     body: Ruma<get_devices::v3::Request>,
-) -> Result<get_devices::v3::Response> {
+) -> Result<RumaResponse<get_devices::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let devices: Vec<device::Device> = services()
@@ -24,9 +24,9 @@ pub(crate) async fn get_devices_route(
         .filter_map(Result::ok)
         .collect();
 
-    Ok(get_devices::v3::Response {
+    Ok(RumaResponse(get_devices::v3::Response {
         devices,
-    })
+    }))
 }
 
 /// # `GET /_matrix/client/r0/devices/{deviceId}`
@@ -34,7 +34,7 @@ pub(crate) async fn get_devices_route(
 /// Get metadata on a single device of the sender user.
 pub(crate) async fn get_device_route(
     body: Ruma<get_device::v3::Request>,
-) -> Result<get_device::v3::Response> {
+) -> Result<RumaResponse<get_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let device = services()
@@ -42,9 +42,9 @@ pub(crate) async fn get_device_route(
         .get_device_metadata(sender_user, &body.body.device_id)?
         .ok_or(Error::BadRequest(ErrorKind::NotFound, "Device not found."))?;
 
-    Ok(get_device::v3::Response {
+    Ok(RumaResponse(get_device::v3::Response {
         device,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/client/r0/devices/{deviceId}`
@@ -52,7 +52,7 @@ pub(crate) async fn get_device_route(
 /// Updates the metadata on a given device of the sender user.
 pub(crate) async fn update_device_route(
     body: Ruma<update_device::v3::Request>,
-) -> Result<update_device::v3::Response> {
+) -> Result<RumaResponse<update_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let mut device = services()
@@ -68,7 +68,7 @@ pub(crate) async fn update_device_route(
         &device,
     )?;
 
-    Ok(update_device::v3::Response {})
+    Ok(RumaResponse(update_device::v3::Response {}))
 }
 
 /// # `DELETE /_matrix/client/r0/devices/{deviceId}`
@@ -83,7 +83,7 @@ pub(crate) async fn update_device_route(
 /// - Triggers device list updates
 pub(crate) async fn delete_device_route(
     body: Ruma<delete_device::v3::Request>,
-) -> Result<delete_device::v3::Response> {
+) -> Result<RumaResponse<delete_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -120,7 +120,7 @@ pub(crate) async fn delete_device_route(
 
     services().users.remove_device(sender_user, &body.device_id)?;
 
-    Ok(delete_device::v3::Response {})
+    Ok(RumaResponse(delete_device::v3::Response {}))
 }
 
 /// # `PUT /_matrix/client/r0/devices/{deviceId}`
@@ -137,7 +137,7 @@ pub(crate) async fn delete_device_route(
 /// - Triggers device list updates
 pub(crate) async fn delete_devices_route(
     body: Ruma<delete_devices::v3::Request>,
-) -> Result<delete_devices::v3::Response> {
+) -> Result<RumaResponse<delete_devices::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -176,5 +176,5 @@ pub(crate) async fn delete_devices_route(
         services().users.remove_device(sender_user, device_id)?;
     }
 
-    Ok(delete_devices::v3::Response {})
+    Ok(RumaResponse(delete_devices::v3::Response {}))
 }

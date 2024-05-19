@@ -8,7 +8,10 @@ use ruma::api::client::{
     },
 };
 
-use crate::{service::media::FileMeta, services, utils, Error, Result, Ruma};
+use crate::{
+    service::media::FileMeta, services, utils, Error, Result, Ruma,
+    RumaResponse,
+};
 
 const MXC_LENGTH: usize = 32;
 
@@ -17,10 +20,10 @@ const MXC_LENGTH: usize = 32;
 /// Returns max upload size.
 pub(crate) async fn get_media_config_route(
     _body: Ruma<get_media_config::v3::Request>,
-) -> Result<get_media_config::v3::Response> {
-    Ok(get_media_config::v3::Response {
+) -> Result<RumaResponse<get_media_config::v3::Response>> {
+    Ok(RumaResponse(get_media_config::v3::Response {
         upload_size: services().globals.max_request_size().into(),
-    })
+    }))
 }
 
 /// # `POST /_matrix/media/r0/upload`
@@ -31,7 +34,7 @@ pub(crate) async fn get_media_config_route(
 /// - Media will be saved in the media/ directory
 pub(crate) async fn create_content_route(
     body: Ruma<create_content::v3::Request>,
-) -> Result<create_content::v3::Response> {
+) -> Result<RumaResponse<create_content::v3::Response>> {
     let mxc = format!(
         "mxc://{}/{}",
         services().globals.server_name(),
@@ -51,10 +54,10 @@ pub(crate) async fn create_content_route(
         )
         .await?;
 
-    Ok(create_content::v3::Response {
+    Ok(RumaResponse(create_content::v3::Response {
         content_uri: mxc.into(),
         blurhash: None,
-    })
+    }))
 }
 
 pub(crate) async fn get_remote_content(
@@ -96,7 +99,7 @@ pub(crate) async fn get_remote_content(
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_route(
     body: Ruma<get_content::v3::Request>,
-) -> Result<get_content::v3::Response> {
+) -> Result<RumaResponse<get_content::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -105,19 +108,19 @@ pub(crate) async fn get_content_route(
         file,
     }) = services().media.get(mxc.clone()).await?
     {
-        Ok(get_content::v3::Response {
+        Ok(RumaResponse(get_content::v3::Response {
             file,
             content_type,
             content_disposition,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
-        })
+        }))
     } else if &*body.server_name != services().globals.server_name()
         && body.allow_remote
     {
         let remote_content_response =
             get_remote_content(&mxc, &body.server_name, body.media_id.clone())
                 .await?;
-        Ok(remote_content_response)
+        Ok(RumaResponse(remote_content_response))
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
     }
@@ -130,7 +133,7 @@ pub(crate) async fn get_content_route(
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_as_filename_route(
     body: Ruma<get_content_as_filename::v3::Request>,
-) -> Result<get_content_as_filename::v3::Response> {
+) -> Result<RumaResponse<get_content_as_filename::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -139,7 +142,7 @@ pub(crate) async fn get_content_as_filename_route(
         ..
     }) = services().media.get(mxc.clone()).await?
     {
-        Ok(get_content_as_filename::v3::Response {
+        Ok(RumaResponse(get_content_as_filename::v3::Response {
             file,
             content_type,
             content_disposition: Some(format!(
@@ -147,7 +150,7 @@ pub(crate) async fn get_content_as_filename_route(
                 body.filename
             )),
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
-        })
+        }))
     } else if &*body.server_name != services().globals.server_name()
         && body.allow_remote
     {
@@ -155,7 +158,7 @@ pub(crate) async fn get_content_as_filename_route(
             get_remote_content(&mxc, &body.server_name, body.media_id.clone())
                 .await?;
 
-        Ok(get_content_as_filename::v3::Response {
+        Ok(RumaResponse(get_content_as_filename::v3::Response {
             content_disposition: Some(format!(
                 "inline: filename={}",
                 body.filename
@@ -163,7 +166,7 @@ pub(crate) async fn get_content_as_filename_route(
             content_type: remote_content_response.content_type,
             file: remote_content_response.file,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
-        })
+        }))
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
     }
@@ -176,7 +179,7 @@ pub(crate) async fn get_content_as_filename_route(
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_thumbnail_route(
     body: Ruma<get_content_thumbnail::v3::Request>,
-) -> Result<get_content_thumbnail::v3::Response> {
+) -> Result<RumaResponse<get_content_thumbnail::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -196,11 +199,11 @@ pub(crate) async fn get_content_thumbnail_route(
         )
         .await?
     {
-        Ok(get_content_thumbnail::v3::Response {
+        Ok(RumaResponse(get_content_thumbnail::v3::Response {
             file,
             content_type,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
-        })
+        }))
     } else if &*body.server_name != services().globals.server_name()
         && body.allow_remote
     {
@@ -233,7 +236,7 @@ pub(crate) async fn get_content_thumbnail_route(
             )
             .await?;
 
-        Ok(get_thumbnail_response)
+        Ok(RumaResponse(get_thumbnail_response))
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
     }

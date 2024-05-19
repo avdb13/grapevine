@@ -13,6 +13,7 @@ use ruma::{
 
 use crate::{
     service::rooms::timeline::PduCount, services, Error, Result, Ruma,
+    RumaResponse,
 };
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/read_markers`
@@ -24,7 +25,7 @@ use crate::{
 ///   EDU
 pub(crate) async fn set_read_marker_route(
     body: Ruma<set_read_marker::v3::Request>,
-) -> Result<set_read_marker::v3::Response> {
+) -> Result<RumaResponse<set_read_marker::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if let Some(fully_read) = &body.fully_read {
@@ -97,7 +98,7 @@ pub(crate) async fn set_read_marker_route(
         )?;
     }
 
-    Ok(set_read_marker::v3::Response {})
+    Ok(RumaResponse(set_read_marker::v3::Response {}))
 }
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/receipt/{receiptType}/{eventId}`
@@ -105,7 +106,7 @@ pub(crate) async fn set_read_marker_route(
 /// Sets private read marker and public read receipt EDU.
 pub(crate) async fn create_receipt_route(
     body: Ruma<create_receipt::v3::Request>,
-) -> Result<create_receipt::v3::Response> {
+) -> Result<RumaResponse<create_receipt::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if matches!(
@@ -187,5 +188,5 @@ pub(crate) async fn create_receipt_route(
         _ => return Err(Error::bad_database("Unsupported receipt type")),
     }
 
-    Ok(create_receipt::v3::Response {})
+    Ok(RumaResponse(create_receipt::v3::Response {}))
 }

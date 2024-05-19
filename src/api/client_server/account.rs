@@ -19,7 +19,9 @@ use ruma::{
 use tracing::{info, warn};
 
 use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH};
-use crate::{api::client_server, services, utils, Error, Result, Ruma};
+use crate::{
+    api::client_server, services, utils, Error, Result, Ruma, RumaResponse,
+};
 
 const RANDOM_USER_ID_LENGTH: usize = 10;
 
@@ -36,7 +38,7 @@ const RANDOM_USER_ID_LENGTH: usize = 10;
 /// invalid when trying to register
 pub(crate) async fn get_register_available_route(
     body: Ruma<get_username_availability::v3::Request>,
-) -> Result<get_username_availability::v3::Response> {
+) -> Result<RumaResponse<get_username_availability::v3::Response>> {
     // Validate user id
     let user_id = UserId::parse_with_server_name(
         body.username.to_lowercase(),
@@ -63,9 +65,9 @@ pub(crate) async fn get_register_available_route(
     // TODO add check for appservice namespaces
 
     // If no if check is true we have an username that's available to be used.
-    Ok(get_username_availability::v3::Response {
+    Ok(RumaResponse(get_username_availability::v3::Response {
         available: true,
-    })
+    }))
 }
 
 /// # `POST /_matrix/client/r0/register`
@@ -88,7 +90,7 @@ pub(crate) async fn get_register_available_route(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn register_route(
     body: Ruma<register::v3::Request>,
-) -> Result<register::v3::Response> {
+) -> Result<RumaResponse<register::v3::Response>> {
     if !services().globals.allow_registration()
         && body.appservice_info.is_none()
     {
@@ -248,13 +250,13 @@ pub(crate) async fn register_route(
 
     // Inhibit login does not work for guests
     if !is_guest && body.inhibit_login {
-        return Ok(register::v3::Response {
+        return Ok(RumaResponse(register::v3::Response {
             access_token: None,
             user_id,
             device_id: None,
             refresh_token: None,
             expires_in: None,
-        });
+        }));
     }
 
     // Generate new device id if the user didn't specify one
@@ -300,13 +302,13 @@ pub(crate) async fn register_route(
         }
     }
 
-    Ok(register::v3::Response {
+    Ok(RumaResponse(register::v3::Response {
         access_token: Some(token),
         user_id,
         device_id: Some(device_id),
         refresh_token: None,
         expires_in: None,
-    })
+    }))
 }
 
 /// # `POST /_matrix/client/r0/account/password`
@@ -328,7 +330,7 @@ pub(crate) async fn register_route(
 /// - Triggers device list updates
 pub(crate) async fn change_password_route(
     body: Ruma<change_password::v3::Request>,
-) -> Result<change_password::v3::Response> {
+) -> Result<RumaResponse<change_password::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -381,7 +383,7 @@ pub(crate) async fn change_password_route(
         format!("User {sender_user} changed their password."),
     ));
 
-    Ok(change_password::v3::Response {})
+    Ok(RumaResponse(change_password::v3::Response {}))
 }
 
 /// # `GET _matrix/client/r0/account/whoami`
@@ -391,16 +393,16 @@ pub(crate) async fn change_password_route(
 /// Note: Also works for Application Services
 pub(crate) async fn whoami_route(
     body: Ruma<whoami::v3::Request>,
-) -> Result<whoami::v3::Response> {
+) -> Result<RumaResponse<whoami::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let device_id = body.sender_device.as_ref().cloned();
 
-    Ok(whoami::v3::Response {
+    Ok(RumaResponse(whoami::v3::Response {
         user_id: sender_user.clone(),
         device_id,
         is_guest: services().users.is_deactivated(sender_user)?
             && body.appservice_info.is_none(),
-    })
+    }))
 }
 
 /// # `POST /_matrix/client/r0/account/deactivate`
@@ -416,7 +418,7 @@ pub(crate) async fn whoami_route(
 /// - Removes ability to log in again
 pub(crate) async fn deactivate_route(
     body: Ruma<deactivate::v3::Request>,
-) -> Result<deactivate::v3::Response> {
+) -> Result<RumaResponse<deactivate::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -461,9 +463,9 @@ pub(crate) async fn deactivate_route(
         format!("User {sender_user} deactivated their account."),
     ));
 
-    Ok(deactivate::v3::Response {
+    Ok(RumaResponse(deactivate::v3::Response {
         id_server_unbind_result: ThirdPartyIdRemovalStatus::NoSupport,
-    })
+    }))
 }
 
 /// # `GET _matrix/client/v3/account/3pid`
@@ -473,11 +475,11 @@ pub(crate) async fn deactivate_route(
 /// - Currently always returns empty list
 pub(crate) async fn third_party_route(
     body: Ruma<get_3pids::v3::Request>,
-) -> Result<get_3pids::v3::Response> {
+) -> Result<RumaResponse<get_3pids::v3::Response>> {
     let _sender_user =
         body.sender_user.as_ref().expect("user is authenticated");
 
-    Ok(get_3pids::v3::Response::new(Vec::new()))
+    Ok(RumaResponse(get_3pids::v3::Response::new(Vec::new())))
 }
 
 /// # `POST /_matrix/client/v3/account/3pid/email/requestToken`
@@ -489,7 +491,8 @@ pub(crate) async fn third_party_route(
 ///   as a contact option.
 pub(crate) async fn request_3pid_management_token_via_email_route(
     _body: Ruma<request_3pid_management_token_via_email::v3::Request>,
-) -> Result<request_3pid_management_token_via_email::v3::Response> {
+) -> Result<RumaResponse<request_3pid_management_token_via_email::v3::Response>>
+{
     Err(Error::BadRequest(
         ErrorKind::ThreepidDenied,
         "Third party identifier is not allowed",
@@ -503,9 +506,12 @@ pub(crate) async fn request_3pid_management_token_via_email_route(
 ///
 /// - 403 signals that The homeserver does not allow the third party identifier
 ///   as a contact option.
+#[rustfmt::skip]
 pub(crate) async fn request_3pid_management_token_via_msisdn_route(
     _body: Ruma<request_3pid_management_token_via_msisdn::v3::Request>,
-) -> Result<request_3pid_management_token_via_msisdn::v3::Response> {
+)
+-> Result<RumaResponse<request_3pid_management_token_via_msisdn::v3::Response>>
+{
     Err(Error::BadRequest(
         ErrorKind::ThreepidDenied,
         "Third party identifier is not allowed",

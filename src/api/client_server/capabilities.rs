@@ -4,7 +4,7 @@ use ruma::api::client::discovery::get_capabilities::{
     self, Capabilities, RoomVersionStability, RoomVersionsCapability,
 };
 
-use crate::{services, Result, Ruma};
+use crate::{services, Result, Ruma, RumaResponse};
 
 /// # `GET /_matrix/client/r0/capabilities`
 ///
@@ -12,7 +12,7 @@ use crate::{services, Result, Ruma};
 /// of this server.
 pub(crate) async fn get_capabilities_route(
     _body: Ruma<get_capabilities::v3::Request>,
-) -> Result<get_capabilities::v3::Response> {
+) -> Result<RumaResponse<get_capabilities::v3::Response>> {
     let mut available = BTreeMap::new();
     for room_version in &services().globals.unstable_room_versions {
         available.insert(room_version.clone(), RoomVersionStability::Unstable);
@@ -27,7 +27,7 @@ pub(crate) async fn get_capabilities_route(
         available,
     };
 
-    Ok(get_capabilities::v3::Response {
+    Ok(RumaResponse(get_capabilities::v3::Response {
         capabilities,
-    })
+    }))
 }

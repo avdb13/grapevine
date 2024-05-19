@@ -66,7 +66,7 @@ use tracing::{debug, error, warn};
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils, Error, PduEvent, Result, Ruma,
+    services, utils, Error, PduEvent, Result, Ruma, RumaResponse,
 };
 
 /// Wraps either an literal IP address plus port, or a hostname plus complement
@@ -554,13 +554,13 @@ async fn request_well_known(destination: &str) -> Option<String> {
 /// Get version information on this server.
 pub(crate) async fn get_server_version_route(
     _body: Ruma<get_server_version::v1::Request>,
-) -> Result<get_server_version::v1::Response> {
-    Ok(get_server_version::v1::Response {
+) -> Result<RumaResponse<get_server_version::v1::Response>> {
+    Ok(RumaResponse(get_server_version::v1::Response {
         server: Some(get_server_version::v1::Server {
             name: Some(env!("CARGO_PKG_NAME").to_owned()),
             version: Some(crate::version()),
         }),
-    })
+    }))
 }
 
 /// # `GET /_matrix/key/v2/server`
@@ -631,7 +631,7 @@ pub(crate) async fn get_server_keys_deprecated_route() -> impl IntoResponse {
 /// Lists the public rooms on this server.
 pub(crate) async fn get_public_rooms_filtered_route(
     body: Ruma<get_public_rooms_filtered::v1::Request>,
-) -> Result<get_public_rooms_filtered::v1::Response> {
+) -> Result<RumaResponse<get_public_rooms_filtered::v1::Response>> {
     let response = client_server::get_public_rooms_filtered_helper(
         None,
         body.limit,
@@ -641,12 +641,12 @@ pub(crate) async fn get_public_rooms_filtered_route(
     )
     .await?;
 
-    Ok(get_public_rooms_filtered::v1::Response {
+    Ok(RumaResponse(get_public_rooms_filtered::v1::Response {
         chunk: response.chunk,
         prev_batch: response.prev_batch,
         next_batch: response.next_batch,
         total_room_count_estimate: response.total_room_count_estimate,
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/publicRooms`
@@ -654,7 +654,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 /// Lists the public rooms on this server.
 pub(crate) async fn get_public_rooms_route(
     body: Ruma<get_public_rooms::v1::Request>,
-) -> Result<get_public_rooms::v1::Response> {
+) -> Result<RumaResponse<get_public_rooms::v1::Response>> {
     let response = client_server::get_public_rooms_filtered_helper(
         None,
         body.limit,
@@ -664,12 +664,12 @@ pub(crate) async fn get_public_rooms_route(
     )
     .await?;
 
-    Ok(get_public_rooms::v1::Response {
+    Ok(RumaResponse(get_public_rooms::v1::Response {
         chunk: response.chunk,
         prev_batch: response.prev_batch,
         next_batch: response.next_batch,
         total_room_count_estimate: response.total_room_count_estimate,
-    })
+    }))
 }
 
 pub(crate) fn parse_incoming_pdu(
@@ -709,7 +709,7 @@ pub(crate) fn parse_incoming_pdu(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn send_transaction_message_route(
     body: Ruma<send_transaction_message::v1::Request>,
-) -> Result<send_transaction_message::v1::Response> {
+) -> Result<RumaResponse<send_transaction_message::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -976,12 +976,12 @@ pub(crate) async fn send_transaction_message_route(
         }
     }
 
-    Ok(send_transaction_message::v1::Response {
+    Ok(RumaResponse(send_transaction_message::v1::Response {
         pdus: resolved_map
             .into_iter()
             .map(|(e, r)| (e, r.map_err(|e| e.sanitized_error())))
             .collect(),
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/event/{eventId}`
@@ -992,7 +992,7 @@ pub(crate) async fn send_transaction_message_route(
 ///   room
 pub(crate) async fn get_event_route(
     body: Ruma<get_event::v1::Request>,
-) -> Result<get_event::v1::Response> {
+) -> Result<RumaResponse<get_event::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1035,11 +1035,11 @@ pub(crate) async fn get_event_route(
         ));
     }
 
-    Ok(get_event::v1::Response {
+    Ok(RumaResponse(get_event::v1::Response {
         origin: services().globals.server_name().to_owned(),
         origin_server_ts: MilliSecondsSinceUnixEpoch::now(),
         pdu: PduEvent::convert_to_outgoing_federation_event(event),
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/backfill/<room_id>`
@@ -1048,7 +1048,7 @@ pub(crate) async fn get_event_route(
 /// history visibility allows.
 pub(crate) async fn get_backfill_route(
     body: Ruma<get_backfill::v1::Request>,
-) -> Result<get_backfill::v1::Response> {
+) -> Result<RumaResponse<get_backfill::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1106,11 +1106,11 @@ pub(crate) async fn get_backfill_route(
         .map(PduEvent::convert_to_outgoing_federation_event)
         .collect();
 
-    Ok(get_backfill::v1::Response {
+    Ok(RumaResponse(get_backfill::v1::Response {
         origin: services().globals.server_name().to_owned(),
         origin_server_ts: MilliSecondsSinceUnixEpoch::now(),
         pdus: events,
-    })
+    }))
 }
 
 /// # `POST /_matrix/federation/v1/get_missing_events/{roomId}`
@@ -1118,7 +1118,7 @@ pub(crate) async fn get_backfill_route(
 /// Retrieves events that the sender is missing.
 pub(crate) async fn get_missing_events_route(
     body: Ruma<get_missing_events::v1::Request>,
-) -> Result<get_missing_events::v1::Response> {
+) -> Result<RumaResponse<get_missing_events::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1208,9 +1208,9 @@ pub(crate) async fn get_missing_events_route(
         i += 1;
     }
 
-    Ok(get_missing_events::v1::Response {
+    Ok(RumaResponse(get_missing_events::v1::Response {
         events,
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/event_auth/{roomId}/{eventId}`
@@ -1220,7 +1220,7 @@ pub(crate) async fn get_missing_events_route(
 /// - This does not include the event itself
 pub(crate) async fn get_event_authorization_route(
     body: Ruma<get_event_authorization::v1::Request>,
-) -> Result<get_event_authorization::v1::Response> {
+) -> Result<RumaResponse<get_event_authorization::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1263,14 +1263,14 @@ pub(crate) async fn get_event_authorization_route(
         .get_auth_chain(room_id, vec![Arc::from(&*body.event_id)])
         .await?;
 
-    Ok(get_event_authorization::v1::Response {
+    Ok(RumaResponse(get_event_authorization::v1::Response {
         auth_chain: auth_chain_ids
             .filter_map(|id| {
                 services().rooms.timeline.get_pdu_json(&id).ok()?
             })
             .map(PduEvent::convert_to_outgoing_federation_event)
             .collect(),
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/state/{roomId}`
@@ -1278,7 +1278,7 @@ pub(crate) async fn get_event_authorization_route(
 /// Retrieves the current state of the room.
 pub(crate) async fn get_room_state_route(
     body: Ruma<get_room_state::v1::Request>,
-) -> Result<get_room_state::v1::Response> {
+) -> Result<RumaResponse<get_room_state::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1326,7 +1326,7 @@ pub(crate) async fn get_room_state_route(
         .get_auth_chain(&body.room_id, vec![Arc::from(&*body.event_id)])
         .await?;
 
-    Ok(get_room_state::v1::Response {
+    Ok(RumaResponse(get_room_state::v1::Response {
         auth_chain: auth_chain_ids
             .filter_map(|id| {
                 if let Some(json) =
@@ -1340,7 +1340,7 @@ pub(crate) async fn get_room_state_route(
             })
             .collect(),
         pdus,
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/state_ids/{roomId}`
@@ -1348,7 +1348,7 @@ pub(crate) async fn get_room_state_route(
 /// Retrieves the current state of the room.
 pub(crate) async fn get_room_state_ids_route(
     body: Ruma<get_room_state_ids::v1::Request>,
-) -> Result<get_room_state_ids::v1::Response> {
+) -> Result<RumaResponse<get_room_state_ids::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1392,10 +1392,10 @@ pub(crate) async fn get_room_state_ids_route(
         .get_auth_chain(&body.room_id, vec![Arc::from(&*body.event_id)])
         .await?;
 
-    Ok(get_room_state_ids::v1::Response {
+    Ok(RumaResponse(get_room_state_ids::v1::Response {
         auth_chain_ids: auth_chain_ids.map(|id| (*id).to_owned()).collect(),
         pdu_ids,
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/make_join/{roomId}/{userId}`
@@ -1403,7 +1403,7 @@ pub(crate) async fn get_room_state_ids_route(
 /// Creates a join template.
 pub(crate) async fn create_join_event_template_route(
     body: Ruma<prepare_join_event::v1::Request>,
-) -> Result<prepare_join_event::v1::Response> {
+) -> Result<RumaResponse<prepare_join_event::v1::Response>> {
     if !services().rooms.metadata.exists(&body.room_id)? {
         return Err(Error::BadRequest(
             ErrorKind::NotFound,
@@ -1504,11 +1504,11 @@ pub(crate) async fn create_join_event_template_route(
 
     pdu_json.remove("event_id");
 
-    Ok(prepare_join_event::v1::Response {
+    Ok(RumaResponse(prepare_join_event::v1::Response {
         room_version: Some(room_version_id),
         event: to_raw_value(&pdu_json)
             .expect("CanonicalJson can be serialized to JSON"),
-    })
+    }))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1661,16 +1661,16 @@ async fn create_join_event(
 /// Submits a signed join event.
 pub(crate) async fn create_join_event_v1_route(
     body: Ruma<create_join_event::v1::Request>,
-) -> Result<create_join_event::v1::Response> {
+) -> Result<RumaResponse<create_join_event::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
     let room_state =
         create_join_event(sender_servername, &body.room_id, &body.pdu).await?;
 
-    Ok(create_join_event::v1::Response {
+    Ok(RumaResponse(create_join_event::v1::Response {
         room_state,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/federation/v2/send_join/{roomId}/{eventId}`
@@ -1678,7 +1678,7 @@ pub(crate) async fn create_join_event_v1_route(
 /// Submits a signed join event.
 pub(crate) async fn create_join_event_v2_route(
     body: Ruma<create_join_event::v2::Request>,
-) -> Result<create_join_event::v2::Response> {
+) -> Result<RumaResponse<create_join_event::v2::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1695,9 +1695,9 @@ pub(crate) async fn create_join_event_v2_route(
         servers_in_room: None,
     };
 
-    Ok(create_join_event::v2::Response {
+    Ok(RumaResponse(create_join_event::v2::Response {
         room_state,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/federation/v2/invite/{roomId}/{eventId}`
@@ -1706,7 +1706,7 @@ pub(crate) async fn create_join_event_v2_route(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn create_invite_route(
     body: Ruma<create_invite::v2::Request>,
-) -> Result<create_invite::v2::Response> {
+) -> Result<RumaResponse<create_invite::v2::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
@@ -1827,9 +1827,9 @@ pub(crate) async fn create_invite_route(
         )?;
     }
 
-    Ok(create_invite::v2::Response {
+    Ok(RumaResponse(create_invite::v2::Response {
         event: PduEvent::convert_to_outgoing_federation_event(signed_event),
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/user/devices/{userId}`
@@ -1837,7 +1837,7 @@ pub(crate) async fn create_invite_route(
 /// Gets information on all devices of the user.
 pub(crate) async fn get_devices_route(
     body: Ruma<get_devices::v1::Request>,
-) -> Result<get_devices::v1::Response> {
+) -> Result<RumaResponse<get_devices::v1::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -1848,7 +1848,7 @@ pub(crate) async fn get_devices_route(
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
-    Ok(get_devices::v1::Response {
+    Ok(RumaResponse(get_devices::v1::Response {
         user_id: body.user_id.clone(),
         stream_id: services()
             .users
@@ -1881,7 +1881,7 @@ pub(crate) async fn get_devices_route(
             &body.user_id,
             &|u| u.server_name() == sender_servername,
         )?,
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/query/directory`
@@ -1889,16 +1889,16 @@ pub(crate) async fn get_devices_route(
 /// Resolve a room alias to a room id.
 pub(crate) async fn get_room_information_route(
     body: Ruma<get_room_information::v1::Request>,
-) -> Result<get_room_information::v1::Response> {
+) -> Result<RumaResponse<get_room_information::v1::Response>> {
     let room_id =
         services().rooms.alias.resolve_local_alias(&body.room_alias)?.ok_or(
             Error::BadRequest(ErrorKind::NotFound, "Room alias not found."),
         )?;
 
-    Ok(get_room_information::v1::Response {
+    Ok(RumaResponse(get_room_information::v1::Response {
         room_id,
         servers: vec![services().globals.server_name().to_owned()],
-    })
+    }))
 }
 
 /// # `GET /_matrix/federation/v1/query/profile`
@@ -1906,7 +1906,7 @@ pub(crate) async fn get_room_information_route(
 /// Gets information on a profile.
 pub(crate) async fn get_profile_information_route(
     body: Ruma<get_profile_information::v1::Request>,
-) -> Result<get_profile_information::v1::Response> {
+) -> Result<RumaResponse<get_profile_information::v1::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -1935,11 +1935,11 @@ pub(crate) async fn get_profile_information_route(
         }
     }
 
-    Ok(get_profile_information::v1::Response {
+    Ok(RumaResponse(get_profile_information::v1::Response {
         displayname,
         avatar_url,
         blurhash,
-    })
+    }))
 }
 
 /// # `POST /_matrix/federation/v1/user/keys/query`
@@ -1947,7 +1947,7 @@ pub(crate) async fn get_profile_information_route(
 /// Gets devices and identity keys for the given users.
 pub(crate) async fn get_keys_route(
     body: Ruma<get_keys::v1::Request>,
-) -> Result<get_keys::v1::Response> {
+) -> Result<RumaResponse<get_keys::v1::Response>> {
     if body
         .device_keys
         .iter()
@@ -1964,11 +1964,11 @@ pub(crate) async fn get_keys_route(
     })
     .await?;
 
-    Ok(get_keys::v1::Response {
+    Ok(RumaResponse(get_keys::v1::Response {
         device_keys: result.device_keys,
         master_keys: result.master_keys,
         self_signing_keys: result.self_signing_keys,
-    })
+    }))
 }
 
 /// # `POST /_matrix/federation/v1/user/keys/claim`
@@ -1976,7 +1976,7 @@ pub(crate) async fn get_keys_route(
 /// Claims one-time keys.
 pub(crate) async fn claim_keys_route(
     body: Ruma<claim_keys::v1::Request>,
-) -> Result<claim_keys::v1::Response> {
+) -> Result<RumaResponse<claim_keys::v1::Response>> {
     if body
         .one_time_keys
         .iter()
@@ -1990,9 +1990,9 @@ pub(crate) async fn claim_keys_route(
 
     let result = claim_keys_helper(&body.one_time_keys).await?;
 
-    Ok(claim_keys::v1::Response {
+    Ok(RumaResponse(claim_keys::v1::Response {
         one_time_keys: result.one_time_keys,
-    })
+    }))
 }
 
 #[cfg(test)]

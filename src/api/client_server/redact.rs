@@ -6,7 +6,7 @@ use ruma::{
 };
 use serde_json::value::to_raw_value;
 
-use crate::{service::pdu::PduBuilder, services, Result, Ruma};
+use crate::{service::pdu::PduBuilder, services, Result, Ruma, RumaResponse};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/redact/{eventId}/{txnId}`
 ///
@@ -15,7 +15,7 @@ use crate::{service::pdu::PduBuilder, services, Result, Ruma};
 /// - TODO: Handle txn id
 pub(crate) async fn redact_event_route(
     body: Ruma<redact_event::v3::Request>,
-) -> Result<redact_event::v3::Response> {
+) -> Result<RumaResponse<redact_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let body = body.body;
 
@@ -54,7 +54,7 @@ pub(crate) async fn redact_event_route(
     drop(state_lock);
 
     let event_id = (*event_id).to_owned();
-    Ok(redact_event::v3::Response {
+    Ok(RumaResponse(redact_event::v3::Response {
         event_id,
-    })
+    }))
 }

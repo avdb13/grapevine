@@ -6,12 +6,18 @@ use ruma::{
     uint,
 };
 
-use crate::{service::rooms::timeline::PduCount, services, Result, Ruma};
+use crate::{
+    service::rooms::timeline::PduCount, services, Result, Ruma, RumaResponse,
+};
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}/{relType}/{eventType}`
 pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
     body: Ruma<get_relating_events_with_rel_type_and_event_type::v1::Request>,
-) -> Result<get_relating_events_with_rel_type_and_event_type::v1::Response> {
+) -> Result<
+    RumaResponse<
+        get_relating_events_with_rel_type_and_event_type::v1::Response,
+    >,
+> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -44,17 +50,19 @@ pub(crate) async fn get_relating_events_with_rel_type_and_event_type_route(
         limit,
     )?;
 
-    Ok(get_relating_events_with_rel_type_and_event_type::v1::Response {
-        chunk: res.chunk,
-        next_batch: res.next_batch,
-        prev_batch: res.prev_batch,
-    })
+    Ok(RumaResponse(
+        get_relating_events_with_rel_type_and_event_type::v1::Response {
+            chunk: res.chunk,
+            next_batch: res.next_batch,
+            prev_batch: res.prev_batch,
+        },
+    ))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}/{relType}`
 pub(crate) async fn get_relating_events_with_rel_type_route(
     body: Ruma<get_relating_events_with_rel_type::v1::Request>,
-) -> Result<get_relating_events_with_rel_type::v1::Response> {
+) -> Result<RumaResponse<get_relating_events_with_rel_type::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -87,17 +95,17 @@ pub(crate) async fn get_relating_events_with_rel_type_route(
         limit,
     )?;
 
-    Ok(get_relating_events_with_rel_type::v1::Response {
+    Ok(RumaResponse(get_relating_events_with_rel_type::v1::Response {
         chunk: res.chunk,
         next_batch: res.next_batch,
         prev_batch: res.prev_batch,
-    })
+    }))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/relations/{eventId}`
 pub(crate) async fn get_relating_events_route(
     body: Ruma<get_relating_events::v1::Request>,
-) -> Result<get_relating_events::v1::Response> {
+) -> Result<RumaResponse<get_relating_events::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let from = match body.from.clone() {
@@ -119,14 +127,18 @@ pub(crate) async fn get_relating_events_route(
         .try_into()
         .expect("0-100 should fit in usize");
 
-    services().rooms.pdu_metadata.paginate_relations_with_filter(
-        sender_user,
-        &body.room_id,
-        &body.event_id,
-        None,
-        None,
-        from,
-        to,
-        limit,
-    )
+    services()
+        .rooms
+        .pdu_metadata
+        .paginate_relations_with_filter(
+            sender_user,
+            &body.room_id,
+            &body.event_id,
+            None,
+            None,
+            from,
+            to,
+            limit,
+        )
+        .map(RumaResponse)
 }

@@ -1,13 +1,13 @@
 use ruma::api::client::{error::ErrorKind, typing::create_typing_event};
 
-use crate::{services, utils, Error, Result, Ruma};
+use crate::{services, utils, Error, Result, Ruma, RumaResponse};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/typing/{userId}`
 ///
 /// Sets the typing state of the sender user.
 pub(crate) async fn create_typing_event_route(
     body: Ruma<create_typing_event::v3::Request>,
-) -> Result<create_typing_event::v3::Response> {
+) -> Result<RumaResponse<create_typing_event::v3::Response>> {
     use create_typing_event::v3::Typing;
 
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -40,5 +40,5 @@ pub(crate) async fn create_typing_event_route(
             .await?;
     }
 
-    Ok(create_typing_event::v3::Response {})
+    Ok(RumaResponse(create_typing_event::v3::Response {}))
 }

@@ -5,7 +5,7 @@ use hmac::{Hmac, Mac};
 use ruma::{api::client::voip::get_turn_server_info, SecondsSinceUnixEpoch};
 use sha1::Sha1;
 
-use crate::{services, Result, Ruma};
+use crate::{services, Result, Ruma, RumaResponse};
 
 type HmacSha1 = Hmac<Sha1>;
 
@@ -14,7 +14,7 @@ type HmacSha1 = Hmac<Sha1>;
 /// TODO: Returns information about the recommended turn server.
 pub(crate) async fn turn_server_route(
     body: Ruma<get_turn_server_info::v3::Request>,
-) -> Result<get_turn_server_info::v3::Response> {
+) -> Result<RumaResponse<get_turn_server_info::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let turn_secret = services().globals.turn_secret().clone();
@@ -43,10 +43,10 @@ pub(crate) async fn turn_server_route(
         (username, password)
     };
 
-    Ok(get_turn_server_info::v3::Response {
+    Ok(RumaResponse(get_turn_server_info::v3::Response {
         username,
         password,
         uris: services().globals.turn_uris().to_vec(),
         ttl: Duration::from_secs(services().globals.turn_ttl()),
-    })
+    }))
 }

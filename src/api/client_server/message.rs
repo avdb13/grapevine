@@ -14,7 +14,7 @@ use ruma::{
 
 use crate::{
     service::{pdu::PduBuilder, rooms::timeline::PduCount},
-    services, utils, Error, Result, Ruma,
+    services, utils, Error, Result, Ruma, RumaResponse,
 };
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/send/{eventType}/{txnId}`
@@ -28,7 +28,7 @@ use crate::{
 ///   allowed
 pub(crate) async fn send_message_event_route(
     body: Ruma<send_message_event::v3::Request>,
-) -> Result<send_message_event::v3::Response> {
+) -> Result<RumaResponse<send_message_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_deref();
 
@@ -77,9 +77,9 @@ pub(crate) async fn send_message_event_route(
             .map_err(|_| {
                 Error::bad_database("Invalid event id in txnid data.")
             })?;
-        return Ok(send_message_event::v3::Response {
+        return Ok(RumaResponse(send_message_event::v3::Response {
             event_id,
-        });
+        }));
     }
 
     let mut unsigned = BTreeMap::new();
@@ -118,7 +118,9 @@ pub(crate) async fn send_message_event_route(
 
     drop(state_lock);
 
-    Ok(send_message_event::v3::Response::new((*event_id).to_owned()))
+    Ok(RumaResponse(send_message_event::v3::Response::new(
+        (*event_id).to_owned(),
+    )))
 }
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/messages`
@@ -131,7 +133,7 @@ pub(crate) async fn send_message_event_route(
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn get_message_events_route(
     body: Ruma<get_message_events::v3::Request>,
-) -> Result<get_message_events::v3::Response> {
+) -> Result<RumaResponse<get_message_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
@@ -308,5 +310,5 @@ pub(crate) async fn get_message_events_route(
     }
     */
 
-    Ok(resp)
+    Ok(RumaResponse(resp))
 }

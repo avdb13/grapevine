@@ -11,14 +11,14 @@ use ruma::{
     push::{AnyPushRuleRef, InsertPushRuleError, RemovePushRuleError},
 };
 
-use crate::{services, Error, Result, Ruma};
+use crate::{services, Error, Result, Ruma, RumaResponse};
 
 /// # `GET /_matrix/client/r0/pushrules`
 ///
 /// Retrieves the push rules event for this user.
 pub(crate) async fn get_pushrules_all_route(
     body: Ruma<get_pushrules_all::v3::Request>,
-) -> Result<get_pushrules_all::v3::Response> {
+) -> Result<RumaResponse<get_pushrules_all::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services()
@@ -37,9 +37,9 @@ pub(crate) async fn get_pushrules_all_route(
         .map_err(|_| Error::bad_database("Invalid account data event in db."))?
         .content;
 
-    Ok(get_pushrules_all::v3::Response {
+    Ok(RumaResponse(get_pushrules_all::v3::Response {
         global: account_data.global,
-    })
+    }))
 }
 
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}`
@@ -47,7 +47,7 @@ pub(crate) async fn get_pushrules_all_route(
 /// Retrieves a single specified push rule for this user.
 pub(crate) async fn get_pushrule_route(
     body: Ruma<get_pushrule::v3::Request>,
-) -> Result<get_pushrule::v3::Response> {
+) -> Result<RumaResponse<get_pushrule::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     let event = services()
@@ -72,9 +72,9 @@ pub(crate) async fn get_pushrule_route(
         .map(Into::into);
 
     if let Some(rule) = rule {
-        Ok(get_pushrule::v3::Response {
+        Ok(RumaResponse(get_pushrule::v3::Response {
             rule,
-        })
+        }))
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Push rule not found."))
     }
@@ -85,7 +85,7 @@ pub(crate) async fn get_pushrule_route(
 /// Creates a single specified push rule for this user.
 pub(crate) async fn set_pushrule_route(
     body: Ruma<set_pushrule::v3::Request>,
-) -> Result<set_pushrule::v3::Response> {
+) -> Result<RumaResponse<set_pushrule::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let body = body.body;
 
@@ -157,7 +157,7 @@ pub(crate) async fn set_pushrule_route(
             .expect("to json value always works"),
     )?;
 
-    Ok(set_pushrule::v3::Response {})
+    Ok(RumaResponse(set_pushrule::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/actions`
@@ -165,7 +165,7 @@ pub(crate) async fn set_pushrule_route(
 /// Gets the actions of a single specified push rule for this user.
 pub(crate) async fn get_pushrule_actions_route(
     body: Ruma<get_pushrule_actions::v3::Request>,
-) -> Result<get_pushrule_actions::v3::Response> {
+) -> Result<RumaResponse<get_pushrule_actions::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if body.scope != RuleScope::Global {
@@ -200,9 +200,9 @@ pub(crate) async fn get_pushrule_actions_route(
             "Push rule not found.",
         ))?;
 
-    Ok(get_pushrule_actions::v3::Response {
+    Ok(RumaResponse(get_pushrule_actions::v3::Response {
         actions,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/actions`
@@ -210,7 +210,7 @@ pub(crate) async fn get_pushrule_actions_route(
 /// Sets the actions of a single specified push rule for this user.
 pub(crate) async fn set_pushrule_actions_route(
     body: Ruma<set_pushrule_actions::v3::Request>,
-) -> Result<set_pushrule_actions::v3::Response> {
+) -> Result<RumaResponse<set_pushrule_actions::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if body.scope != RuleScope::Global {
@@ -257,7 +257,7 @@ pub(crate) async fn set_pushrule_actions_route(
             .expect("to json value always works"),
     )?;
 
-    Ok(set_pushrule_actions::v3::Response {})
+    Ok(RumaResponse(set_pushrule_actions::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/enabled`
@@ -265,7 +265,7 @@ pub(crate) async fn set_pushrule_actions_route(
 /// Gets the enabled status of a single specified push rule for this user.
 pub(crate) async fn get_pushrule_enabled_route(
     body: Ruma<get_pushrule_enabled::v3::Request>,
-) -> Result<get_pushrule_enabled::v3::Response> {
+) -> Result<RumaResponse<get_pushrule_enabled::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if body.scope != RuleScope::Global {
@@ -301,9 +301,9 @@ pub(crate) async fn get_pushrule_enabled_route(
             "Push rule not found.",
         ))?;
 
-    Ok(get_pushrule_enabled::v3::Response {
+    Ok(RumaResponse(get_pushrule_enabled::v3::Response {
         enabled,
-    })
+    }))
 }
 
 /// # `PUT /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}/enabled`
@@ -311,7 +311,7 @@ pub(crate) async fn get_pushrule_enabled_route(
 /// Sets the enabled status of a single specified push rule for this user.
 pub(crate) async fn set_pushrule_enabled_route(
     body: Ruma<set_pushrule_enabled::v3::Request>,
-) -> Result<set_pushrule_enabled::v3::Response> {
+) -> Result<RumaResponse<set_pushrule_enabled::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if body.scope != RuleScope::Global {
@@ -358,7 +358,7 @@ pub(crate) async fn set_pushrule_enabled_route(
             .expect("to json value always works"),
     )?;
 
-    Ok(set_pushrule_enabled::v3::Response {})
+    Ok(RumaResponse(set_pushrule_enabled::v3::Response {}))
 }
 
 /// # `DELETE /_matrix/client/r0/pushrules/{scope}/{kind}/{ruleId}`
@@ -366,7 +366,7 @@ pub(crate) async fn set_pushrule_enabled_route(
 /// Deletes a single specified push rule for this user.
 pub(crate) async fn delete_pushrule_route(
     body: Ruma<delete_pushrule::v3::Request>,
-) -> Result<delete_pushrule::v3::Response> {
+) -> Result<RumaResponse<delete_pushrule::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     if body.scope != RuleScope::Global {
@@ -418,7 +418,7 @@ pub(crate) async fn delete_pushrule_route(
             .expect("to json value always works"),
     )?;
 
-    Ok(delete_pushrule::v3::Response {})
+    Ok(RumaResponse(delete_pushrule::v3::Response {}))
 }
 
 /// # `GET /_matrix/client/r0/pushers`
@@ -426,12 +426,12 @@ pub(crate) async fn delete_pushrule_route(
 /// Gets all currently active pushers for the sender user.
 pub(crate) async fn get_pushers_route(
     body: Ruma<get_pushers::v3::Request>,
-) -> Result<get_pushers::v3::Response> {
+) -> Result<RumaResponse<get_pushers::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    Ok(get_pushers::v3::Response {
+    Ok(RumaResponse(get_pushers::v3::Response {
         pushers: services().pusher.get_pushers(sender_user)?,
-    })
+    }))
 }
 
 /// # `POST /_matrix/client/r0/pushers/set`
@@ -441,10 +441,10 @@ pub(crate) async fn get_pushers_route(
 /// - TODO: Handle `append`
 pub(crate) async fn set_pushers_route(
     body: Ruma<set_pusher::v3::Request>,
-) -> Result<set_pusher::v3::Response> {
+) -> Result<RumaResponse<set_pusher::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
     services().pusher.set_pusher(sender_user, body.action.clone())?;
 
-    Ok(set_pusher::v3::Response::default())
+    Ok(RumaResponse(set_pusher::v3::Response::default()))
 }

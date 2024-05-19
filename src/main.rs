@@ -579,11 +579,13 @@ macro_rules! impl_ruma_handler {
     ( $($ty:ident),* $(,)? ) => {
         #[axum::async_trait]
         #[allow(non_snake_case)]
-        impl<Req, E, F, Fut, $($ty,)*> RumaHandler<($($ty,)* Ruma<Req>,)> for F
+        impl<Req, Resp, E, F, Fut, $($ty,)*>
+            RumaHandler<($($ty,)* Ruma<Req>,)> for F
         where
             Req: IncomingRequest + Send + 'static,
+            Resp: IntoResponse,
             F: FnOnce($($ty,)* Ruma<Req>) -> Fut + Clone + Send + 'static,
-            Fut: Future<Output = Result<Req::OutgoingResponse, E>>
+            Fut: Future<Output = Result<Resp, E>>
                 + Send,
             E: IntoResponse,
             $( $ty: FromRequestParts<()> + Send + 'static, )*
@@ -600,7 +602,7 @@ macro_rules! impl_ruma_handler {
                         on(
                             method_filter,
                             |$( $ty: $ty, )* req| async move {
-                                handler($($ty,)* req).await.map(RumaResponse)
+                                handler($($ty,)* req).await
                             }
                         )
                     )

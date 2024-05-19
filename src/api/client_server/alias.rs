@@ -11,14 +11,14 @@ use ruma::{
     OwnedRoomAliasId,
 };
 
-use crate::{services, Error, Result, Ruma};
+use crate::{services, Error, Result, Ruma, RumaResponse};
 
 /// # `PUT /_matrix/client/r0/directory/room/{roomAlias}`
 ///
 /// Creates a new room alias on this server.
 pub(crate) async fn create_alias_route(
     body: Ruma<create_alias::v3::Request>,
-) -> Result<create_alias::v3::Response> {
+) -> Result<RumaResponse<create_alias::v3::Response>> {
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -46,7 +46,7 @@ pub(crate) async fn create_alias_route(
 
     services().rooms.alias.set_alias(&body.room_alias, &body.room_id)?;
 
-    Ok(create_alias::v3::Response::new())
+    Ok(RumaResponse(create_alias::v3::Response::new()))
 }
 
 /// # `DELETE /_matrix/client/r0/directory/room/{roomAlias}`
@@ -57,7 +57,7 @@ pub(crate) async fn create_alias_route(
 /// - TODO: Update canonical alias event
 pub(crate) async fn delete_alias_route(
     body: Ruma<delete_alias::v3::Request>,
-) -> Result<delete_alias::v3::Response> {
+) -> Result<RumaResponse<delete_alias::v3::Response>> {
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -83,7 +83,7 @@ pub(crate) async fn delete_alias_route(
 
     // TODO: update alt_aliases?
 
-    Ok(delete_alias::v3::Response::new())
+    Ok(RumaResponse(delete_alias::v3::Response::new()))
 }
 
 /// # `GET /_matrix/client/r0/directory/room/{roomAlias}`
@@ -93,8 +93,8 @@ pub(crate) async fn delete_alias_route(
 /// - TODO: Suggest more servers to join via
 pub(crate) async fn get_alias_route(
     body: Ruma<get_alias::v3::Request>,
-) -> Result<get_alias::v3::Response> {
-    get_alias_helper(body.body.room_alias).await
+) -> Result<RumaResponse<get_alias::v3::Response>> {
+    get_alias_helper(body.body.room_alias).await.map(RumaResponse)
 }
 
 pub(crate) async fn get_alias_helper(
