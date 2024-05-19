@@ -108,6 +108,14 @@ enum TransactionStatus {
     Retrying(u32),
 }
 
+struct HandlerInputs {
+    kind: OutgoingKind,
+    events: Vec<SendingEventType>,
+}
+type HandlerResponse = Result<OutgoingKind, (OutgoingKind, Error)>;
+
+type TransactionStatusMap = HashMap<OutgoingKind, TransactionStatus>;
+
 impl Service {
     pub(crate) fn build(db: &'static dyn Data, config: &Config) -> Arc<Self> {
         let (sender, receiver) = mpsc::unbounded_channel();
@@ -128,14 +136,12 @@ impl Service {
         });
     }
 
-    #[allow(clippy::too_many_lines)]
     async fn handler(&self) -> Result<()> {
         let mut receiver = self.receiver.lock().await;
 
         let mut futures = FuturesUnordered::new();
 
-        let mut current_transaction_status =
-            HashMap::<OutgoingKind, TransactionStatus>::new();
+        let mut current_transaction_status = TransactionStatusMap::new();
 
         // Retry requests we could not finish yet
         let mut initial_transactions =
@@ -165,103 +171,112 @@ impl Service {
             futures.push(Self::handle_events(outgoing_kind.clone(), events));
         }
 
-        let handle_futures =
-            |response,
-             current_transaction_status: &mut HashMap<_, _>,
-             futures: &mut FuturesUnordered<_>| {
-                match response {
-                    Ok(outgoing_kind) => {
-                        self.db
-                            .delete_all_active_requests_for(&outgoing_kind)?;
-
-                        // Find events that have been added since starting the
-                        // last request
-                        let new_events = self
-                            .db
-                            .queued_requests(&outgoing_kind)
-                            .filter_map(Result::ok)
-                            .take(30)
-                            .collect::<Vec<_>>();
-
-                        if new_events.is_empty() {
-                            current_transaction_status.remove(&outgoing_kind);
-                        } else {
-                            // Insert pdus we found
-                            self.db.mark_as_active(&new_events)?;
-
-                            futures.push(Self::handle_events(
-                                outgoing_kind.clone(),
-                                new_events
-                                    .into_iter()
-                                    .map(|(event, _)| event)
-                                    .collect(),
-                            ));
-                        }
-                    }
-                    Err((outgoing_kind, _)) => {
-                        current_transaction_status
-                            .entry(outgoing_kind)
-                            .and_modify(|e| {
-                                *e = match e {
-                                    TransactionStatus::Running => {
-                                        TransactionStatus::Failed(
-                                            1,
-                                            Instant::now(),
-                                        )
-                                    }
-                                    TransactionStatus::Retrying(n) => {
-                                        TransactionStatus::Failed(
-                                            *n + 1,
-                                            Instant::now(),
-                                        )
-                                    }
-                                    TransactionStatus::Failed(..) => {
-                                        error!(
-                                            "Request that was not even \
-                                             running failed?!"
-                                        );
-                                        return;
-                                    }
-                                }
-                            });
-                    }
-                };
-
-                Result::<_>::Ok(())
-            };
-
-        let handle_receiver =
-            |outgoing_kind,
-             event,
-             key,
-             current_transaction_status: &mut HashMap<_, _>,
-             futures: &mut FuturesUnordered<_>| {
-                if let Ok(Some(events)) = self.select_events(
-                    &outgoing_kind,
-                    vec![(event, key)],
-                    current_transaction_status,
-                ) {
-                    futures.push(Self::handle_events(outgoing_kind, events));
-                }
-            };
-
         loop {
             select! {
                 Some(response) = futures.next() =>
-                    handle_futures(
-                        response,
-                        &mut current_transaction_status,
-                        &mut futures,
-                    )?,
+                    if let Some(HandlerInputs { kind, events }) =
+                        self.handle_futures(
+                            response,
+                            &mut current_transaction_status,
+                        )?
+                    {
+                        futures.push(Self::handle_events(kind, events));
+                    },
                 Some((outgoing_kind, event, key)) = receiver.recv() =>
-                    handle_receiver(
-                        outgoing_kind,
-                        event,
-                        key,
-                        &mut current_transaction_status,
-                        &mut futures,
-                    ),
+                    if let Some(HandlerInputs { kind, events }) =
+                        self.handle_receiver(
+                            outgoing_kind,
+                            event,
+                            key,
+                            &mut current_transaction_status,
+                        )
+                    {
+                        futures.push(Self::handle_events(kind, events));
+                    }
             }
+        }
+    }
+
+    fn handle_futures(
+        &self,
+        response: HandlerResponse,
+        current_transaction_status: &mut TransactionStatusMap,
+    ) -> Result<Option<HandlerInputs>> {
+        match response {
+            Ok(outgoing_kind) => {
+                self.db.delete_all_active_requests_for(&outgoing_kind)?;
+
+                // Find events that have been added since starting the
+                // last request
+                let new_events = self
+                    .db
+                    .queued_requests(&outgoing_kind)
+                    .filter_map(Result::ok)
+                    .take(30)
+                    .collect::<Vec<_>>();
+
+                if new_events.is_empty() {
+                    current_transaction_status.remove(&outgoing_kind);
+                    Ok(None)
+                } else {
+                    // Insert pdus we found
+                    self.db.mark_as_active(&new_events)?;
+
+                    Ok(Some(HandlerInputs {
+                        kind: outgoing_kind.clone(),
+                        events: new_events
+                            .into_iter()
+                            .map(|(event, _)| event)
+                            .collect(),
+                    }))
+                }
+            }
+            Err((outgoing_kind, _)) => {
+                current_transaction_status.entry(outgoing_kind).and_modify(
+                    |e| {
+                        *e = match e {
+                            TransactionStatus::Running => {
+                                TransactionStatus::Failed(1, Instant::now())
+                            }
+                            TransactionStatus::Retrying(n) => {
+                                TransactionStatus::Failed(
+                                    *n + 1,
+                                    Instant::now(),
+                                )
+                            }
+                            TransactionStatus::Failed(..) => {
+                                error!(
+                                    "Request that was not even running \
+                                     failed?!"
+                                );
+                                return;
+                            }
+                        }
+                    },
+                );
+                Ok(None)
+            }
+        }
+    }
+
+    fn handle_receiver(
+        &self,
+        outgoing_kind: OutgoingKind,
+        event: SendingEventType,
+        key: Vec<u8>,
+        current_transaction_status: &mut TransactionStatusMap,
+    ) -> Option<HandlerInputs> {
+        if let Ok(Some(events)) = self.select_events(
+            &outgoing_kind,
+            vec![(event, key)],
+            current_transaction_status,
+        ) {
+            Some(HandlerInputs {
+                kind: outgoing_kind,
+                events,
+            })
+        } else {
+            None
         }
     }
 
@@ -566,7 +581,7 @@ impl Service {
     async fn handle_events(
         kind: OutgoingKind,
         events: Vec<SendingEventType>,
-    ) -> Result<OutgoingKind, (OutgoingKind, Error)> {
+    ) -> HandlerResponse {
         match &kind {
             OutgoingKind::Appservice(id) => {
                 let mut pdu_jsons = Vec::new();
