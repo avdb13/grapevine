@@ -100,6 +100,7 @@ pub(crate) struct Service {
     >,
 }
 
+#[derive(Debug)]
 enum TransactionStatus {
     Running,
     // number of times failed, time of last failure
@@ -113,6 +114,12 @@ struct HandlerInputs {
     events: Vec<SendingEventType>,
 }
 type HandlerResponse = Result<OutgoingKind, (OutgoingKind, Error)>;
+
+fn outgoing_kind_from_response(response: &HandlerResponse) -> &OutgoingKind {
+    match response {
+        Ok(kind) | Err((kind, _)) => kind,
+    }
+}
 
 type TransactionStatusMap = HashMap<OutgoingKind, TransactionStatus>;
 
@@ -197,6 +204,14 @@ impl Service {
         }
     }
 
+    #[tracing::instrument(
+        skip(self, current_transaction_status),
+        fields(
+            current_status = ?current_transaction_status.get(
+                outgoing_kind_from_response(&response)
+            ),
+        ),
+    )]
     fn handle_futures(
         &self,
         response: HandlerResponse,
@@ -259,6 +274,12 @@ impl Service {
         }
     }
 
+    #[tracing::instrument(
+        skip(self, event, key, current_transaction_status),
+        fields(
+            current_status = ?current_transaction_status.get(&outgoing_kind),
+        ),
+    )]
     fn handle_receiver(
         &self,
         outgoing_kind: OutgoingKind,

@@ -22,7 +22,7 @@ use ruma::{
     CanonicalJsonValue, EventId, OwnedDeviceId, OwnedEventId, OwnedRoomId,
     OwnedUserId, RoomId, UserId,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, info_span, warn, Instrument};
 
 use crate::{
     service::rooms::timeline::PduCount, services, utils, Config, Error,
@@ -1200,26 +1200,31 @@ impl KeyValueDatabase {
 
             loop {
                 #[cfg(unix)]
-                tokio::select! {
-                    _ = i.tick() => {
+                let msg = tokio::select! {
+                    _ = i.tick() => || {
                         debug!("cleanup: Timer ticked");
-                    }
-                    _ = s.recv() => {
+                    },
+                    _ = s.recv() => || {
                         debug!("cleanup: Received SIGHUP");
-                    }
+                    },
                 };
                 #[cfg(not(unix))]
-                {
+                let msg = {
                     i.tick().await;
-                    debug!("cleanup: Timer ticked")
-                }
+                    || debug!("cleanup: Timer ticked")
+                };
 
-                let start = Instant::now();
-                if let Err(e) = services().globals.cleanup() {
-                    error!("cleanup: Errored: {}", e);
-                } else {
-                    debug!("cleanup: Finished in {:?}", start.elapsed());
+                async {
+                    msg();
+                    let start = Instant::now();
+                    if let Err(e) = services().globals.cleanup() {
+                        error!("cleanup: Errored: {}", e);
+                    } else {
+                        debug!("cleanup: Finished in {:?}", start.elapsed());
+                    }
                 }
+                .instrument(info_span!("database_cleanup"))
+                .await;
             }
         });
     }
