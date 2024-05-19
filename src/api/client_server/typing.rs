@@ -1,12 +1,12 @@
 use ruma::api::client::{error::ErrorKind, typing::create_typing_event};
 
-use crate::{services, utils, Error, Ra, Result, Ruma};
+use crate::{services, utils, Ar, Error, Ra, Result};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/typing/{userId}`
 ///
 /// Sets the typing state of the sender user.
 pub(crate) async fn create_typing_event_route(
-    body: Ruma<create_typing_event::v3::Request>,
+    body: Ar<create_typing_event::v3::Request>,
 ) -> Result<Ra<create_typing_event::v3::Response>> {
     use create_typing_event::v3::Typing;
 

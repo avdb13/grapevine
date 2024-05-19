@@ -24,7 +24,7 @@ use ruma::{
 use serde::Deserialize;
 use tracing::{debug, error, warn};
 
-use super::{Ra, Ruma};
+use super::{Ar, Ra};
 use crate::{service::appservice::RegistrationInfo, services, Error, Result};
 
 enum Token {
@@ -35,7 +35,7 @@ enum Token {
 }
 
 #[async_trait]
-impl<T, S, B> FromRequest<S, B> for Ruma<T>
+impl<T, S, B> FromRequest<S, B> for Ar<T>
 where
     T: IncomingRequest,
     B: HttpBody + Send + 'static,
@@ -379,7 +379,7 @@ where
                 )
             })?;
 
-        Ok(Ruma {
+        Ok(Ar {
             body,
             sender_user,
             sender_device,

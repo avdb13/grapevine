@@ -1,10 +1,10 @@
 use ruma::api::client::{error::ErrorKind, threads::get_threads};
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/threads`
 pub(crate) async fn get_threads_route(
-    body: Ruma<get_threads::v1::Request>,
+    body: Ar<get_threads::v1::Request>,
 ) -> Result<Ra<get_threads::v1::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

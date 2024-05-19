@@ -14,7 +14,7 @@ use ruma::{
 
 use crate::{
     service::{pdu::PduBuilder, rooms::timeline::PduCount},
-    services, utils, Error, Ra, Result, Ruma,
+    services, utils, Ar, Error, Ra, Result,
 };
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/send/{eventType}/{txnId}`
@@ -27,7 +27,7 @@ use crate::{
 /// - Tries to send the event into the room, auth rules will determine if it is
 ///   allowed
 pub(crate) async fn send_message_event_route(
-    body: Ruma<send_message_event::v3::Request>,
+    body: Ar<send_message_event::v3::Request>,
 ) -> Result<Ra<send_message_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_deref();
@@ -130,7 +130,7 @@ pub(crate) async fn send_message_event_route(
 /// joined, depending on `history_visibility`)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn get_message_events_route(
-    body: Ruma<get_message_events::v3::Request>,
+    body: Ar<get_message_events::v3::Request>,
 ) -> Result<Ra<get_message_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =

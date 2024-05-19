@@ -19,7 +19,7 @@ use ruma::{
 use tracing::{info, warn};
 
 use super::{DEVICE_ID_LENGTH, SESSION_ID_LENGTH, TOKEN_LENGTH};
-use crate::{api::client_server, services, utils, Error, Ra, Result, Ruma};
+use crate::{api::client_server, services, utils, Ar, Error, Ra, Result};
 
 const RANDOM_USER_ID_LENGTH: usize = 10;
 
@@ -35,7 +35,7 @@ const RANDOM_USER_ID_LENGTH: usize = 10;
 /// Note: This will not reserve the username, so the username might become
 /// invalid when trying to register
 pub(crate) async fn get_register_available_route(
-    body: Ruma<get_username_availability::v3::Request>,
+    body: Ar<get_username_availability::v3::Request>,
 ) -> Result<Ra<get_username_availability::v3::Response>> {
     // Validate user id
     let user_id = UserId::parse_with_server_name(
@@ -87,7 +87,7 @@ pub(crate) async fn get_register_available_route(
 ///   `access_token`
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn register_route(
-    body: Ruma<register::v3::Request>,
+    body: Ar<register::v3::Request>,
 ) -> Result<Ra<register::v3::Response>> {
     if !services().globals.allow_registration()
         && body.appservice_info.is_none()
@@ -327,7 +327,7 @@ pub(crate) async fn register_route(
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn change_password_route(
-    body: Ruma<change_password::v3::Request>,
+    body: Ar<change_password::v3::Request>,
 ) -> Result<Ra<change_password::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -390,7 +390,7 @@ pub(crate) async fn change_password_route(
 ///
 /// Note: Also works for Application Services
 pub(crate) async fn whoami_route(
-    body: Ruma<whoami::v3::Request>,
+    body: Ar<whoami::v3::Request>,
 ) -> Result<Ra<whoami::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let device_id = body.sender_device.as_ref().cloned();
@@ -415,7 +415,7 @@ pub(crate) async fn whoami_route(
 /// - Triggers device list updates
 /// - Removes ability to log in again
 pub(crate) async fn deactivate_route(
-    body: Ruma<deactivate::v3::Request>,
+    body: Ar<deactivate::v3::Request>,
 ) -> Result<Ra<deactivate::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -472,7 +472,7 @@ pub(crate) async fn deactivate_route(
 ///
 /// - Currently always returns empty list
 pub(crate) async fn third_party_route(
-    body: Ruma<get_3pids::v3::Request>,
+    body: Ar<get_3pids::v3::Request>,
 ) -> Result<Ra<get_3pids::v3::Response>> {
     let _sender_user =
         body.sender_user.as_ref().expect("user is authenticated");
@@ -488,7 +488,7 @@ pub(crate) async fn third_party_route(
 /// - 403 signals that The homeserver does not allow the third party identifier
 ///   as a contact option.
 pub(crate) async fn request_3pid_management_token_via_email_route(
-    _body: Ruma<request_3pid_management_token_via_email::v3::Request>,
+    _body: Ar<request_3pid_management_token_via_email::v3::Request>,
 ) -> Result<Ra<request_3pid_management_token_via_email::v3::Response>> {
     Err(Error::BadRequest(
         ErrorKind::ThreepidDenied,
@@ -504,7 +504,7 @@ pub(crate) async fn request_3pid_management_token_via_email_route(
 /// - 403 signals that The homeserver does not allow the third party identifier
 ///   as a contact option.
 pub(crate) async fn request_3pid_management_token_via_msisdn_route(
-    _body: Ruma<request_3pid_management_token_via_msisdn::v3::Request>,
+    _body: Ar<request_3pid_management_token_via_msisdn::v3::Request>,
 ) -> Result<Ra<request_3pid_management_token_via_msisdn::v3::Response>> {
     Err(Error::BadRequest(
         ErrorKind::ThreepidDenied,

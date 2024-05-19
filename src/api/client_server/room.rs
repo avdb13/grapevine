@@ -30,8 +30,8 @@ use serde_json::{json, value::to_raw_value};
 use tracing::{info, warn};
 
 use crate::{
-    api::client_server::invite_helper, service::pdu::PduBuilder, services,
-    Error, Ra, Result, Ruma,
+    api::client_server::invite_helper, service::pdu::PduBuilder, services, Ar,
+    Error, Ra, Result,
 };
 
 /// # `POST /_matrix/client/r0/createRoom`
@@ -52,7 +52,7 @@ use crate::{
 /// - Send invite events
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn create_room_route(
-    body: Ruma<create_room::v3::Request>,
+    body: Ar<create_room::v3::Request>,
 ) -> Result<Ra<create_room::v3::Response>> {
     use create_room::v3::RoomPreset;
 
@@ -548,7 +548,7 @@ pub(crate) async fn create_room_route(
 /// - You have to currently be joined to the room (TODO: Respect history
 ///   visibility)
 pub(crate) async fn get_room_event_route(
-    body: Ruma<get_room_event::v3::Request>,
+    body: Ar<get_room_event::v3::Request>,
 ) -> Result<Ra<get_room_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -585,7 +585,7 @@ pub(crate) async fn get_room_event_route(
 /// - Only users joined to the room are allowed to call this TODO: Allow any
 ///   user to call it if `history_visibility` is world readable
 pub(crate) async fn get_room_aliases_route(
-    body: Ruma<aliases::v3::Request>,
+    body: Ar<aliases::v3::Request>,
 ) -> Result<Ra<aliases::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -618,7 +618,7 @@ pub(crate) async fn get_room_aliases_route(
 /// - Modifies old room power levels to prevent users from speaking
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn upgrade_room_route(
-    body: Ruma<upgrade_room::v3::Request>,
+    body: Ar<upgrade_room::v3::Request>,
 ) -> Result<Ra<upgrade_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

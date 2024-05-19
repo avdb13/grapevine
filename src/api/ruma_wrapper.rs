@@ -9,8 +9,12 @@ use crate::{service::appservice::RegistrationInfo, Error};
 
 mod axum;
 
-/// Extractor for Ruma request structs
-pub(crate) struct Ruma<T> {
+/// A wrapper to convert an Axum request to Ruma data
+///
+/// Named so because this converts from **A**xum to **R**uma. See also [`Ra`],
+/// which is roughly the inverse of this type.
+pub(crate) struct Ar<T> {
+    /// The Ruma type to deserialize the body into
     pub(crate) body: T,
     pub(crate) sender_user: Option<OwnedUserId>,
     pub(crate) sender_device: Option<OwnedDeviceId>,
@@ -20,7 +24,7 @@ pub(crate) struct Ruma<T> {
     pub(crate) appservice_info: Option<RegistrationInfo>,
 }
 
-impl<T> Deref for Ruma<T> {
+impl<T> Deref for Ar<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -30,7 +34,7 @@ impl<T> Deref for Ruma<T> {
 
 /// A wrapper to convert Ruma data to an Axum response
 ///
-/// Named so because this converts from **R**uma to **A**xum. See also [`Ruma`],
+/// Named so because this converts from **R**uma to **A**xum. See also [`Ar`],
 /// which is roughly the inverse of this type.
 #[derive(Clone)]
 pub(crate) struct Ra<T>(pub(crate) T);

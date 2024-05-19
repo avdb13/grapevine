@@ -4,13 +4,13 @@ use ruma::{
     int,
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/report/{eventId}`
 ///
 /// Reports an inappropriate event to homeserver admins
 pub(crate) async fn report_event_route(
-    body: Ruma<report_content::v3::Request>,
+    body: Ar<report_content::v3::Request>,
 ) -> Result<Ra<report_content::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

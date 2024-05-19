@@ -23,7 +23,7 @@ use serde_json::json;
 use tracing::debug;
 
 use super::SESSION_ID_LENGTH;
-use crate::{services, utils, Error, Ra, Result, Ruma};
+use crate::{services, utils, Ar, Error, Ra, Result};
 
 /// # `POST /_matrix/client/r0/keys/upload`
 ///
@@ -33,7 +33,7 @@ use crate::{services, utils, Error, Ra, Result, Ruma};
 /// - If there are no device keys yet: Adds device keys (TODO: merge with
 ///   existing keys?)
 pub(crate) async fn upload_keys_route(
-    body: Ruma<upload_keys::v3::Request>,
+    body: Ar<upload_keys::v3::Request>,
 ) -> Result<Ra<upload_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -80,7 +80,7 @@ pub(crate) async fn upload_keys_route(
 /// - The master and self-signing keys contain signatures that the user is
 ///   allowed to see
 pub(crate) async fn get_keys_route(
-    body: Ruma<get_keys::v3::Request>,
+    body: Ar<get_keys::v3::Request>,
 ) -> Result<Ra<get_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -96,7 +96,7 @@ pub(crate) async fn get_keys_route(
 ///
 /// Claims one-time keys
 pub(crate) async fn claim_keys_route(
-    body: Ruma<claim_keys::v3::Request>,
+    body: Ar<claim_keys::v3::Request>,
 ) -> Result<Ra<claim_keys::v3::Response>> {
     let response = claim_keys_helper(&body.one_time_keys).await?;
 
@@ -109,7 +109,7 @@ pub(crate) async fn claim_keys_route(
 ///
 /// - Requires UIAA to verify password
 pub(crate) async fn upload_signing_keys_route(
-    body: Ruma<upload_signing_keys::v3::Request>,
+    body: Ar<upload_signing_keys::v3::Request>,
 ) -> Result<Ra<upload_signing_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -163,7 +163,7 @@ pub(crate) async fn upload_signing_keys_route(
 ///
 /// Uploads end-to-end key signatures from the sender user.
 pub(crate) async fn upload_signatures_route(
-    body: Ruma<upload_signatures::v3::Request>,
+    body: Ar<upload_signatures::v3::Request>,
 ) -> Result<Ra<upload_signatures::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -226,7 +226,7 @@ pub(crate) async fn upload_signatures_route(
 ///
 /// - TODO: left users
 pub(crate) async fn get_key_changes_route(
-    body: Ruma<get_key_changes::v3::Request>,
+    body: Ar<get_key_changes::v3::Request>,
 ) -> Result<Ra<get_key_changes::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

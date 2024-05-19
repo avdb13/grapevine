@@ -14,13 +14,13 @@ use ruma::{
 use serde::Deserialize;
 use serde_json::{json, value::RawValue as RawJsonValue};
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `PUT /_matrix/client/r0/user/{userId}/account_data/{type}`
 ///
 /// Sets some account data for the sender user.
 pub(crate) async fn set_global_account_data_route(
-    body: Ruma<set_global_account_data::v3::Request>,
+    body: Ar<set_global_account_data::v3::Request>,
 ) -> Result<Ra<set_global_account_data::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -48,7 +48,7 @@ pub(crate) async fn set_global_account_data_route(
 ///
 /// Sets some room account data for the sender user.
 pub(crate) async fn set_room_account_data_route(
-    body: Ruma<set_room_account_data::v3::Request>,
+    body: Ar<set_room_account_data::v3::Request>,
 ) -> Result<Ra<set_room_account_data::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -76,7 +76,7 @@ pub(crate) async fn set_room_account_data_route(
 ///
 /// Gets some account data for the sender user.
 pub(crate) async fn get_global_account_data_route(
-    body: Ruma<get_global_account_data::v3::Request>,
+    body: Ar<get_global_account_data::v3::Request>,
 ) -> Result<Ra<get_global_account_data::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -101,7 +101,7 @@ pub(crate) async fn get_global_account_data_route(
 ///
 /// Gets some room account data for the sender user.
 pub(crate) async fn get_room_account_data_route(
-    body: Ruma<get_room_account_data::v3::Request>,
+    body: Ar<get_room_account_data::v3::Request>,
 ) -> Result<Ra<get_room_account_data::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

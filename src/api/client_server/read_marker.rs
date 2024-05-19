@@ -12,7 +12,7 @@ use ruma::{
 };
 
 use crate::{
-    service::rooms::timeline::PduCount, services, Error, Ra, Result, Ruma,
+    service::rooms::timeline::PduCount, services, Ar, Error, Ra, Result,
 };
 
 /// # `POST /_matrix/client/r0/rooms/{roomId}/read_markers`
@@ -23,7 +23,7 @@ use crate::{
 /// - If `read_receipt` is set: Update private marker and public read receipt
 ///   EDU
 pub(crate) async fn set_read_marker_route(
-    body: Ruma<set_read_marker::v3::Request>,
+    body: Ar<set_read_marker::v3::Request>,
 ) -> Result<Ra<set_read_marker::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -104,7 +104,7 @@ pub(crate) async fn set_read_marker_route(
 ///
 /// Sets private read marker and public read receipt EDU.
 pub(crate) async fn create_receipt_route(
-    body: Ruma<create_receipt::v3::Request>,
+    body: Ar<create_receipt::v3::Request>,
 ) -> Result<Ra<create_receipt::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

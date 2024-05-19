@@ -9,13 +9,13 @@ use ruma::api::client::{
     error::ErrorKind,
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `POST /_matrix/client/r0/room_keys/version`
 ///
 /// Creates a new backup.
 pub(crate) async fn create_backup_version_route(
-    body: Ruma<create_backup_version::v3::Request>,
+    body: Ar<create_backup_version::v3::Request>,
 ) -> Result<Ra<create_backup_version::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let version =
@@ -31,7 +31,7 @@ pub(crate) async fn create_backup_version_route(
 /// Update information about an existing backup. Only `auth_data` can be
 /// modified.
 pub(crate) async fn update_backup_version_route(
-    body: Ruma<update_backup_version::v3::Request>,
+    body: Ar<update_backup_version::v3::Request>,
 ) -> Result<Ra<update_backup_version::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     services().key_backups.update_backup(
@@ -47,7 +47,7 @@ pub(crate) async fn update_backup_version_route(
 ///
 /// Get information about the latest backup version.
 pub(crate) async fn get_latest_backup_info_route(
-    body: Ruma<get_latest_backup_info::v3::Request>,
+    body: Ar<get_latest_backup_info::v3::Request>,
 ) -> Result<Ra<get_latest_backup_info::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -75,7 +75,7 @@ pub(crate) async fn get_latest_backup_info_route(
 ///
 /// Get information about an existing backup.
 pub(crate) async fn get_backup_info_route(
-    body: Ruma<get_backup_info::v3::Request>,
+    body: Ar<get_backup_info::v3::Request>,
 ) -> Result<Ra<get_backup_info::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let algorithm = services()
@@ -105,7 +105,7 @@ pub(crate) async fn get_backup_info_route(
 /// - Deletes both information about the backup, as well as all key data related
 ///   to the backup
 pub(crate) async fn delete_backup_version_route(
-    body: Ruma<delete_backup_version::v3::Request>,
+    body: Ar<delete_backup_version::v3::Request>,
 ) -> Result<Ra<delete_backup_version::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -123,7 +123,7 @@ pub(crate) async fn delete_backup_version_route(
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_route(
-    body: Ruma<add_backup_keys::v3::Request>,
+    body: Ar<add_backup_keys::v3::Request>,
 ) -> Result<Ra<add_backup_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -171,7 +171,7 @@ pub(crate) async fn add_backup_keys_route(
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_for_room_route(
-    body: Ruma<add_backup_keys_for_room::v3::Request>,
+    body: Ar<add_backup_keys_for_room::v3::Request>,
 ) -> Result<Ra<add_backup_keys_for_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -217,7 +217,7 @@ pub(crate) async fn add_backup_keys_for_room_route(
 /// - Adds the keys to the backup
 /// - Returns the new number of keys in this backup and the etag
 pub(crate) async fn add_backup_keys_for_session_route(
-    body: Ruma<add_backup_keys_for_session::v3::Request>,
+    body: Ar<add_backup_keys_for_session::v3::Request>,
 ) -> Result<Ra<add_backup_keys_for_session::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -256,7 +256,7 @@ pub(crate) async fn add_backup_keys_for_session_route(
 ///
 /// Retrieves all keys from the backup.
 pub(crate) async fn get_backup_keys_route(
-    body: Ruma<get_backup_keys::v3::Request>,
+    body: Ar<get_backup_keys::v3::Request>,
 ) -> Result<Ra<get_backup_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -271,7 +271,7 @@ pub(crate) async fn get_backup_keys_route(
 ///
 /// Retrieves all keys from the backup for a given room.
 pub(crate) async fn get_backup_keys_for_room_route(
-    body: Ruma<get_backup_keys_for_room::v3::Request>,
+    body: Ar<get_backup_keys_for_room::v3::Request>,
 ) -> Result<Ra<get_backup_keys_for_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -290,7 +290,7 @@ pub(crate) async fn get_backup_keys_for_room_route(
 ///
 /// Retrieves a key from the backup.
 pub(crate) async fn get_backup_keys_for_session_route(
-    body: Ruma<get_backup_keys_for_session::v3::Request>,
+    body: Ar<get_backup_keys_for_session::v3::Request>,
 ) -> Result<Ra<get_backup_keys_for_session::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -316,7 +316,7 @@ pub(crate) async fn get_backup_keys_for_session_route(
 ///
 /// Delete the keys from the backup.
 pub(crate) async fn delete_backup_keys_route(
-    body: Ruma<delete_backup_keys::v3::Request>,
+    body: Ar<delete_backup_keys::v3::Request>,
 ) -> Result<Ra<delete_backup_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -336,7 +336,7 @@ pub(crate) async fn delete_backup_keys_route(
 ///
 /// Delete the keys from the backup for a given room.
 pub(crate) async fn delete_backup_keys_for_room_route(
-    body: Ruma<delete_backup_keys_for_room::v3::Request>,
+    body: Ar<delete_backup_keys_for_room::v3::Request>,
 ) -> Result<Ra<delete_backup_keys_for_room::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -360,7 +360,7 @@ pub(crate) async fn delete_backup_keys_for_room_route(
 ///
 /// Delete a key from the backup.
 pub(crate) async fn delete_backup_keys_for_session_route(
-    body: Ruma<delete_backup_keys_for_session::v3::Request>,
+    body: Ar<delete_backup_keys_for_session::v3::Request>,
 ) -> Result<Ra<delete_backup_keys_for_session::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

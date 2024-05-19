@@ -8,13 +8,13 @@ use ruma::api::client::{
 };
 
 use super::SESSION_ID_LENGTH;
-use crate::{services, utils, Error, Ra, Result, Ruma};
+use crate::{services, utils, Ar, Error, Ra, Result};
 
 /// # `GET /_matrix/client/r0/devices`
 ///
 /// Get metadata on all devices of the sender user.
 pub(crate) async fn get_devices_route(
-    body: Ruma<get_devices::v3::Request>,
+    body: Ar<get_devices::v3::Request>,
 ) -> Result<Ra<get_devices::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -33,7 +33,7 @@ pub(crate) async fn get_devices_route(
 ///
 /// Get metadata on a single device of the sender user.
 pub(crate) async fn get_device_route(
-    body: Ruma<get_device::v3::Request>,
+    body: Ar<get_device::v3::Request>,
 ) -> Result<Ra<get_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -51,7 +51,7 @@ pub(crate) async fn get_device_route(
 ///
 /// Updates the metadata on a given device of the sender user.
 pub(crate) async fn update_device_route(
-    body: Ruma<update_device::v3::Request>,
+    body: Ar<update_device::v3::Request>,
 ) -> Result<Ra<update_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -82,7 +82,7 @@ pub(crate) async fn update_device_route(
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn delete_device_route(
-    body: Ruma<delete_device::v3::Request>,
+    body: Ar<delete_device::v3::Request>,
 ) -> Result<Ra<delete_device::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -136,7 +136,7 @@ pub(crate) async fn delete_device_route(
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn delete_devices_route(
-    body: Ruma<delete_devices::v3::Request>,
+    body: Ar<delete_devices::v3::Request>,
 ) -> Result<Ra<delete_devices::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =

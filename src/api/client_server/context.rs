@@ -9,7 +9,7 @@ use ruma::{
 };
 use tracing::error;
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/context`
 ///
@@ -20,7 +20,7 @@ use crate::{services, Error, Ra, Result, Ruma};
 /// joined, depending on `history_visibility`)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn get_context_route(
-    body: Ruma<get_context::v3::Request>,
+    body: Ar<get_context::v3::Request>,
 ) -> Result<Ra<get_context::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =

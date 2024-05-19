@@ -29,7 +29,7 @@ use tracing::{debug, error};
 
 use crate::{
     service::{pdu::EventHash, rooms::timeline::PduCount},
-    services, utils, Error, PduEvent, Ra, Result, Ruma,
+    services, utils, Ar, Error, PduEvent, Ra, Result,
 };
 
 /// # `GET /_matrix/client/r0/sync`
@@ -73,7 +73,7 @@ use crate::{
 ///   subset of the state at the point of the leave)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn sync_events_route(
-    body: Ruma<sync_events::v3::Request>,
+    body: Ar<sync_events::v3::Request>,
 ) -> Result<Ra<sync_events::v3::Response>, Ra<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");
     let sender_device = body.sender_device.expect("user is authenticated");
@@ -1126,7 +1126,7 @@ fn share_encrypted_room(
 
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn sync_events_v4_route(
-    body: Ruma<sync_events::v4::Request>,
+    body: Ar<sync_events::v4::Request>,
 ) -> Result<Ra<sync_events::v4::Response>, Ra<UiaaResponse>> {
     let sender_user = body.sender_user.expect("user is authenticated");
     let sender_device = body.sender_device.expect("user is authenticated");

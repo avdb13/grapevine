@@ -8,9 +8,7 @@ use ruma::api::client::{
     },
 };
 
-use crate::{
-    service::media::FileMeta, services, utils, Error, Ra, Result, Ruma,
-};
+use crate::{service::media::FileMeta, services, utils, Ar, Error, Ra, Result};
 
 const MXC_LENGTH: usize = 32;
 
@@ -18,7 +16,7 @@ const MXC_LENGTH: usize = 32;
 ///
 /// Returns max upload size.
 pub(crate) async fn get_media_config_route(
-    _body: Ruma<get_media_config::v3::Request>,
+    _body: Ar<get_media_config::v3::Request>,
 ) -> Result<Ra<get_media_config::v3::Response>> {
     Ok(Ra(get_media_config::v3::Response {
         upload_size: services().globals.max_request_size().into(),
@@ -32,7 +30,7 @@ pub(crate) async fn get_media_config_route(
 /// - Some metadata will be saved in the database
 /// - Media will be saved in the media/ directory
 pub(crate) async fn create_content_route(
-    body: Ruma<create_content::v3::Request>,
+    body: Ar<create_content::v3::Request>,
 ) -> Result<Ra<create_content::v3::Response>> {
     let mxc = format!(
         "mxc://{}/{}",
@@ -97,7 +95,7 @@ pub(crate) async fn get_remote_content(
 ///
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_route(
-    body: Ruma<get_content::v3::Request>,
+    body: Ar<get_content::v3::Request>,
 ) -> Result<Ra<get_content::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
@@ -131,7 +129,7 @@ pub(crate) async fn get_content_route(
 ///
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_as_filename_route(
-    body: Ruma<get_content_as_filename::v3::Request>,
+    body: Ar<get_content_as_filename::v3::Request>,
 ) -> Result<Ra<get_content_as_filename::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
@@ -177,7 +175,7 @@ pub(crate) async fn get_content_as_filename_route(
 ///
 /// - Only allows federation if `allow_remote` is true
 pub(crate) async fn get_content_thumbnail_route(
-    body: Ruma<get_content_thumbnail::v3::Request>,
+    body: Ar<get_content_thumbnail::v3::Request>,
 ) -> Result<Ra<get_content_thumbnail::v3::Response>> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 

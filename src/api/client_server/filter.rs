@@ -3,7 +3,7 @@ use ruma::api::client::{
     filter::{create_filter, get_filter},
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `GET /_matrix/client/r0/user/{userId}/filter/{filterId}`
 ///
@@ -11,7 +11,7 @@ use crate::{services, Error, Ra, Result, Ruma};
 ///
 /// - A user can only access their own filters
 pub(crate) async fn get_filter_route(
-    body: Ruma<get_filter::v3::Request>,
+    body: Ar<get_filter::v3::Request>,
 ) -> Result<Ra<get_filter::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let Some(filter) =
@@ -30,7 +30,7 @@ pub(crate) async fn get_filter_route(
 ///
 /// Creates a new filter to be used by other endpoints.
 pub(crate) async fn create_filter_route(
-    body: Ruma<create_filter::v3::Request>,
+    body: Ar<create_filter::v3::Request>,
 ) -> Result<Ra<create_filter::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     Ok(Ra(create_filter::v3::Response::new(

@@ -8,7 +8,7 @@ use ruma::{
     },
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `PUT /_matrix/client/r0/user/{userId}/rooms/{roomId}/tags/{tag}`
 ///
@@ -16,7 +16,7 @@ use crate::{services, Error, Ra, Result, Ruma};
 ///
 /// - Inserts the tag into the tag event of the room account data.
 pub(crate) async fn update_tag_route(
-    body: Ruma<create_tag::v3::Request>,
+    body: Ar<create_tag::v3::Request>,
 ) -> Result<Ra<create_tag::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -62,7 +62,7 @@ pub(crate) async fn update_tag_route(
 ///
 /// - Removes the tag from the tag event of the room account data.
 pub(crate) async fn delete_tag_route(
-    body: Ruma<delete_tag::v3::Request>,
+    body: Ar<delete_tag::v3::Request>,
 ) -> Result<Ra<delete_tag::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -105,7 +105,7 @@ pub(crate) async fn delete_tag_route(
 ///
 /// - Gets the tag event of the room account data.
 pub(crate) async fn get_tags_route(
-    body: Ruma<get_tags::v3::Request>,
+    body: Ar<get_tags::v3::Request>,
 ) -> Result<Ra<get_tags::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

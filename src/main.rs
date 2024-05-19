@@ -47,7 +47,7 @@ mod database;
 mod service;
 mod utils;
 
-pub(crate) use api::ruma_wrapper::{Ra, Ruma};
+pub(crate) use api::ruma_wrapper::{Ar, Ra};
 use api::{client_server, server_server};
 pub(crate) use config::Config;
 pub(crate) use database::KeyValueDatabase;
@@ -580,11 +580,11 @@ macro_rules! impl_ruma_handler {
         #[axum::async_trait]
         #[allow(non_snake_case)]
         impl<Req, Resp, E, F, Fut, $($ty,)*>
-            RumaHandler<($($ty,)* Ruma<Req>,)> for F
+            RumaHandler<($($ty,)* Ar<Req>,)> for F
         where
             Req: IncomingRequest + Send + 'static,
             Resp: IntoResponse,
-            F: FnOnce($($ty,)* Ruma<Req>) -> Fut + Clone + Send + 'static,
+            F: FnOnce($($ty,)* Ar<Req>) -> Fut + Clone + Send + 'static,
             Fut: Future<Output = Result<Resp, E>>
                 + Send,
             E: IntoResponse,

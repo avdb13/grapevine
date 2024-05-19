@@ -14,7 +14,7 @@ use ruma::{
     uint,
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `POST /_matrix/client/r0/search`
 ///
@@ -24,7 +24,7 @@ use crate::{services, Error, Ra, Result, Ruma};
 ///   history visibility)
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn search_events_route(
-    body: Ruma<search_events::v3::Request>,
+    body: Ar<search_events::v3::Request>,
 ) -> Result<Ra<search_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

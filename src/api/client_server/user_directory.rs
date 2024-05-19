@@ -6,7 +6,7 @@ use ruma::{
     },
 };
 
-use crate::{services, Ra, Result, Ruma};
+use crate::{services, Ar, Ra, Result};
 
 /// # `POST /_matrix/client/r0/user_directory/search`
 ///
@@ -16,7 +16,7 @@ use crate::{services, Ra, Result, Ruma};
 ///   have the join rule set to public)
 /// and don't share a room with the sender
 pub(crate) async fn search_users_route(
-    body: Ruma<search_users::v3::Request>,
+    body: Ar<search_users::v3::Request>,
 ) -> Result<Ra<search_users::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let limit = body.limit.try_into().unwrap_or(usize::MAX);

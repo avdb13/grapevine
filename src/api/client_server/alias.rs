@@ -11,13 +11,13 @@ use ruma::{
     OwnedRoomAliasId,
 };
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `PUT /_matrix/client/r0/directory/room/{roomAlias}`
 ///
 /// Creates a new room alias on this server.
 pub(crate) async fn create_alias_route(
-    body: Ruma<create_alias::v3::Request>,
+    body: Ar<create_alias::v3::Request>,
 ) -> Result<Ra<create_alias::v3::Response>> {
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
@@ -56,7 +56,7 @@ pub(crate) async fn create_alias_route(
 /// - TODO: additional access control checks
 /// - TODO: Update canonical alias event
 pub(crate) async fn delete_alias_route(
-    body: Ruma<delete_alias::v3::Request>,
+    body: Ar<delete_alias::v3::Request>,
 ) -> Result<Ra<delete_alias::v3::Response>> {
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
@@ -92,7 +92,7 @@ pub(crate) async fn delete_alias_route(
 ///
 /// - TODO: Suggest more servers to join via
 pub(crate) async fn get_alias_route(
-    body: Ruma<get_alias::v3::Request>,
+    body: Ar<get_alias::v3::Request>,
 ) -> Result<Ra<get_alias::v3::Response>> {
     get_alias_helper(body.body.room_alias).await.map(Ra)
 }

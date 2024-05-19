@@ -14,7 +14,7 @@ use ruma::{
 };
 use tracing::log::warn;
 
-use crate::{service::pdu::PduBuilder, services, Error, Ra, Result, Ruma};
+use crate::{service::pdu::PduBuilder, services, Ar, Error, Ra, Result};
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/state/{eventType}/{stateKey}`
 ///
@@ -25,7 +25,7 @@ use crate::{service::pdu::PduBuilder, services, Error, Ra, Result, Ruma};
 ///   allowed
 /// - If event is new `canonical_alias`: Rejects if alias is incorrect
 pub(crate) async fn send_state_event_for_key_route(
-    body: Ruma<send_state_event::v3::Request>,
+    body: Ar<send_state_event::v3::Request>,
 ) -> Result<Ra<send_state_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -54,7 +54,7 @@ pub(crate) async fn send_state_event_for_key_route(
 ///   allowed
 /// - If event is new `canonical_alias`: Rejects if alias is incorrect
 pub(crate) async fn send_state_event_for_empty_key_route(
-    body: Ruma<send_state_event::v3::Request>,
+    body: Ar<send_state_event::v3::Request>,
 ) -> Result<Ra<send_state_event::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -91,7 +91,7 @@ pub(crate) async fn send_state_event_for_empty_key_route(
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
 pub(crate) async fn get_state_events_route(
-    body: Ruma<get_state_events::v3::Request>,
+    body: Ar<get_state_events::v3::Request>,
 ) -> Result<Ra<get_state_events::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -125,7 +125,7 @@ pub(crate) async fn get_state_events_route(
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
 pub(crate) async fn get_state_events_for_key_route(
-    body: Ruma<get_state_events_for_key::v3::Request>,
+    body: Ar<get_state_events_for_key::v3::Request>,
 ) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -166,7 +166,7 @@ pub(crate) async fn get_state_events_for_key_route(
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
 pub(crate) async fn get_state_events_for_empty_key_route(
-    body: Ruma<get_state_events_for_key::v3::Request>,
+    body: Ar<get_state_events_for_key::v3::Request>,
 ) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

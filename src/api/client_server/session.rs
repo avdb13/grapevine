@@ -16,7 +16,7 @@ use serde::Deserialize;
 use tracing::{info, warn};
 
 use super::{DEVICE_ID_LENGTH, TOKEN_LENGTH};
-use crate::{services, utils, Error, Ra, Result, Ruma};
+use crate::{services, utils, Ar, Error, Ra, Result};
 
 #[derive(Debug, Deserialize)]
 struct Claims {
@@ -28,7 +28,7 @@ struct Claims {
 /// Get the supported login types of this server. One of these should be used as
 /// the `type` field when logging in.
 pub(crate) async fn get_login_types_route(
-    _body: Ruma<get_login_types::v3::Request>,
+    _body: Ar<get_login_types::v3::Request>,
 ) -> Result<Ra<get_login_types::v3::Response>> {
     Ok(Ra(get_login_types::v3::Response::new(vec![
         get_login_types::v3::LoginType::Password(PasswordLoginType::default()),
@@ -53,7 +53,7 @@ pub(crate) async fn get_login_types_route(
 /// see supported login types.
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn login_route(
-    body: Ruma<login::v3::Request>,
+    body: Ar<login::v3::Request>,
 ) -> Result<Ra<login::v3::Response>> {
     // To allow deprecated login methods
     #![allow(deprecated)]
@@ -277,7 +277,7 @@ pub(crate) async fn login_route(
 /// - Forgets to-device events
 /// - Triggers device list updates
 pub(crate) async fn logout_route(
-    body: Ruma<logout::v3::Request>,
+    body: Ar<logout::v3::Request>,
 ) -> Result<Ra<logout::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
@@ -310,7 +310,7 @@ pub(crate) async fn logout_route(
 /// Note: This is equivalent to calling [`GET
 /// /_matrix/client/r0/logout`](logout_route) from each device of this user.
 pub(crate) async fn logout_all_route(
-    body: Ruma<logout_all::v3::Request>,
+    body: Ar<logout_all::v3::Request>,
 ) -> Result<Ra<logout_all::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 

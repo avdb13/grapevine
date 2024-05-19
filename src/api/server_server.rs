@@ -66,7 +66,7 @@ use tracing::{debug, error, warn};
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils, Error, PduEvent, Ra, Result, Ruma,
+    services, utils, Ar, Error, PduEvent, Ra, Result,
 };
 
 /// Wraps either an literal IP address plus port, or a hostname plus complement
@@ -553,7 +553,7 @@ async fn request_well_known(destination: &str) -> Option<String> {
 ///
 /// Get version information on this server.
 pub(crate) async fn get_server_version_route(
-    _body: Ruma<get_server_version::v1::Request>,
+    _body: Ar<get_server_version::v1::Request>,
 ) -> Result<Ra<get_server_version::v1::Response>> {
     Ok(Ra(get_server_version::v1::Response {
         server: Some(get_server_version::v1::Server {
@@ -630,7 +630,7 @@ pub(crate) async fn get_server_keys_deprecated_route() -> impl IntoResponse {
 ///
 /// Lists the public rooms on this server.
 pub(crate) async fn get_public_rooms_filtered_route(
-    body: Ruma<get_public_rooms_filtered::v1::Request>,
+    body: Ar<get_public_rooms_filtered::v1::Request>,
 ) -> Result<Ra<get_public_rooms_filtered::v1::Response>> {
     let response = client_server::get_public_rooms_filtered_helper(
         None,
@@ -653,7 +653,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 ///
 /// Lists the public rooms on this server.
 pub(crate) async fn get_public_rooms_route(
-    body: Ruma<get_public_rooms::v1::Request>,
+    body: Ar<get_public_rooms::v1::Request>,
 ) -> Result<Ra<get_public_rooms::v1::Response>> {
     let response = client_server::get_public_rooms_filtered_helper(
         None,
@@ -708,7 +708,7 @@ pub(crate) fn parse_incoming_pdu(
 /// Push EDUs and PDUs to this server.
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn send_transaction_message_route(
-    body: Ruma<send_transaction_message::v1::Request>,
+    body: Ar<send_transaction_message::v1::Request>,
 ) -> Result<Ra<send_transaction_message::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -991,7 +991,7 @@ pub(crate) async fn send_transaction_message_route(
 /// - Only works if a user of this server is currently invited or joined the
 ///   room
 pub(crate) async fn get_event_route(
-    body: Ruma<get_event::v1::Request>,
+    body: Ar<get_event::v1::Request>,
 ) -> Result<Ra<get_event::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1047,7 +1047,7 @@ pub(crate) async fn get_event_route(
 /// Retrieves events from before the sender joined the room, if the room's
 /// history visibility allows.
 pub(crate) async fn get_backfill_route(
-    body: Ruma<get_backfill::v1::Request>,
+    body: Ar<get_backfill::v1::Request>,
 ) -> Result<Ra<get_backfill::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1117,7 +1117,7 @@ pub(crate) async fn get_backfill_route(
 ///
 /// Retrieves events that the sender is missing.
 pub(crate) async fn get_missing_events_route(
-    body: Ruma<get_missing_events::v1::Request>,
+    body: Ar<get_missing_events::v1::Request>,
 ) -> Result<Ra<get_missing_events::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1219,7 +1219,7 @@ pub(crate) async fn get_missing_events_route(
 ///
 /// - This does not include the event itself
 pub(crate) async fn get_event_authorization_route(
-    body: Ruma<get_event_authorization::v1::Request>,
+    body: Ar<get_event_authorization::v1::Request>,
 ) -> Result<Ra<get_event_authorization::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1277,7 +1277,7 @@ pub(crate) async fn get_event_authorization_route(
 ///
 /// Retrieves the current state of the room.
 pub(crate) async fn get_room_state_route(
-    body: Ruma<get_room_state::v1::Request>,
+    body: Ar<get_room_state::v1::Request>,
 ) -> Result<Ra<get_room_state::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1347,7 +1347,7 @@ pub(crate) async fn get_room_state_route(
 ///
 /// Retrieves the current state of the room.
 pub(crate) async fn get_room_state_ids_route(
-    body: Ruma<get_room_state_ids::v1::Request>,
+    body: Ar<get_room_state_ids::v1::Request>,
 ) -> Result<Ra<get_room_state_ids::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1402,7 +1402,7 @@ pub(crate) async fn get_room_state_ids_route(
 ///
 /// Creates a join template.
 pub(crate) async fn create_join_event_template_route(
-    body: Ruma<prepare_join_event::v1::Request>,
+    body: Ar<prepare_join_event::v1::Request>,
 ) -> Result<Ra<prepare_join_event::v1::Response>> {
     if !services().rooms.metadata.exists(&body.room_id)? {
         return Err(Error::BadRequest(
@@ -1660,7 +1660,7 @@ async fn create_join_event(
 ///
 /// Submits a signed join event.
 pub(crate) async fn create_join_event_v1_route(
-    body: Ruma<create_join_event::v1::Request>,
+    body: Ar<create_join_event::v1::Request>,
 ) -> Result<Ra<create_join_event::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1677,7 +1677,7 @@ pub(crate) async fn create_join_event_v1_route(
 ///
 /// Submits a signed join event.
 pub(crate) async fn create_join_event_v2_route(
-    body: Ruma<create_join_event::v2::Request>,
+    body: Ar<create_join_event::v2::Request>,
 ) -> Result<Ra<create_join_event::v2::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1705,7 +1705,7 @@ pub(crate) async fn create_join_event_v2_route(
 /// Invites a remote user to a room.
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn create_invite_route(
-    body: Ruma<create_invite::v2::Request>,
+    body: Ar<create_invite::v2::Request>,
 ) -> Result<Ra<create_invite::v2::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
@@ -1836,7 +1836,7 @@ pub(crate) async fn create_invite_route(
 ///
 /// Gets information on all devices of the user.
 pub(crate) async fn get_devices_route(
-    body: Ruma<get_devices::v1::Request>,
+    body: Ar<get_devices::v1::Request>,
 ) -> Result<Ra<get_devices::v1::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
@@ -1888,7 +1888,7 @@ pub(crate) async fn get_devices_route(
 ///
 /// Resolve a room alias to a room id.
 pub(crate) async fn get_room_information_route(
-    body: Ruma<get_room_information::v1::Request>,
+    body: Ar<get_room_information::v1::Request>,
 ) -> Result<Ra<get_room_information::v1::Response>> {
     let room_id =
         services().rooms.alias.resolve_local_alias(&body.room_alias)?.ok_or(
@@ -1905,7 +1905,7 @@ pub(crate) async fn get_room_information_route(
 ///
 /// Gets information on a profile.
 pub(crate) async fn get_profile_information_route(
-    body: Ruma<get_profile_information::v1::Request>,
+    body: Ar<get_profile_information::v1::Request>,
 ) -> Result<Ra<get_profile_information::v1::Response>> {
     if body.user_id.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
@@ -1946,7 +1946,7 @@ pub(crate) async fn get_profile_information_route(
 ///
 /// Gets devices and identity keys for the given users.
 pub(crate) async fn get_keys_route(
-    body: Ruma<get_keys::v1::Request>,
+    body: Ar<get_keys::v1::Request>,
 ) -> Result<Ra<get_keys::v1::Response>> {
     if body
         .device_keys
@@ -1975,7 +1975,7 @@ pub(crate) async fn get_keys_route(
 ///
 /// Claims one-time keys.
 pub(crate) async fn claim_keys_route(
-    body: Ruma<claim_keys::v1::Request>,
+    body: Ar<claim_keys::v1::Request>,
 ) -> Result<Ra<claim_keys::v1::Response>> {
     if body
         .one_time_keys

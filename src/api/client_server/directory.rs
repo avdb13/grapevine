@@ -29,7 +29,7 @@ use ruma::{
 };
 use tracing::{error, info, warn};
 
-use crate::{services, Error, Ra, Result, Ruma};
+use crate::{services, Ar, Error, Ra, Result};
 
 /// # `POST /_matrix/client/r0/publicRooms`
 ///
@@ -37,7 +37,7 @@ use crate::{services, Error, Ra, Result, Ruma};
 ///
 /// - Rooms are ordered by the number of joined members
 pub(crate) async fn get_public_rooms_filtered_route(
-    body: Ruma<get_public_rooms_filtered::v3::Request>,
+    body: Ar<get_public_rooms_filtered::v3::Request>,
 ) -> Result<Ra<get_public_rooms_filtered::v3::Response>> {
     get_public_rooms_filtered_helper(
         body.server.as_deref(),
@@ -56,7 +56,7 @@ pub(crate) async fn get_public_rooms_filtered_route(
 ///
 /// - Rooms are ordered by the number of joined members
 pub(crate) async fn get_public_rooms_route(
-    body: Ruma<get_public_rooms::v3::Request>,
+    body: Ar<get_public_rooms::v3::Request>,
 ) -> Result<Ra<get_public_rooms::v3::Response>> {
     let response = get_public_rooms_filtered_helper(
         body.server.as_deref(),
@@ -81,7 +81,7 @@ pub(crate) async fn get_public_rooms_route(
 ///
 /// - TODO: Access control checks
 pub(crate) async fn set_room_visibility_route(
-    body: Ruma<set_room_visibility::v3::Request>,
+    body: Ar<set_room_visibility::v3::Request>,
 ) -> Result<Ra<set_room_visibility::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
@@ -113,7 +113,7 @@ pub(crate) async fn set_room_visibility_route(
 ///
 /// Gets the visibility of a given room in the room directory.
 pub(crate) async fn get_room_visibility_route(
-    body: Ruma<get_room_visibility::v3::Request>,
+    body: Ar<get_room_visibility::v3::Request>,
 ) -> Result<Ra<get_room_visibility::v3::Response>> {
     if !services().rooms.metadata.exists(&body.room_id)? {
         // Return 404 if the room doesn't exist
