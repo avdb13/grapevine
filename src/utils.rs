@@ -1,6 +1,7 @@
 pub(crate) mod error;
 
 use std::{
+    borrow::Cow,
     cmp, fmt,
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -208,4 +209,45 @@ pub(crate) fn debug_slice_truncated<T: fmt::Debug>(
         inner: slice,
         max_len,
     })
+}
+
+/// Truncates a string to an approximate maximum length, replacing any extra
+/// text with an ellipsis.
+///
+/// Only to be used for debug logging, exact semantics are unspecified.
+pub(crate) fn truncate_str_for_debug(
+    s: &str,
+    mut max_len: usize,
+) -> Cow<'_, str> {
+    while max_len < s.len() && !s.is_char_boundary(max_len) {
+        max_len += 1;
+    }
+
+    if s.len() <= max_len {
+        s.into()
+    } else {
+        #[allow(clippy::string_slice)] // we checked it's at a char boundary
+        format!("{}...", &s[..max_len]).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::truncate_str_for_debug;
+
+    #[test]
+    fn test_truncate_str_for_debug() {
+        assert_eq!(truncate_str_for_debug("short", 10), "short");
+        assert_eq!(
+            truncate_str_for_debug("very long string", 10),
+            "very long ..."
+        );
+        assert_eq!(truncate_str_for_debug("no info, only dots", 0), "...");
+        assert_eq!(truncate_str_for_debug("", 0), "");
+        assert_eq!(truncate_str_for_debug("unicöde", 5), "unicö...");
+        let ok_hand = "👌🏽";
+        assert_eq!(truncate_str_for_debug(ok_hand, 1), "👌...");
+        assert_eq!(truncate_str_for_debug(ok_hand, ok_hand.len() - 1), "👌🏽");
+        assert_eq!(truncate_str_for_debug(ok_hand, ok_hand.len()), "👌🏽");
+    }
 }
