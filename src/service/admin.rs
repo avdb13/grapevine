@@ -38,7 +38,29 @@ use crate::{
     Error, PduEvent, Result,
 };
 
-#[derive(Debug, Parser)]
+mod clear_service_caches;
+mod create_user;
+mod deactivate_all;
+mod deactivate_user;
+mod disable_room;
+mod enable_room;
+mod get_auth_chain;
+mod get_pdu;
+mod incoming_federation;
+mod list_appservices;
+mod list_local_users;
+mod list_rooms;
+mod memory_usage;
+mod parse_pdu;
+mod register_appservice;
+mod reset_password;
+mod show_config;
+mod sign_json;
+mod unregister_appservice;
+mod verify_json;
+
+#[cfg_attr(test, derive(Debug))]
+#[derive(Parser)]
 #[command(name = "@grapevine:server.name:", version = env!("CARGO_PKG_VERSION"))]
 enum AdminCommand {
     #[command(verbatim_doc_comment)]
@@ -324,32 +346,20 @@ impl Service {
             lines.next().expect("each string has at least one line");
         let body: Vec<_> = lines.collect();
 
-        let admin_command = match Self::parse_admin_command(command_line) {
-            Ok(command) => command,
-            Err(error) => {
-                let server_name = services().globals.server_name();
-                let message =
-                    error.replace("server.name", server_name.as_str());
-                let html_message = Self::usage_to_html(&message, server_name);
+        // let admin_command = match Self::parse_admin_command(command_line) {
+        //     Ok(command) => command,
+        //     Err(error) => {
+        //         let server_name = services().globals.server_name();
+        //         let message =
+        //             error.replace("server.name", server_name.as_str());
+        //         let html_message = Self::usage_to_html(&message, server_name);
 
-                return RoomMessageEventContent::text_html(
-                    message,
-                    html_message,
-                );
-            }
-        };
-
-        match self.process_admin_command(admin_command, body).await {
-            Ok(reply_message) => reply_message,
-            Err(error) => {
-                let markdown_message = format!(
-                    "Encountered an error while handling the \
-                     command:\n```\n{error}\n```",
-                );
-                let html_message = format!(
-                    "Encountered an error while handling the \
-                     command:\n<pre>\n{error}\n</pre>",
-                );
+        //         return RoomMessageEventContent::text_html(
+        //             message,
+        //             html_message,
+        //         );
+        //     }
+        // };
 
                 RoomMessageEventContent::text_html(
                     markdown_message,
@@ -380,14 +390,40 @@ impl Service {
             argv.push("--help");
         }
 
-        // Backwards compatibility with `register_appservice`-style commands
-        let command_with_dashes;
-        if argv.len() > 1 && argv[1].contains('_') {
-            command_with_dashes = argv[1].replace('_', "-");
-            argv[1] = &command_with_dashes;
+        let outcome = match argv.get(1) {
+            Some(&"clear-service-caches") => clear_service_caches::try_process(argv).await,
+            Some(&"create-user") => create_user::try_process(argv),
+            Some(&"deactivate-all") => deactivate_all::try_process(argv, body).await,
+            Some(&"deactivate-user") => deactivate_user::try_process(argv).await,
+            Some(&"disable-room") => disable_room::try_process(argv),
+            Some(&"enable-room") => enable_room::try_process(argv),
+            Some(&"get-auth-chain") => get_auth_chain::try_process(argv).await,
+            Some(&"get-pdu") => get_pdu::try_process(argv),
+            Some(&"incoming-federation") => incoming_federation::try_process().await,
+            Some(&"list-appservices") => list_appservices::try_process().await,
+            Some(&"list-local-users") => list_local_users::try_process(),
+            Some(&"list-rooms") => list_rooms::try_process(),
+            Some(&"memory-usage") => memory_usage::try_process().await,
+            Some(&"parse-pdu") => parse_pdu::try_process(&body),
+            Some(&"register-appservice") => register_appservice::try_process(body).await,
+            Some(&"reset-password") => reset_password::try_process(argv),
+            Some(&"show-config") => show_config::try_process(),
+            Some(&"sign-json") => sign_json::try_process(&body),
+            Some(&"unregister-appservice") => unregister_appservice::try_process(argv).await,
+            Some(&"verify-json") => verify_json::try_process(body).await,
+            Some(_) => { Err("Command not recognized".to_owned()) }
+            None => { Err("No command provided".to_owned()) }
+        };
+
+        match outcome {
+            Ok(reply_message) => RoomMessageEventContent::text_plain(reply_message),
+            Err(e) => {
+                let markdown_message = format!("Encountered an error while handling the command:\n```{e}```");
+                let html_message = format!("Encountered an error while handling the command:\n<pre>\n{e}\n</pre>");
+                RoomMessageEventContent::text_html(markdown_message, html_message)
+            }
         }
 
-        AdminCommand::try_parse_from(argv).map_err(|error| error.to_string())
     }
 
     #[allow(clippy::too_many_lines)]
@@ -403,7 +439,7 @@ impl Service {
                     && body[0].trim() == "```"
                     && body.last().unwrap().trim() == "```"
                 {
-                    let appservice_config = body[1..body.len() - 1].join("\n");
+                        let appservice_config = body[1..body.len() - 1].join("\n");
                     let parsed_config = serde_yaml::from_str::<Registration>(
                         &appservice_config,
                     );
