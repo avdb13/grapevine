@@ -9,7 +9,9 @@ use ruma::{
 use crate::{
     database::KeyValueDatabase,
     service::{self, appservice::RegistrationInfo},
-    services, utils, Error, Result,
+    services,
+    utils::{self, FoundIn},
+    Error, Result,
 };
 
 impl service::rooms::state_cache::Data for KeyValueDatabase {
@@ -170,7 +172,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, room_id))]
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_our_real_users(
         &self,
         room_id: &RoomId,
@@ -178,16 +180,21 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         let maybe =
             self.our_real_users_cache.read().unwrap().get(room_id).cloned();
         if let Some(users) = maybe {
+            FoundIn::Cache.record("cache_result");
             Ok(users)
         } else {
             self.update_joined_count(room_id)?;
+            FoundIn::Database.record("cache_result");
             Ok(Arc::clone(
                 self.our_real_users_cache.read().unwrap().get(room_id).unwrap(),
             ))
         }
     }
 
-    #[tracing::instrument(skip(self, room_id, appservice))]
+    #[tracing::instrument(
+        skip(self, appservice),
+        fields(cache_result, appservice_id = appservice.registration.id),
+    )]
     fn appservice_in_room(
         &self,
         room_id: &RoomId,
@@ -202,6 +209,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             .copied();
 
         if let Some(b) = maybe {
+            FoundIn::Cache.record("cache_result");
             Ok(b)
         } else {
             let bridge_user_id = UserId::parse_with_server_name(
@@ -218,6 +226,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
                 })
             });
 
+            FoundIn::Database.record("cache_result");
             self.appservice_in_room_cache
                 .write()
                 .unwrap()

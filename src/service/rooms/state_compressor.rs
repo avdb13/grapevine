@@ -10,7 +10,11 @@ use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
 use self::data::StateDiff;
-use crate::{services, utils, Result};
+use crate::{
+    services,
+    utils::{self, FoundIn},
+    Result,
+};
 
 #[derive(Clone)]
 pub(crate) struct CompressedStateLayer {
@@ -33,7 +37,7 @@ impl Service {
     /// Returns a stack with info on shortstatehash, full state, added diff and
     /// removed diff for the selected shortstatehash and each parent layer.
     #[allow(clippy::type_complexity)]
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self), fields(cache_result))]
     pub(crate) fn load_shortstatehash_info(
         &self,
         shortstatehash: u64,
@@ -41,6 +45,7 @@ impl Service {
         if let Some(r) =
             self.stateinfo_cache.lock().unwrap().get_mut(&shortstatehash)
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(r.clone());
         }
 
@@ -50,7 +55,7 @@ impl Service {
             removed,
         } = self.db.get_statediff(shortstatehash)?;
 
-        if let Some(parent) = parent {
+        let response = if let Some(parent) = parent {
             let mut response = self.load_shortstatehash_info(parent)?;
             let mut state = (*response.last().unwrap().full_state).clone();
             state.extend(added.iter().copied());
@@ -65,26 +70,23 @@ impl Service {
                 added,
                 removed: Arc::new(removed),
             });
-
-            self.stateinfo_cache
-                .lock()
-                .unwrap()
-                .insert(shortstatehash, response.clone());
-
-            Ok(response)
+            response
         } else {
-            let response = vec![CompressedStateLayer {
+            vec![CompressedStateLayer {
                 shortstatehash,
                 full_state: added.clone(),
                 added,
                 removed,
-            }];
-            self.stateinfo_cache
-                .lock()
-                .unwrap()
-                .insert(shortstatehash, response.clone());
-            Ok(response)
-        }
+            }]
+        };
+
+        FoundIn::Database.record("cache_result");
+        self.stateinfo_cache
+            .lock()
+            .unwrap()
+            .insert(shortstatehash, response.clone());
+
+        Ok(response)
     }
 
     // Allowed because this function uses `services()`

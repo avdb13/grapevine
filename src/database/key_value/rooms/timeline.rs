@@ -8,11 +8,14 @@ use service::rooms::timeline::PduCount;
 use tracing::error;
 
 use crate::{
-    database::KeyValueDatabase, service, services, utils, Error, PduEvent,
-    Result,
+    database::KeyValueDatabase,
+    service, services,
+    utils::{self, FoundIn},
+    Error, PduEvent, Result,
 };
 
 impl service::rooms::timeline::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn last_timeline_count(
         &self,
         sender_user: &UserId,
@@ -34,12 +37,17 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
                         r.ok()
                     })
                 {
+                    FoundIn::Database.record("cache_result");
                     Ok(*v.insert(last_count.0))
                 } else {
+                    FoundIn::Nothing.record("cache_result");
                     Ok(PduCount::Normal(0))
                 }
             }
-            hash_map::Entry::Occupied(o) => Ok(*o.get()),
+            hash_map::Entry::Occupied(o) => {
+                FoundIn::Cache.record("cache_result");
+                Ok(*o.get())
+            }
         }
     }
 
@@ -119,8 +127,10 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
     /// Returns the pdu.
     ///
     /// Checks the `eventid_outlierpdu` Tree if not found in the timeline.
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_pdu(&self, event_id: &EventId) -> Result<Option<Arc<PduEvent>>> {
         if let Some(p) = self.pdu_cache.lock().unwrap().get_mut(event_id) {
+            FoundIn::Cache.record("cache_result");
             return Ok(Some(Arc::clone(p)));
         }
 
@@ -141,12 +151,14 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
             )?
             .map(Arc::new)
         {
+            FoundIn::Database.record("cache_result");
             self.pdu_cache
                 .lock()
                 .unwrap()
                 .insert(event_id.to_owned(), Arc::clone(&pdu));
             Ok(Some(pdu))
         } else {
+            FoundIn::Nothing.record("cache_result");
             Ok(None)
         }
     }

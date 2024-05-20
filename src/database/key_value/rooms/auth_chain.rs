@@ -1,8 +1,14 @@
 use std::{collections::HashSet, mem::size_of, sync::Arc};
 
-use crate::{database::KeyValueDatabase, service, utils, Result};
+use crate::{
+    database::KeyValueDatabase,
+    service,
+    utils::{self, FoundIn},
+    Result,
+};
 
 impl service::rooms::auth_chain::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self, key), fields(cache_result))]
     fn get_cached_eventid_authchain(
         &self,
         key: &[u64],
@@ -10,6 +16,7 @@ impl service::rooms::auth_chain::Data for KeyValueDatabase {
         // Check RAM cache
         if let Some(result) = self.auth_chain_cache.lock().unwrap().get_mut(key)
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(Some(Arc::clone(result)));
         }
 
@@ -30,6 +37,7 @@ impl service::rooms::auth_chain::Data for KeyValueDatabase {
                 });
 
             if let Some(chain) = chain {
+                FoundIn::Database.record("cache_result");
                 let chain = Arc::new(chain);
 
                 // Cache in RAM
@@ -42,6 +50,7 @@ impl service::rooms::auth_chain::Data for KeyValueDatabase {
             }
         }
 
+        FoundIn::Nothing.record("cache_result");
         Ok(None)
     }
 

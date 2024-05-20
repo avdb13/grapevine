@@ -3,24 +3,33 @@ use std::sync::Arc;
 use ruma::{events::StateEventType, EventId, RoomId};
 
 use crate::{
-    database::KeyValueDatabase, service, services, utils, Error, Result,
+    database::KeyValueDatabase,
+    service, services,
+    utils::{self, FoundIn},
+    Error, Result,
 };
 
 impl service::rooms::short::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_or_create_shorteventid(&self, event_id: &EventId) -> Result<u64> {
         if let Some(short) =
             self.eventidshort_cache.lock().unwrap().get_mut(event_id)
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(*short);
         }
 
         let short = if let Some(shorteventid) =
             self.eventid_shorteventid.get(event_id.as_bytes())?
         {
+            FoundIn::Database.record("cache_result");
+
             utils::u64_from_bytes(&shorteventid).map_err(|_| {
                 Error::bad_database("Invalid shorteventid in db.")
             })?
         } else {
+            FoundIn::Nothing.record("cache_result");
+
             let shorteventid = services().globals.next_count()?;
             self.eventid_shorteventid
                 .insert(event_id.as_bytes(), &shorteventid.to_be_bytes())?;
@@ -37,6 +46,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(short)
     }
 
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_shortstatekey(
         &self,
         event_type: &StateEventType,
@@ -48,6 +58,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .unwrap()
             .get_mut(&(event_type.clone(), state_key.to_owned()))
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(Some(*short));
         }
 
@@ -66,15 +77,20 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .transpose()?;
 
         if let Some(s) = short {
+            FoundIn::Database.record("cache_result");
+
             self.statekeyshort_cache
                 .lock()
                 .unwrap()
                 .insert((event_type.clone(), state_key.to_owned()), s);
+        } else {
+            FoundIn::Nothing.record("cache_result");
         }
 
         Ok(short)
     }
 
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_or_create_shortstatekey(
         &self,
         event_type: &StateEventType,
@@ -86,6 +102,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .unwrap()
             .get_mut(&(event_type.clone(), state_key.to_owned()))
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(*short);
         }
 
@@ -96,10 +113,14 @@ impl service::rooms::short::Data for KeyValueDatabase {
         let short = if let Some(shortstatekey) =
             self.statekey_shortstatekey.get(&db_key)?
         {
+            FoundIn::Database.record("cache_result");
+
             utils::u64_from_bytes(&shortstatekey).map_err(|_| {
                 Error::bad_database("Invalid shortstatekey in db.")
             })?
         } else {
+            FoundIn::Nothing.record("cache_result");
+
             let shortstatekey = services().globals.next_count()?;
             self.statekey_shortstatekey
                 .insert(&db_key, &shortstatekey.to_be_bytes())?;
@@ -116,6 +137,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(short)
     }
 
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_eventid_from_short(
         &self,
         shorteventid: u64,
@@ -123,6 +145,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         if let Some(id) =
             self.shorteventid_cache.lock().unwrap().get_mut(&shorteventid)
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(Arc::clone(id));
         }
 
@@ -144,6 +167,8 @@ impl service::rooms::short::Data for KeyValueDatabase {
             Error::bad_database("EventId in shorteventid_eventid is invalid.")
         })?;
 
+        FoundIn::Database.record("cache_result");
+
         self.shorteventid_cache
             .lock()
             .unwrap()
@@ -152,6 +177,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         Ok(event_id)
     }
 
+    #[tracing::instrument(skip(self), fields(cache_result))]
     fn get_statekey_from_short(
         &self,
         shortstatekey: u64,
@@ -159,6 +185,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
         if let Some(id) =
             self.shortstatekey_cache.lock().unwrap().get_mut(&shortstatekey)
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(id.clone());
         }
 
@@ -193,6 +220,8 @@ impl service::rooms::short::Data for KeyValueDatabase {
 
         let result = (event_type, state_key);
 
+        FoundIn::Database.record("cache_result");
+
         self.shortstatekey_cache
             .lock()
             .unwrap()
@@ -202,6 +231,7 @@ impl service::rooms::short::Data for KeyValueDatabase {
     }
 
     /// Returns `(shortstatehash, already_existed)`
+    #[tracing::instrument(skip(self))]
     fn get_or_create_shortstatehash(
         &self,
         state_hash: &[u8],

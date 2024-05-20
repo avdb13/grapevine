@@ -66,7 +66,9 @@ use tracing::{debug, error, warn};
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils, Ar, Error, PduEvent, Ra, Result,
+    services,
+    utils::{self, FoundIn},
+    Ar, Error, PduEvent, Ra, Result,
 };
 
 /// Wraps either an literal IP address plus port, or a hostname plus complement
@@ -125,7 +127,7 @@ impl FedDest {
     }
 }
 
-#[tracing::instrument(skip(request))]
+#[tracing::instrument(skip(request), fields(destination_cache_result))]
 pub(crate) async fn send_request<T: OutgoingRequest>(
     destination: &ServerName,
     request: T,
@@ -156,6 +158,7 @@ where
         .cloned();
 
     let (actual_destination, host) = if let Some(result) = cached_result {
+        FoundIn::Cache.record("destination_cache_result");
         result
     } else {
         write_destination_to_cache = true;
@@ -294,6 +297,7 @@ where
                 let response =
                     T::IncomingResponse::try_from_http_response(http_response);
                 if response.is_ok() && write_destination_to_cache {
+                    FoundIn::Remote.record("destination_cache_result");
                     services()
                         .globals
                         .actual_destination_cache

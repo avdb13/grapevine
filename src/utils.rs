@@ -231,6 +231,35 @@ pub(crate) fn truncate_str_for_debug(
     }
 }
 
+/// Type to record cache performance in a tracing span field.
+pub(crate) enum FoundIn {
+    /// Found in cache
+    Cache,
+    /// Cache miss, but it was in the database. The cache has been updated.
+    Database,
+    /// Cache and database miss, but another server had it. The cache has been
+    /// updated.
+    Remote,
+    /// The entry could not be found anywhere.
+    Nothing,
+}
+
+impl FoundIn {
+    fn value(&self) -> &'static str {
+        match self {
+            FoundIn::Cache => "hit",
+            FoundIn::Database => "miss-database",
+            FoundIn::Remote => "miss-remote",
+            FoundIn::Nothing => "not-found",
+        }
+    }
+
+    // TODO: use tracing::Value instead if it ever becomes accessible
+    pub(crate) fn record(&self, field: &str) {
+        tracing::Span::current().record(field, self.value());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::utils::truncate_str_for_debug;

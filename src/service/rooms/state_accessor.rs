@@ -27,7 +27,9 @@ use serde_json::value::to_raw_value;
 use tokio::sync::MutexGuard;
 use tracing::{error, warn};
 
-use crate::{service::pdu::PduBuilder, services, Error, PduEvent, Result};
+use crate::{
+    service::pdu::PduBuilder, services, utils::FoundIn, Error, PduEvent, Result,
+};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -121,7 +123,7 @@ impl Service {
 
     /// Whether a server is allowed to see an event through federation, based on
     /// the room's history_visibility at that event's state.
-    #[tracing::instrument(skip(self, origin, room_id, event_id))]
+    #[tracing::instrument(skip(self), fields(cache_result))]
     pub(crate) fn server_can_see_event(
         &self,
         origin: &ServerName,
@@ -138,6 +140,7 @@ impl Service {
             .unwrap()
             .get_mut(&(origin.to_owned(), shortstatehash))
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(*visibility);
         }
 
@@ -188,6 +191,7 @@ impl Service {
             }
         };
 
+        FoundIn::Database.record("cache_result");
         self.server_visibility_cache
             .lock()
             .unwrap()
@@ -198,7 +202,7 @@ impl Service {
 
     /// Whether a user is allowed to see an event, based on
     /// the room's history_visibility at that event's state.
-    #[tracing::instrument(skip(self, user_id, room_id, event_id))]
+    #[tracing::instrument(skip(self), fields(cache_result))]
     pub(crate) fn user_can_see_event(
         &self,
         user_id: &UserId,
@@ -215,6 +219,7 @@ impl Service {
             .unwrap()
             .get_mut(&(user_id.to_owned(), shortstatehash))
         {
+            FoundIn::Cache.record("cache_result");
             return Ok(*visibility);
         }
 
@@ -257,6 +262,7 @@ impl Service {
             }
         };
 
+        FoundIn::Database.record("cache_result");
         self.user_visibility_cache
             .lock()
             .unwrap()
