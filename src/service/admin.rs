@@ -2,10 +2,10 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 
 use clap::{Parser, ValueEnum};
 use regex::Regex;
+
+
 use ruma::{
-    api::appservice::Registration,
     events::{
-        push_rules::{PushRulesEvent, PushRulesEventContent},
         room::{
             canonical_alias::RoomCanonicalAliasEventContent,
             create::RoomCreateEventContent,
@@ -23,12 +23,13 @@ use ruma::{
         TimelineEventType,
     },
     signatures::verify_json,
-    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomId, RoomId, RoomVersionId,
+    EventId, MilliSecondsSinceUnixEpoch,
     ServerName, UserId,
+    OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId, RoomVersionId,
 };
 use serde_json::value::to_raw_value;
-use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::warn;
+use tokio::sync::{mpsc, Mutex};
+
 
 use super::pdu::PduBuilder;
 use crate::{
@@ -36,6 +37,7 @@ use crate::{
     services,
     utils::{self, dbg_truncate_str},
     Error, PduEvent, Result,
+    services, Result,
 };
 
 mod clear_service_caches;
