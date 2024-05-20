@@ -11,6 +11,7 @@ use ruma::{
             history_visibility::{
                 HistoryVisibility, RoomHistoryVisibilityEventContent,
             },
+            message::RoomMessageEventContent,
         },
         TimelineEventType,
     },
@@ -438,14 +439,62 @@ impl Service {
             argv.push("--help");
         }
 
-        // Backwards compatibility with `register_appservice`-style commands
-        let command_with_dashes;
-        if argv.len() > 1 && argv[1].contains('_') {
-            command_with_dashes = argv[1].replace('_', "-");
-            argv[1] = &command_with_dashes;
-        }
+        let outcome = match argv.get(1) {
+            Some(&"clear-service-caches") => {
+                clear_service_caches::try_process(argv).await
+            }
+            Some(&"create-user") => create_user::try_process(argv),
+            Some(&"deactivate-all") => {
+                deactivate_all::try_process(argv, body).await
+            }
+            Some(&"deactivate-user") => {
+                deactivate_user::try_process(argv).await
+            }
+            Some(&"disable-room") => disable_room::try_process(argv),
+            Some(&"enable-room") => enable_room::try_process(argv),
+            Some(&"get-auth-chain") => get_auth_chain::try_process(argv).await,
+            Some(&"get-pdu") => get_pdu::try_process(argv),
+            Some(&"incoming-federation") => {
+                incoming_federation::try_process().await
+            }
+            Some(&"list-appservices") => list_appservices::try_process().await,
+            Some(&"list-local-users") => list_local_users::try_process(),
+            Some(&"list-rooms") => list_rooms::try_process(),
+            Some(&"memory-usage") => memory_usage::try_process().await,
+            Some(&"parse-pdu") => parse_pdu::try_process(&body),
+            Some(&"register-appservice") => {
+                register_appservice::try_process(body).await
+            }
+            Some(&"reset-password") => reset_password::try_process(argv),
+            Some(&"show-config") => show_config::try_process(),
+            Some(&"sign-json") => sign_json::try_process(&body),
+            Some(&"unregister-appservice") => {
+                unregister_appservice::try_process(argv).await
+            }
+            Some(&"verify-json") => verify_json::try_process(body).await,
+            Some(_) => Err("Command not recognized".to_owned()),
+            None => Err("No command provided".to_owned()),
+        };
 
-        AdminCommand::try_parse_from(argv).map_err(|error| error.to_string())
+        match outcome {
+            Ok(reply_message) => {
+                RoomMessageEventContent::text_plain(reply_message)
+            }
+            Err(e) => {
+                let markdown_message = format!(
+                    "Encountered an error while handling the \
+                     command:\n```{e}```"
+                );
+                let html_message = format!(
+                    "Encountered an error while handling the \
+                     command:\n<pre>\n{e}\n</pre>"
+                );
+                RoomMessageEventContent::text_html(
+                    markdown_message,
+                    html_message,
+                )
+            }
+        }
     }
 
     #[allow(clippy::too_many_lines)]
