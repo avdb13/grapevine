@@ -2,7 +2,7 @@ mod data;
 
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     sync::Arc,
 };
 
@@ -23,12 +23,11 @@ use ruma::{
     serde::Base64,
     state_res::{self, Event, RoomVersion},
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
-    OwnedEventId, OwnedRoomId, OwnedServerName, RoomId, RoomVersionId,
-    ServerName, UserId,
+    OwnedEventId, OwnedServerName, RoomId, RoomVersionId, ServerName, UserId,
 };
 use serde::Deserialize;
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
-use tokio::sync::{Mutex, MutexGuard, RwLock};
+use tokio::sync::{MutexGuard, RwLock};
 use tracing::{error, info, warn};
 
 use super::state_compressor::CompressedStateEvent;
@@ -92,8 +91,6 @@ impl Ord for PduCount {
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
-
-    pub(crate) lasttimelinecount_cache: Mutex<HashMap<OwnedRoomId, PduCount>>,
 }
 
 impl Service {

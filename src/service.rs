@@ -124,7 +124,6 @@ impl Services {
                 },
                 timeline: rooms::timeline::Service {
                     db,
-                    lasttimelinecount_cache: Mutex::new(HashMap::new()),
                 },
                 threads: rooms::threads::Service {
                     db,
@@ -173,8 +172,6 @@ impl Services {
             .len();
         let stateinfo_cache =
             self.rooms.state_compressor.stateinfo_cache.lock().unwrap().len();
-        let lasttimelinecount_cache =
-            self.rooms.timeline.lasttimelinecount_cache.lock().await.len();
         let roomid_spacechunk_cache =
             self.rooms.spaces.roomid_spacechunk_cache.lock().await.len();
 
@@ -184,7 +181,6 @@ lazy_load_waiting: {lazy_load_waiting}
 server_visibility_cache: {server_visibility_cache}
 user_visibility_cache: {user_visibility_cache}
 stateinfo_cache: {stateinfo_cache}
-lasttimelinecount_cache: {lasttimelinecount_cache}
 roomid_spacechunk_cache: {roomid_spacechunk_cache}"
         )
     }
@@ -211,9 +207,6 @@ roomid_spacechunk_cache: {roomid_spacechunk_cache}"
         }
         if amount > 3 {
             self.rooms.state_compressor.stateinfo_cache.lock().unwrap().clear();
-        }
-        if amount > 4 {
-            self.rooms.timeline.lasttimelinecount_cache.lock().await.clear();
         }
         if amount > 5 {
             self.rooms.spaces.roomid_spacechunk_cache.lock().await.clear();
