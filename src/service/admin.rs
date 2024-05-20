@@ -239,45 +239,48 @@ impl Service {
 
         if let Ok(Some(grapevine_room)) = services().admin.get_admin_room() {
             loop {
-                tokio::select! {
-                    Some(event) = receiver.recv() => {
-                        let message_content = match event {
-                            AdminRoomEvent::SendMessage(content) => content,
-                            AdminRoomEvent::ProcessMessage(room_message) => {
-                                self.process_admin_message(room_message).await
-                            }
-                        };
+                let event = receiver
+                    .recv()
+                    .await
+                    .expect("admin command channel has been closed");
 
-                        let mutex_state = Arc::clone(
-                            services().globals
-                                .roomid_mutex_state
-                                .write()
-                                .await
-                                .entry(grapevine_room.clone())
-                                .or_default(),
-                        );
-
-                        let state_lock = mutex_state.lock().await;
-
-                        services()
-                            .rooms
-                            .timeline
-                            .build_and_append_pdu(
-                                PduBuilder {
-                                    event_type: TimelineEventType::RoomMessage,
-                                    content: to_raw_value(&message_content)
-                                        .expect("event is valid, we just created it"),
-                                    unsigned: None,
-                                    state_key: None,
-                                    redacts: None,
-                                },
-                                &grapevine_user,
-                                &grapevine_room,
-                                &state_lock,
-                            )
-                            .await.unwrap();
+                let message_content = match event {
+                    AdminRoomEvent::SendMessage(content) => content,
+                    AdminRoomEvent::ProcessMessage(room_message) => {
+                        self.process_admin_message(room_message).await
                     }
-                }
+                };
+
+                let mutex_state = Arc::clone(
+                    services()
+                        .globals
+                        .roomid_mutex_state
+                        .write()
+                        .await
+                        .entry(grapevine_room.clone())
+                        .or_default(),
+                );
+
+                let state_lock = mutex_state.lock().await;
+
+                services()
+                    .rooms
+                    .timeline
+                    .build_and_append_pdu(
+                        PduBuilder {
+                            event_type: TimelineEventType::RoomMessage,
+                            content: to_raw_value(&message_content)
+                                .expect("event is valid, we just created it"),
+                            unsigned: None,
+                            state_key: None,
+                            redacts: None,
+                        },
+                        &grapevine_user,
+                        &grapevine_room,
+                        &state_lock,
+                    )
+                    .await
+                    .unwrap();
             }
         }
     }

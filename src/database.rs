@@ -1165,7 +1165,7 @@ impl KeyValueDatabase {
 
         services().sending.start_handler();
 
-        Self::start_cleanup_task().await;
+        Self::start_cleanup_task();
 
         Ok(())
     }
@@ -1182,7 +1182,7 @@ impl KeyValueDatabase {
     }
 
     #[tracing::instrument]
-    pub(crate) async fn start_cleanup_task() {
+    pub(crate) fn start_cleanup_task() {
         use std::time::{Duration, Instant};
 
         #[cfg(unix)]
