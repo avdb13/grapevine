@@ -27,7 +27,7 @@ pub(crate) fn try_process(body: &Vec<&str>) -> Result<String, String> {
                             Err(e) => Err(format!(
                                 "EventId: {event_id:?}\\
                                                      nCould not parse event: \
-                                                     {e}"
+                                 {e}"
                             )),
                         }
                     }

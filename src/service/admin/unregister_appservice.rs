@@ -17,11 +17,7 @@ pub(crate) async fn try_process(argv: Vec<&str>) -> Result<String, String> {
         .unregister_appservice(&input.appservice_identifier)
         .await
     {
-        Ok(()) => {
-            Ok("Appservice unregistered.".to_owned())
-        }
-        Err(e) => Err(format!(
-            "Failed to unregister appservice: {e}"
-        )),
+        Ok(()) => Ok("Appservice unregistered.".to_owned()),
+        Err(e) => Err(format!("Failed to unregister appservice: {e}")),
     }
 }

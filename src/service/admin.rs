@@ -3,7 +3,6 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 use clap::{Parser, ValueEnum};
 use regex::Regex;
 
-
 use ruma::{
     events::{
         room::{
@@ -30,7 +29,6 @@ use ruma::{
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
-
 use super::pdu::PduBuilder;
 use crate::{
     api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
@@ -39,6 +37,7 @@ use crate::{
     Error, PduEvent, Result,
     services, Result,
 };
+use crate::{services, Result};
 
 mod clear_service_caches;
 mod create_user;
@@ -393,39 +392,61 @@ impl Service {
         }
 
         let outcome = match argv.get(1) {
-            Some(&"clear-service-caches") => clear_service_caches::try_process(argv).await,
+            Some(&"clear-service-caches") => {
+                clear_service_caches::try_process(argv).await
+            }
             Some(&"create-user") => create_user::try_process(argv),
-            Some(&"deactivate-all") => deactivate_all::try_process(argv, body).await,
-            Some(&"deactivate-user") => deactivate_user::try_process(argv).await,
+            Some(&"deactivate-all") => {
+                deactivate_all::try_process(argv, body).await
+            }
+            Some(&"deactivate-user") => {
+                deactivate_user::try_process(argv).await
+            }
             Some(&"disable-room") => disable_room::try_process(argv),
             Some(&"enable-room") => enable_room::try_process(argv),
             Some(&"get-auth-chain") => get_auth_chain::try_process(argv).await,
             Some(&"get-pdu") => get_pdu::try_process(argv),
-            Some(&"incoming-federation") => incoming_federation::try_process().await,
+            Some(&"incoming-federation") => {
+                incoming_federation::try_process().await
+            }
             Some(&"list-appservices") => list_appservices::try_process().await,
             Some(&"list-local-users") => list_local_users::try_process(),
             Some(&"list-rooms") => list_rooms::try_process(),
             Some(&"memory-usage") => memory_usage::try_process().await,
             Some(&"parse-pdu") => parse_pdu::try_process(&body),
-            Some(&"register-appservice") => register_appservice::try_process(body).await,
+            Some(&"register-appservice") => {
+                register_appservice::try_process(body).await
+            }
             Some(&"reset-password") => reset_password::try_process(argv),
             Some(&"show-config") => show_config::try_process(),
             Some(&"sign-json") => sign_json::try_process(&body),
-            Some(&"unregister-appservice") => unregister_appservice::try_process(argv).await,
+            Some(&"unregister-appservice") => {
+                unregister_appservice::try_process(argv).await
+            }
             Some(&"verify-json") => verify_json::try_process(body).await,
-            Some(_) => { Err("Command not recognized".to_owned()) }
-            None => { Err("No command provided".to_owned()) }
+            Some(_) => Err("Command not recognized".to_owned()),
+            None => Err("No command provided".to_owned()),
         };
 
         match outcome {
-            Ok(reply_message) => RoomMessageEventContent::text_plain(reply_message),
+            Ok(reply_message) => {
+                RoomMessageEventContent::text_plain(reply_message)
+            }
             Err(e) => {
-                let markdown_message = format!("Encountered an error while handling the command:\n```{e}```");
-                let html_message = format!("Encountered an error while handling the command:\n<pre>\n{e}\n</pre>");
-                RoomMessageEventContent::text_html(markdown_message, html_message)
+                let markdown_message = format!(
+                    "Encountered an error while handling the \
+                     command:\n```{e}```"
+                );
+                let html_message = format!(
+                    "Encountered an error while handling the \
+                     command:\n<pre>\n{e}\n</pre>"
+                );
+                RoomMessageEventContent::text_html(
+                    markdown_message,
+                    html_message,
+                )
             }
         }
-
     }
 
     #[allow(clippy::too_many_lines)]

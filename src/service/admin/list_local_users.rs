@@ -8,6 +8,6 @@ pub(crate) fn try_process() -> Result<String, String> {
             msg += &users.join("\n");
             Ok(msg.clone())
         }
-        Err(e) => Err(e.to_string())
+        Err(e) => Err(e.to_string()),
     }
 }

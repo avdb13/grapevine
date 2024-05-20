@@ -40,9 +40,16 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
     }
     // Test if the user already exists
     match services().users.exists(&user_id) {
-        Ok(false) => {},
-        Ok(true) => { return Err(format!("Userid {user_id} already exists")); },
-        Err(e) => { return Err(format!("An error occured while checking if the account already exists: {e:?}")) }
+        Ok(false) => {}
+        Ok(true) => {
+            return Err(format!("Userid {user_id} already exists"));
+        }
+        Err(e) => {
+            return Err(format!(
+                "An error occured while checking if the account already \
+                 exists: {e:?}"
+            ))
+        }
     }
 
     if let Err(e) = services().users.create(&user_id, Some(password.as_str())) {
@@ -77,8 +84,5 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
     // creator
 
     // Inhibit login does not work for guests
-    Ok(format!(
-        "Created user with user_id: {user_id} and password: \
-         {password}"
-    ))
+    Ok(format!("Created user with user_id: {user_id} and password: {password}"))
 }

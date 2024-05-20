@@ -5,10 +5,9 @@ pub(crate) fn try_process(body: &Vec<&str>) -> Result<String, String> {
         || body[0].trim() != "```"
         || body.last().unwrap().trim() == "```"
     {
-        return Err(
-            "Expected code block in command body. Add --help for details."
-                .to_owned(),
-        );
+        return Err("Expected code block in command body. Add --help for \
+                    details."
+            .to_owned());
     }
     let string = body[1..body.len() - 1].join("\n");
     match serde_json::from_str(&string) {

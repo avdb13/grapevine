@@ -6,13 +6,15 @@ use crate::services;
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 struct Args {
-    event_id: Box<EventId>
+    event_id: Box<EventId>,
 }
 
-pub(crate) fn get_pdu_json(event_id: &EventId) -> Result<Option<CanonicalJsonObject>, String> {
+pub(crate) fn get_pdu_json(
+    event_id: &EventId,
+) -> Result<Option<CanonicalJsonObject>, String> {
     match services().rooms.timeline.get_pdu_json(event_id) {
         Ok(json) => Ok(json),
-        Err(e) => Err(format!("{e:?}"))
+        Err(e) => Err(format!("{e:?}")),
     }
 }
 

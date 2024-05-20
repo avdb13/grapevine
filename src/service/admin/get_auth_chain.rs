@@ -3,9 +3,8 @@ use std::{sync::Arc, time::Instant};
 use clap::Parser;
 use ruma::{EventId, RoomId};
 
-use crate::services;
-
 use super::get_pdu::get_pdu_json;
+use crate::services;
 
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
@@ -37,9 +36,13 @@ pub(crate) async fn try_process(argv: Vec<&str>) -> Result<String, String> {
         .rooms
         .auth_chain
         .get_auth_chain(room_id, vec![event_id])
-        .await else {
-            return Err("Failed to retrieve auth chain from database".to_owned());
-        };
+        .await
+    else {
+        return Err("Failed to retrieve auth chain from database".to_owned());
+    };
     let elapsed = start.elapsed();
-    Ok(format!("Loaded auth chain with length {} in {elapsed:?}", chain.count()))
+    Ok(format!(
+        "Loaded auth chain with length {} in {elapsed:?}",
+        chain.count()
+    ))
 }

@@ -1,6 +1,6 @@
-use crate::services;
-
 use std::fmt::Write;
+
+use crate::services;
 
 pub(crate) async fn try_process() -> Result<String, String> {
     let map = services().globals.roomid_federationhandletime.read().await;
@@ -8,11 +8,8 @@ pub(crate) async fn try_process() -> Result<String, String> {
 
     for (r, (e, i)) in map.iter() {
         let elapsed = i.elapsed();
-        writeln!(
-            msg,
-            "{r} {e}: {elapsed:?}"
-        )
-        .expect("write to in-memory buffer should succeed");
+        writeln!(msg, "{r} {e}: {elapsed:?}")
+            .expect("write to in-memory buffer should succeed");
     }
     Ok(msg)
 }
