@@ -20,7 +20,7 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
             .load_shortstatehash_info(shortstatehash)?
             .pop()
             .expect("there is always one layer")
-            .1;
+            .full_state;
         let mut result = HashMap::new();
         let mut i = 0;
         for compressed in full_state.iter() {
@@ -48,7 +48,7 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
             .load_shortstatehash_info(shortstatehash)?
             .pop()
             .expect("there is always one layer")
-            .1;
+            .full_state;
 
         let mut result = HashMap::new();
         let mut i = 0;
@@ -102,7 +102,7 @@ impl service::rooms::state_accessor::Data for KeyValueDatabase {
             .load_shortstatehash_info(shortstatehash)?
             .pop()
             .expect("there is always one layer")
-            .1;
+            .full_state;
         Ok(full_state
             .iter()
             .find(|bytes| bytes.starts_with(&shortstatekey.to_be_bytes()))

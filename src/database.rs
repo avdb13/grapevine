@@ -722,12 +722,12 @@ impl KeyValueDatabase {
                                 states_parents.last()
                             {
                                 let statediffnew = current_state
-                                    .difference(&parent_stateinfo.1)
+                                    .difference(&parent_stateinfo.full_state)
                                     .copied()
                                     .collect::<HashSet<_>>();
 
                                 let statediffremoved = parent_stateinfo
-                                    .1
+                                    .full_state
                                     .difference(&current_state)
                                     .copied()
                                     .collect::<HashSet<_>>();

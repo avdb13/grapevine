@@ -12,25 +12,19 @@ use ruma::{EventId, RoomId};
 use self::data::StateDiff;
 use crate::{services, utils, Result};
 
+#[derive(Clone)]
+pub(crate) struct CompressedStateLayer {
+    pub(crate) shortstatehash: u64,
+    pub(crate) full_state: Arc<HashSet<CompressedStateEvent>>,
+    pub(crate) added: Arc<HashSet<CompressedStateEvent>>,
+    pub(crate) removed: Arc<HashSet<CompressedStateEvent>>,
+}
+
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
 
     #[allow(clippy::type_complexity)]
-    pub(crate) stateinfo_cache: Mutex<
-        LruCache<
-            u64,
-            Vec<(
-                // shortstatehash
-                u64,
-                // full state
-                Arc<HashSet<CompressedStateEvent>>,
-                // added
-                Arc<HashSet<CompressedStateEvent>>,
-                // removed
-                Arc<HashSet<CompressedStateEvent>>,
-            )>,
-        >,
-    >,
+    pub(crate) stateinfo_cache: Mutex<LruCache<u64, Vec<CompressedStateLayer>>>,
 }
 
 pub(crate) type CompressedStateEvent = [u8; 2 * size_of::<u64>()];
@@ -43,18 +37,7 @@ impl Service {
     pub(crate) fn load_shortstatehash_info(
         &self,
         shortstatehash: u64,
-    ) -> Result<
-        Vec<(
-            // shortstatehash
-            u64,
-            // full state
-            Arc<HashSet<CompressedStateEvent>>,
-            // added
-            Arc<HashSet<CompressedStateEvent>>,
-            // removed
-            Arc<HashSet<CompressedStateEvent>>,
-        )>,
-    > {
+    ) -> Result<Vec<CompressedStateLayer>> {
         if let Some(r) =
             self.stateinfo_cache.lock().unwrap().get_mut(&shortstatehash)
         {
@@ -69,19 +52,19 @@ impl Service {
 
         if let Some(parent) = parent {
             let mut response = self.load_shortstatehash_info(parent)?;
-            let mut state = (*response.last().unwrap().1).clone();
+            let mut state = (*response.last().unwrap().full_state).clone();
             state.extend(added.iter().copied());
             let removed = (*removed).clone();
             for r in &removed {
                 state.remove(r);
             }
 
-            response.push((
+            response.push(CompressedStateLayer {
                 shortstatehash,
-                Arc::new(state),
+                full_state: Arc::new(state),
                 added,
-                Arc::new(removed),
-            ));
+                removed: Arc::new(removed),
+            });
 
             self.stateinfo_cache
                 .lock()
@@ -90,8 +73,12 @@ impl Service {
 
             Ok(response)
         } else {
-            let response =
-                vec![(shortstatehash, added.clone(), added, removed)];
+            let response = vec![CompressedStateLayer {
+                shortstatehash,
+                full_state: added.clone(),
+                added,
+                removed,
+            }];
             self.stateinfo_cache
                 .lock()
                 .unwrap()
@@ -167,16 +154,7 @@ impl Service {
         statediffnew: Arc<HashSet<CompressedStateEvent>>,
         statediffremoved: Arc<HashSet<CompressedStateEvent>>,
         diff_to_sibling: usize,
-        mut parent_states: Vec<(
-            // shortstatehash
-            u64,
-            // full state
-            Arc<HashSet<CompressedStateEvent>>,
-            // added
-            Arc<HashSet<CompressedStateEvent>>,
-            // removed
-            Arc<HashSet<CompressedStateEvent>>,
-        )>,
+        mut parent_states: Vec<CompressedStateLayer>,
     ) -> Result<()> {
         let diffsum = statediffnew.len() + statediffremoved.len();
 
@@ -185,8 +163,8 @@ impl Service {
             // To many layers, we have to go deeper
             let parent = parent_states.pop().unwrap();
 
-            let mut parent_new = (*parent.2).clone();
-            let mut parent_removed = (*parent.3).clone();
+            let mut parent_new = (*parent.added).clone();
+            let mut parent_removed = (*parent.removed).clone();
 
             for removed in statediffremoved.iter() {
                 if !parent_new.remove(removed) {
@@ -236,12 +214,12 @@ impl Service {
         // 2. We replace a layer above
 
         let parent = parent_states.pop().unwrap();
-        let parent_diff = parent.2.len() + parent.3.len();
+        let parent_diff = parent.added.len() + parent.removed.len();
 
         if diffsum * diffsum >= 2 * diff_to_sibling * parent_diff {
             // Diff too big, we replace above layer(s)
-            let mut parent_new = (*parent.2).clone();
-            let mut parent_removed = (*parent.3).clone();
+            let mut parent_new = (*parent.added).clone();
+            let mut parent_removed = (*parent.removed).clone();
 
             for removed in statediffremoved.iter() {
                 if !parent_new.remove(removed) {
@@ -273,7 +251,7 @@ impl Service {
             self.db.save_statediff(
                 shortstatehash,
                 StateDiff {
-                    parent: Some(parent.0),
+                    parent: Some(parent.shortstatehash),
                     added: statediffnew,
                     removed: statediffremoved,
                 },
@@ -325,12 +303,12 @@ impl Service {
         let (statediffnew, statediffremoved) =
             if let Some(parent_stateinfo) = states_parents.last() {
                 let statediffnew: HashSet<_> = new_state_ids_compressed
-                    .difference(&parent_stateinfo.1)
+                    .difference(&parent_stateinfo.full_state)
                     .copied()
                     .collect();
 
                 let statediffremoved: HashSet<_> = parent_stateinfo
-                    .1
+                    .full_state
                     .difference(&new_state_ids_compressed)
                     .copied()
                     .collect();
