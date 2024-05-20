@@ -13,19 +13,13 @@ use ruma::{
         },
         TimelineEventType,
     },
-    EventId, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId,
-    RoomVersionId, ServerName, UserId,
+    OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId, RoomVersionId, UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
 use super::pdu::PduBuilder;
-use crate::{
-    api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
-    services,
-    utils::{self, dbg_truncate_str},
-    Error, PduEvent, Result,
-};
+use crate::{services, Result};
 
 mod clear_service_caches;
 mod create_user;
@@ -182,85 +176,6 @@ impl Service {
             lines.next().expect("each string has at least one line");
         let body: Vec<_> = lines.collect();
 
-        let mut argv: Vec<_> = command_line.split_whitespace().collect();
-
-        // Replace `help command` with `command --help`
-        // Clap has a help subcommand, but it omits the long help description.
-        if argv.len() > 1 && argv[1] == "help" {
-            argv.remove(1);
-            argv.push("--help");
-        }
-
-        let outcome = match argv.get(1) {
-            Some(&"clear-service-caches") => {
-                clear_service_caches::try_process(argv).await
-            }
-            Some(&"create-user") => create_user::try_process(argv),
-            Some(&"deactivate-all") => {
-                deactivate_all::try_process(argv, body).await
-            }
-            Some(&"deactivate-user") => {
-                deactivate_user::try_process(argv).await
-            }
-            Some(&"disable-room") => disable_room::try_process(argv),
-            Some(&"enable-room") => enable_room::try_process(argv),
-            Some(&"get-auth-chain") => get_auth_chain::try_process(argv).await,
-            Some(&"get-pdu") => get_pdu::try_process(argv),
-            Some(&"incoming-federation") => {
-                incoming_federation::try_process().await
-            }
-            Some(&"list-appservices") => list_appservices::try_process().await,
-            Some(&"list-local-users") => list_local_users::try_process(),
-            Some(&"list-rooms") => list_rooms::try_process(),
-            Some(&"memory-usage") => memory_usage::try_process().await,
-            Some(&"parse-pdu") => parse_pdu::try_process(&body),
-            Some(&"register-appservice") => {
-                register_appservice::try_process(body).await
-            }
-            Some(&"reset-password") => reset_password::try_process(argv),
-            Some(&"show-config") => show_config::try_process(),
-            Some(&"sign-json") => sign_json::try_process(&body),
-            Some(&"unregister-appservice") => {
-                unregister_appservice::try_process(argv).await
-            }
-            Some(&"verify-json") => verify_json::try_process(body).await,
-            Some(_) => Err("Command not recognized".to_owned()),
-            None => Err("No command provided".to_owned()),
-        };
-
-        match outcome {
-            Ok(reply_message) => {
-                RoomMessageEventContent::text_plain(reply_message)
-            }
-            Err(e) => {
-                let markdown_message = format!(
-                    "Encountered an error while handling the \
-                     command:\n```{e}```"
-                );
-                let html_message = format!(
-                    "Encountered an error while handling the \
-                     command:\n<pre>\n{e}\n</pre>"
-                );
-                RoomMessageEventContent::text_html(
-                    markdown_message,
-                    html_message,
-                )
-            }
-        }
-    }
-
-    // Parse chat messages from the admin room into an AdminCommand object
-    #[tracing::instrument(
-        skip(command_line),
-        fields(
-            command_line = truncate_str_for_debug(command_line, 50).as_ref(),
-        ),
-    )]
-    fn parse_admin_command(
-        command_line: &str,
-    ) -> std::result::Result<AdminCommand, String> {
-        // Note: argv[0] is `@grapevine:servername:`, which is treated as the
-        // main command
         let mut argv: Vec<_> = command_line.split_whitespace().collect();
 
         // Replace `help command` with `command --help`
