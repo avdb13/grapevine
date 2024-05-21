@@ -173,6 +173,7 @@ pub(crate) async fn sync_events_route(
             lazy_load_enabled,
             lazy_load_send_redundant,
             full_state,
+            &filter,
             &compiled_filter,
             &mut device_list_updates,
             &mut left_encrypted_users,
@@ -402,6 +403,7 @@ async fn load_joined_room(
     lazy_load_enabled: bool,
     lazy_load_send_redundant: bool,
     full_state: bool,
+    filter: &FilterDefinition,
     compiled_filter: &CompiledFilterDefinition<'_>,
     device_list_updates: &mut HashSet<OwnedUserId>,
     left_encrypted_users: &mut HashSet<OwnedUserId>,
@@ -423,11 +425,13 @@ async fn load_joined_room(
         drop(insert_lock);
     }
 
+    let timeline_limit =
+        filter.room.timeline.limit.map_or(10, u64::from).min(100);
     let (timeline_pdus, oldest_timeline_event, limited) = load_timeline(
         sender_user,
         room_id,
         sincecount,
-        10,
+        timeline_limit,
         Some(compiled_filter),
     )?;
 
