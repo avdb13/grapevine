@@ -346,6 +346,9 @@ pub(crate) async fn sync_events_route(
                         })
                         .ok()
                 })
+                .filter(|event| {
+                    compiled_filter.account_data.raw_event_allowed(event)
+                })
                 .collect(),
         },
         device_lists: DeviceLists {

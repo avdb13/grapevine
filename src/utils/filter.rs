@@ -160,6 +160,7 @@ impl WildcardAllowDenyList {
 /// `types`/`not_types`, this is a [`WildcardAllowDenyList`], because the type
 /// filter fields support `'*'` wildcards.
 pub(crate) struct CompiledFilterDefinition<'a> {
+    pub(crate) account_data: CompiledFilter<'a>,
     pub(crate) room: CompiledRoomFilter<'a>,
 }
 
@@ -188,6 +189,7 @@ impl<'a> TryFrom<&'a FilterDefinition> for CompiledFilterDefinition<'a> {
         source: &'a FilterDefinition,
     ) -> Result<CompiledFilterDefinition<'a>, Error> {
         Ok(CompiledFilterDefinition {
+            account_data: (&source.account_data).try_into()?,
             room: (&source.room).try_into()?,
         })
     }
@@ -235,6 +237,38 @@ impl<'a> TryFrom<&'a RoomEventFilter> for CompiledRoomEventFilter<'a> {
             ),
             url_filter: source.url_filter,
         })
+    }
+}
+
+impl CompiledFilter<'_> {
+    // TODO: docs
+    pub(crate) fn raw_event_allowed<Ev>(&self, event: &Raw<Ev>) -> bool {
+        // We need to deserialize some of the fields from the raw json, but
+        // don't need all of them. Fully deserializing to a ruma event type
+        // would involve a lot extra copying and validation.
+        #[derive(Deserialize)]
+        struct LimitedEvent<'a> {
+            sender: Option<OwnedUserId>,
+            #[serde(rename = "type")]
+            kind: Cow<'a, str>,
+        }
+
+        let event = match event.deserialize_as::<LimitedEvent<'_>>() {
+            Ok(event) => event,
+            Err(e) => {
+                // TODO: maybe rephrase this error, or propagate it to the
+                // caller
+                error!("invalid event in database: {e}");
+                return false;
+            }
+        };
+
+        let sender_allowed = match &event.sender {
+            Some(sender) => self.senders.allowed(sender),
+            // sender allowlist means we reject events without a sender
+            None => matches!(self.senders, AllowDenyList::Deny(_)),
+        };
+        sender_allowed && self.types.allowed(&event.kind)
     }
 }
 
