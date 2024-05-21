@@ -402,7 +402,7 @@ async fn load_joined_room(
     lazy_load_enabled: bool,
     lazy_load_send_redundant: bool,
     full_state: bool,
-    filter: &CompiledFilterDefinition<'_>,
+    compiled_filter: &CompiledFilterDefinition<'_>,
     device_list_updates: &mut HashSet<OwnedUserId>,
     left_encrypted_users: &mut HashSet<OwnedUserId>,
 ) -> Result<JoinedRoom> {
@@ -423,8 +423,13 @@ async fn load_joined_room(
         drop(insert_lock);
     }
 
-    let (timeline_pdus, oldest_timeline_event, limited) =
-        load_timeline(sender_user, room_id, sincecount, 10, Some(filter))?;
+    let (timeline_pdus, oldest_timeline_event, limited) = load_timeline(
+        sender_user,
+        room_id,
+        sincecount,
+        10,
+        Some(compiled_filter),
+    )?;
 
     let send_notification_counts = !timeline_pdus.is_empty()
         || services()
@@ -461,7 +466,7 @@ async fn load_joined_room(
     let since_shortstatehash =
         services().rooms.user.get_token_shortstatehash(room_id, since)?;
 
-    let skip_state_events = !filter.room.state.room_allowed(room_id);
+    let skip_state_events = !compiled_filter.room.state.room_allowed(room_id);
 
     let (
         heroes,
@@ -619,7 +624,7 @@ async fn load_joined_room(
                             continue;
                         };
 
-                        if filter.room.state.pdu_event_allowed(&pdu) {
+                        if compiled_filter.room.state.pdu_event_allowed(&pdu) {
                             state_events.push(pdu);
                         }
 
@@ -640,7 +645,7 @@ async fn load_joined_room(
                             continue;
                         };
 
-                        if filter.room.state.pdu_event_allowed(&pdu) {
+                        if compiled_filter.room.state.pdu_event_allowed(&pdu) {
                             // This check is in case a bad user ID made it into
                             // the database
                             if let Ok(uid) = UserId::parse(&state_key) {
@@ -828,8 +833,9 @@ async fn load_joined_room(
                 let mut state_events = delta_state_events;
                 let mut lazy_loaded = HashSet::new();
 
-                state_events
-                    .retain(|pdu| filter.room.state.pdu_event_allowed(pdu));
+                state_events.retain(|pdu| {
+                    compiled_filter.room.state.pdu_event_allowed(pdu)
+                });
 
                 // Mark all member events we're returning as lazy-loaded
                 for pdu in &state_events {
@@ -879,7 +885,7 @@ async fn load_joined_room(
                                 event.sender.as_str(),
                             )?
                         {
-                            if filter
+                            if compiled_filter
                                 .room
                                 .state
                                 .pdu_event_allowed(&member_event)
@@ -947,14 +953,18 @@ async fn load_joined_room(
         timeline_pdus.iter().map(|(_, pdu)| pdu.to_sync_room_event()).collect();
 
     let mut edus = vec![];
-    if filter.room.ephemeral.room_allowed(room_id) {
+    if compiled_filter.room.ephemeral.room_allowed(room_id) {
         // We only filter on event type for ephemeral events because none of the
         // other filter parameters apply to the specific ephemeral
         // events we're generating (m.room.receipt and m.room.typing).
         // If we add fields to either of these events, or start
         // generating other event types in the future, we need to
         // reevaluate this.
-        if filter.room.ephemeral.type_allowed(ReceiptEventContent::TYPE) {
+        if compiled_filter
+            .room
+            .ephemeral
+            .type_allowed(ReceiptEventContent::TYPE)
+        {
             edus.extend(
                 services()
                     .rooms
@@ -966,7 +976,7 @@ async fn load_joined_room(
             );
         }
 
-        if filter.room.ephemeral.type_allowed(TypingEventContent::TYPE)
+        if compiled_filter.room.ephemeral.type_allowed(TypingEventContent::TYPE)
             && services().rooms.edus.typing.last_typing_update(room_id).await?
                 > since
         {
@@ -979,26 +989,28 @@ async fn load_joined_room(
         }
     }
 
-    let account_data_events = if filter.room.account_data.room_allowed(room_id)
-    {
-        services()
-            .account_data
-            .changes_since(Some(room_id), sender_user, since)?
-            .into_iter()
-            .filter_map(|(_, v)| {
-                serde_json::from_str(v.json().get())
-                    .map_err(|_| {
-                        Error::bad_database(
-                            "Invalid account event in database.",
-                        )
-                    })
-                    .ok()
-            })
-            .filter(|event| filter.room.account_data.raw_event_allowed(event))
-            .collect()
-    } else {
-        vec![]
-    };
+    let account_data_events =
+        if compiled_filter.room.account_data.room_allowed(room_id) {
+            services()
+                .account_data
+                .changes_since(Some(room_id), sender_user, since)?
+                .into_iter()
+                .filter_map(|(_, v)| {
+                    serde_json::from_str(v.json().get())
+                        .map_err(|_| {
+                            Error::bad_database(
+                                "Invalid account event in database.",
+                            )
+                        })
+                        .ok()
+                })
+                .filter(|event| {
+                    compiled_filter.room.account_data.raw_event_allowed(event)
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
     // Save the state after this sync so we can send the correct state diff next
     // sync
