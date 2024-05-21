@@ -158,6 +158,7 @@ pub(crate) struct CompiledFilterDefinition<'a> {
 
 pub(crate) struct CompiledRoomFilter<'a> {
     rooms: AllowDenyList<'a, RoomId>,
+    pub(crate) account_data: CompiledRoomEventFilter<'a>,
     pub(crate) timeline: CompiledRoomEventFilter<'a>,
     pub(crate) ephemeral: CompiledRoomEventFilter<'a>,
     pub(crate) state: CompiledRoomEventFilter<'a>,
@@ -198,6 +199,7 @@ impl<'a> TryFrom<&'a RoomFilter> for CompiledRoomFilter<'a> {
                 source.rooms.as_deref(),
                 &source.not_rooms,
             ),
+            account_data: (&source.account_data).try_into()?,
             timeline: (&source.timeline).try_into()?,
             ephemeral: (&source.ephemeral).try_into()?,
             state: (&source.state).try_into()?,
