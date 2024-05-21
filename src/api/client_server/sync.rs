@@ -994,6 +994,7 @@ async fn load_joined_room(
                     })
                     .ok()
             })
+            .filter(|event| filter.room.account_data.raw_event_allowed(event))
             .collect()
     } else {
         vec![]
