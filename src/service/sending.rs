@@ -198,7 +198,7 @@ impl Service {
             select! {
                 Some(response) = futures.next() =>
                     if let Some(HandlerInputs { kind, events }) =
-                        self.handle_futures(
+                        self.handle_response(
                             response,
                             &mut current_transaction_status,
                         )?
@@ -226,7 +226,7 @@ impl Service {
             ),
         ),
     )]
-    fn handle_futures(
+    fn handle_response(
         &self,
         response: HandlerResponse,
         current_transaction_status: &mut TransactionStatusMap,
