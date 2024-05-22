@@ -1170,17 +1170,6 @@ impl KeyValueDatabase {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn flush(&self) -> Result<()> {
-        let start = std::time::Instant::now();
-
-        let res = self.db.flush();
-
-        debug!("flush: took {:?}", start.elapsed());
-
-        res
-    }
-
     #[tracing::instrument]
     pub(crate) fn start_cleanup_task() {
         use std::time::{Duration, Instant};

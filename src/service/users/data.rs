@@ -116,8 +116,6 @@ pub(crate) trait Data: Send + Sync {
         one_time_key_value: &Raw<OneTimeKey>,
     ) -> Result<()>;
 
-    fn last_one_time_keys_update(&self, user_id: &UserId) -> Result<u64>;
-
     fn take_one_time_key(
         &self,
         user_id: &UserId,

@@ -48,23 +48,6 @@ impl service::sending::Data for KeyValueDatabase {
         Ok(())
     }
 
-    fn delete_all_requests_for(
-        &self,
-        outgoing_kind: &OutgoingKind,
-    ) -> Result<()> {
-        let prefix = outgoing_kind.get_prefix();
-        for (key, _) in self.servercurrentevent_data.scan_prefix(prefix.clone())
-        {
-            self.servercurrentevent_data.remove(&key).unwrap();
-        }
-
-        for (key, _) in self.servernameevent_data.scan_prefix(prefix) {
-            self.servernameevent_data.remove(&key).unwrap();
-        }
-
-        Ok(())
-    }
-
     fn queue_requests(
         &self,
         requests: &[(&OutgoingKind, SendingEventType)],

@@ -164,11 +164,6 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
         }))
     }
 
-    fn flush(&self) -> Result<()> {
-        // we enabled PRAGMA synchronous=normal, so this should not be necessary
-        Ok(())
-    }
-
     fn cleanup(&self) -> Result<()> {
         self.flush_wal()
     }

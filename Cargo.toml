@@ -14,7 +14,6 @@ unused_import_braces = "warn"
 unused_lifetimes = "warn"
 unused_macro_rules = "warn"
 
-dead_code = "allow"
 unused_qualifications = "allow"
 
 [workspace.lints.clippy]

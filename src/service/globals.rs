@@ -83,7 +83,10 @@ pub(crate) struct Service {
 /// the database.
 pub(crate) struct RotationHandler(
     broadcast::Sender<()>,
-    broadcast::Receiver<()>,
+    // TODO: Determine if it's safe to delete this field. I'm not deleting it
+    // right now because I'm unsure what implications that would have for how
+    // the sender expects to work.
+    #[allow(dead_code)] broadcast::Receiver<()>,
 );
 
 impl RotationHandler {

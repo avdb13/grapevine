@@ -588,17 +588,6 @@ impl Service {
         Ok(())
     }
 
-    /// Cleanup event data
-    /// Used for instance after we remove an appservice registration
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn cleanup_events(&self, appservice_id: String) -> Result<()> {
-        self.db.delete_all_requests_for(&OutgoingKind::Appservice(
-            appservice_id,
-        ))?;
-
-        Ok(())
-    }
-
     #[tracing::instrument(skip(events))]
     async fn handle_events(
         kind: OutgoingKind,

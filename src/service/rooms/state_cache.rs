@@ -313,15 +313,6 @@ impl Service {
         self.db.room_invited_count(room_id)
     }
 
-    /// Returns an iterator over all User IDs who ever joined a room.
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn room_useroncejoined<'a>(
-        &'a self,
-        room_id: &RoomId,
-    ) -> impl Iterator<Item = Result<OwnedUserId>> + 'a {
-        self.db.room_useroncejoined(room_id)
-    }
-
     /// Returns an iterator over all invited members of a room.
     #[tracing::instrument(skip(self))]
     pub(crate) fn room_members_invited<'a>(

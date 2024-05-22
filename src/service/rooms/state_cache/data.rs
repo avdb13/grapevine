@@ -68,12 +68,6 @@ pub(crate) trait Data: Send + Sync {
 
     fn room_invited_count(&self, room_id: &RoomId) -> Result<Option<u64>>;
 
-    /// Returns an iterator over all User IDs who ever joined a room.
-    fn room_useroncejoined<'a>(
-        &'a self,
-        room_id: &RoomId,
-    ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a>;
-
     /// Returns an iterator over all invited members of a room.
     fn room_members_invited<'a>(
         &'a self,
@@ -137,5 +131,7 @@ pub(crate) trait Data: Send + Sync {
 
     fn is_invited(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool>;
 
+    // TODO: Use this when implementing sync filtering
+    #[allow(dead_code)]
     fn is_left(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool>;
 }

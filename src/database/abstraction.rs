@@ -1,6 +1,5 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
-use super::Config;
 use crate::Result;
 
 #[cfg(feature = "sqlite")]
@@ -13,11 +12,11 @@ pub(crate) mod rocksdb;
 pub(crate) mod watchers;
 
 pub(crate) trait KeyValueDatabaseEngine: Send + Sync {
-    fn open(config: &Config) -> Result<Self>
+    #[cfg(any(feature = "sqlite", feature = "rocksdb"))]
+    fn open(config: &super::Config) -> Result<Self>
     where
         Self: Sized;
     fn open_tree(&self, name: &'static str) -> Result<Arc<dyn KvTree>>;
-    fn flush(&self) -> Result<()>;
     fn cleanup(&self) -> Result<()> {
         Ok(())
     }
@@ -25,7 +24,6 @@ pub(crate) trait KeyValueDatabaseEngine: Send + Sync {
         Ok("Current database engine does not support memory usage reporting."
             .to_owned())
     }
-    fn clear_caches(&self) {}
 }
 
 pub(crate) trait KvTree: Send + Sync {

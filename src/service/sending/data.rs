@@ -20,10 +20,6 @@ pub(crate) trait Data: Send + Sync {
         &self,
         outgoing_kind: &OutgoingKind,
     ) -> Result<()>;
-    fn delete_all_requests_for(
-        &self,
-        outgoing_kind: &OutgoingKind,
-    ) -> Result<()>;
     fn queue_requests(
         &self,
         requests: &[(&OutgoingKind, SendingEventType)],

@@ -39,6 +39,8 @@ pub(crate) trait Data: Send + Sync {
     ) -> Result<()>;
 
     /// Returns the private read marker.
+    // TODO: Implement MSC2285
+    #[allow(dead_code)]
     fn private_read_get(
         &self,
         room_id: &RoomId,
@@ -46,6 +48,8 @@ pub(crate) trait Data: Send + Sync {
     ) -> Result<Option<u64>>;
 
     /// Returns the count of the last typing update in this room.
+    // TODO: Implement MSC2285
+    #[allow(dead_code)]
     fn last_privateread_update(
         &self,
         user_id: &UserId,

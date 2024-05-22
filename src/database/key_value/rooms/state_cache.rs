@@ -377,39 +377,6 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             .transpose()
     }
 
-    /// Returns an iterator over all User IDs who ever joined a room.
-    #[tracing::instrument(skip(self))]
-    fn room_useroncejoined<'a>(
-        &'a self,
-        room_id: &RoomId,
-    ) -> Box<dyn Iterator<Item = Result<OwnedUserId>> + 'a> {
-        let mut prefix = room_id.as_bytes().to_vec();
-        prefix.push(0xFF);
-
-        Box::new(self.roomuseroncejoinedids.scan_prefix(prefix).map(
-            |(key, _)| {
-                UserId::parse(
-                    utils::string_from_bytes(
-                        key.rsplit(|&b| b == 0xFF)
-                            .next()
-                            .expect("rsplit always returns an element"),
-                    )
-                    .map_err(|_| {
-                        Error::bad_database(
-                            "User ID in room_useroncejoined is invalid \
-                             unicode.",
-                        )
-                    })?,
-                )
-                .map_err(|_| {
-                    Error::bad_database(
-                        "User ID in room_useroncejoined is invalid.",
-                    )
-                })
-            },
-        ))
-    }
-
     /// Returns an iterator over all invited members of a room.
     #[tracing::instrument(skip(self))]
     fn room_members_invited<'a>(
