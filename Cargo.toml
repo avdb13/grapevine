@@ -13,7 +13,9 @@ unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_lifetimes = "warn"
 unused_macro_rules = "warn"
-unused_qualifications = "warn"
+
+dead_code = "allow"
+unused_qualifications = "allow"
 
 [workspace.lints.clippy]
 # Groups. Keep alphabetically sorted
@@ -72,6 +74,15 @@ wildcard_dependencies = "warn"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
+assigning_clones = "allow"
+doc_markdown = "allow"
+manual_is_variant_and = "allow"
+mixed_attributes_style = "allow"
+multiple_bound_locations = "allow"
+option_as_ref_cloned = "allow"
+thread_local_initializer_can_be_made_const = "allow"
+unnecessary_to_owned = "allow"
+
 [package]
 name = "grapevine"
 description = "A Matrix homeserver written in Rust"
@@ -80,7 +91,7 @@ version = "0.1.0"
 edition = "2021"
 
 # See also `rust-toolchain.toml`
-rust-version = "1.75.0"
+rust-version = "1.78.0"
 
 [lints]
 workspace = true
