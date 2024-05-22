@@ -116,11 +116,15 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
         let created_already = !new_cfs.insert(name);
 
         assert!(
-            !created_already,
+            // userroomid_highlightcount is special-cased because it is an
+            // existing violation of this check that happens to work anyway. We
+            // should write a database migration to obviate the need for this.
+            !(created_already && name != "userroomid_highlightcount"),
             "detected attempt to alias column family: {name}",
         );
 
-        if !self.old_cfs.contains(&name.to_owned()) {
+        // Remove `&& !created_already` when the above is addressed
+        if !self.old_cfs.contains(&name.to_owned()) && !created_already {
             // Create if it didn't exist
             self.rocks
                 .create_cf(name, &db_options(self.max_open_files, &self.cache))
