@@ -51,12 +51,14 @@ pub(crate) async fn get_login_types_route(
 ///
 /// Note: You can use [`GET /_matrix/client/r0/login`](get_login_types_route) to
 /// see supported login types.
-#[allow(clippy::too_many_lines)]
+#[allow(
+    // To allow deprecated login methods
+    deprecated,
+    clippy::too_many_lines,
+)]
 pub(crate) async fn login_route(
     body: Ar<login::v3::Request>,
 ) -> Result<Ra<login::v3::Response>> {
-    // To allow deprecated login methods
-    #![allow(deprecated)]
     // Validate login method
     // TODO: Other login methods
     let user_id = match &body.login_info {
