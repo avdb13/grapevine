@@ -72,8 +72,6 @@ wildcard_dependencies = "warn"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
-unnecessary_to_owned = "allow"
-
 [package]
 name = "grapevine"
 description = "A Matrix homeserver written in Rust"

@@ -124,7 +124,7 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
         );
 
         // Remove `&& !created_already` when the above is addressed
-        if !self.old_cfs.contains(&name.to_owned()) && !created_already {
+        if !self.old_cfs.contains(name) && !created_already {
             // Create if it didn't exist
             self.rocks
                 .create_cf(name, &db_options(self.max_open_files, &self.cache))
