@@ -364,8 +364,6 @@ async fn ar_from_request_inner(
     }
     let http_request = http_request.body(body).unwrap();
 
-    debug!("{:?}", http_request);
-
     Ok(ArPieces {
         sender_user,
         sender_device,
