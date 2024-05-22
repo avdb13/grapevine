@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     future::Future,
     pin::Pin,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use rocksdb::{
@@ -22,6 +22,7 @@ pub(crate) struct Engine {
     max_open_files: i32,
     cache: Cache,
     old_cfs: HashSet<String>,
+    new_cfs: Mutex<HashSet<&'static str>>,
 }
 
 pub(crate) struct RocksDbEngineTree<'a> {
@@ -104,10 +105,21 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             max_open_files: config.rocksdb_max_open_files,
             cache: rocksdb_cache,
             old_cfs: cfs,
+            new_cfs: Mutex::default(),
         }))
     }
 
     fn open_tree(&self, name: &'static str) -> Result<Arc<dyn KvTree>> {
+        let mut new_cfs =
+            self.new_cfs.lock().expect("lock should not be poisoned");
+
+        let created_already = !new_cfs.insert(name);
+
+        assert!(
+            !created_already,
+            "detected attempt to alias column family: {name}",
+        );
+
         if !self.old_cfs.contains(&name.to_owned()) {
             // Create if it didn't exist
             self.rocks
