@@ -196,24 +196,27 @@ impl Service {
 
         loop {
             select! {
-                Some(response) = futures.next() =>
-                    if let Some(HandlerInputs { kind, events }) =
-                        self.handle_response(
-                            response,
-                            &mut current_transaction_status,
-                        )?
-                    {
+                Some(response) = futures.next() => {
+                    if let Some(HandlerInputs {
+                        kind,
+                        events,
+                    }) = self.handle_response(
+                        response,
+                        &mut current_transaction_status,
+                    )? {
                         futures.push(Self::handle_events(kind, events));
-                    },
-                Some(data) = receiver.recv() =>
-                    if let Some(HandlerInputs { kind, events }) =
-                        self.handle_receiver(
-                            data,
-                            &mut current_transaction_status,
-                        )
+                    }
+                }
+                Some(data) = receiver.recv() => {
+                    if let Some(HandlerInputs {
+                        kind,
+                        events,
+                    }) = self
+                        .handle_receiver(data, &mut current_transaction_status)
                     {
                         futures.push(Self::handle_events(kind, events));
                     }
+                }
             }
         }
     }
