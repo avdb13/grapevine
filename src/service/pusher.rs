@@ -62,13 +62,13 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, destination, request))]
-    pub(crate) async fn send_request<T: OutgoingRequest>(
+    pub(crate) async fn send_request<T>(
         &self,
         destination: &str,
         request: T,
     ) -> Result<T::IncomingResponse>
     where
-        T: Debug,
+        T: OutgoingRequest + Debug,
     {
         let destination = destination.replace("/_matrix/push/v1/notify", "");
 

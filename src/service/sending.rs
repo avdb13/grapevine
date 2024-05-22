@@ -867,13 +867,13 @@ impl Service {
     }
 
     #[tracing::instrument(skip(self, request))]
-    pub(crate) async fn send_federation_request<T: OutgoingRequest>(
+    pub(crate) async fn send_federation_request<T>(
         &self,
         destination: &ServerName,
         request: T,
     ) -> Result<T::IncomingResponse>
     where
-        T: Debug,
+        T: OutgoingRequest + Debug,
     {
         debug!("Waiting for permit");
         let permit = self.maximum_requests.acquire().await;
@@ -900,13 +900,13 @@ impl Service {
         skip(self, registration, request),
         fields(appservice_id = registration.id),
     )]
-    pub(crate) async fn send_appservice_request<T: OutgoingRequest>(
+    pub(crate) async fn send_appservice_request<T>(
         &self,
         registration: Registration,
         request: T,
     ) -> Result<Option<T::IncomingResponse>>
     where
-        T: Debug,
+        T: OutgoingRequest + Debug,
     {
         let permit = self.maximum_requests.acquire().await;
         let response =

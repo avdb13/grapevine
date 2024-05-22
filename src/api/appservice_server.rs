@@ -14,12 +14,12 @@ use crate::{services, utils, Error, Result};
 /// Only returns None if there is no url specified in the appservice
 /// registration file
 #[tracing::instrument(skip(request))]
-pub(crate) async fn send_request<T: OutgoingRequest>(
+pub(crate) async fn send_request<T>(
     registration: Registration,
     request: T,
 ) -> Result<Option<T::IncomingResponse>>
 where
-    T: Debug,
+    T: OutgoingRequest + Debug,
 {
     let Some(destination) = registration.url else {
         return Ok(None);

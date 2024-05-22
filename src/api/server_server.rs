@@ -128,12 +128,12 @@ impl FedDest {
 }
 
 #[tracing::instrument(skip(request), fields(destination_cache_result))]
-pub(crate) async fn send_request<T: OutgoingRequest>(
+pub(crate) async fn send_request<T>(
     destination: &ServerName,
     request: T,
 ) -> Result<T::IncomingResponse>
 where
-    T: Debug,
+    T: OutgoingRequest + Debug,
 {
     if !services().globals.allow_federation() {
         return Err(Error::BadConfig("Federation is disabled."));
