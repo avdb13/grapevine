@@ -108,17 +108,16 @@ impl Service {
     #[tracing::instrument(skip(self), ret(level = "trace"))]
     fn user_was_joined(&self, shortstatehash: u64, user_id: &UserId) -> bool {
         self.user_membership(shortstatehash, user_id)
-            .map(|s| s == MembershipState::Join)
-            .unwrap_or_default()
+            .is_ok_and(|s| s == MembershipState::Join)
     }
 
     /// The user was an invited or joined room member at this state (potentially
     /// in the past)
     #[tracing::instrument(skip(self), ret(level = "trace"))]
     fn user_was_invited(&self, shortstatehash: u64, user_id: &UserId) -> bool {
-        self.user_membership(shortstatehash, user_id)
-            .map(|s| s == MembershipState::Join || s == MembershipState::Invite)
-            .unwrap_or_default()
+        self.user_membership(shortstatehash, user_id).is_ok_and(|s| {
+            s == MembershipState::Join || s == MembershipState::Invite
+        })
     }
 
     /// Whether a server is allowed to see an event through federation, based on

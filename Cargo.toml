@@ -72,7 +72,6 @@ wildcard_dependencies = "warn"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
-manual_is_variant_and = "allow"
 mixed_attributes_style = "allow"
 multiple_bound_locations = "allow"
 option_as_ref_cloned = "allow"
