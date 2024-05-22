@@ -2,7 +2,6 @@
 #
 # Other files that need upkeep when this changes:
 #
-# * `.gitlab-ci.yml`
 # * `Cargo.toml`
 # * `flake.nix`
 #
