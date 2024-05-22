@@ -131,14 +131,13 @@ impl service::sending::Data for KeyValueDatabase {
     }
 }
 
-#[tracing::instrument(skip(key))]
+#[tracing::instrument(skip(key, value))]
 fn parse_servercurrentevent(
     key: &RequestKey,
     value: Vec<u8>,
 ) -> Result<(Destination, SendingEventType)> {
     let key = key.as_bytes();
-    // Appservices start with a plus
-    Ok::<_, Error>(if key.starts_with(b"+") {
+    let (destination, event) = if key.starts_with(b"+") {
         let mut parts = key[1..].splitn(2, |&b| b == 0xFF);
 
         let server = parts.next().expect("splitn always returns one element");
@@ -152,14 +151,7 @@ fn parse_servercurrentevent(
             )
         })?;
 
-        (
-            Destination::Appservice(server),
-            if value.is_empty() {
-                SendingEventType::Pdu(event.to_vec())
-            } else {
-                SendingEventType::Edu(value)
-            },
-        )
+        (Destination::Appservice(server), event)
     } else if key.starts_with(b"$") {
         let mut parts = key[1..].splitn(3, |&b| b == 0xFF);
 
@@ -183,15 +175,7 @@ fn parse_servercurrentevent(
             Error::bad_database("Invalid bytes in servercurrentpdus.")
         })?;
 
-        (
-            Destination::Push(user_id, pushkey_string),
-            if value.is_empty() {
-                SendingEventType::Pdu(event.to_vec())
-            } else {
-                // I'm pretty sure this should never be called
-                SendingEventType::Edu(value)
-            },
-        )
+        (Destination::Push(user_id, pushkey_string), event)
     } else {
         let mut parts = key.splitn(2, |&b| b == 0xFF);
 
@@ -200,23 +184,27 @@ fn parse_servercurrentevent(
             Error::bad_database("Invalid bytes in servercurrentpdus.")
         })?;
 
-        let server = utils::string_from_bytes(server).map_err(|_| {
-            Error::bad_database(
-                "Invalid server bytes in server_currenttransaction",
-            )
-        })?;
-
-        (
-            Destination::Normal(ServerName::parse(server).map_err(|_| {
+        let server = utils::string_from_bytes(server)
+            .map_err(|_| {
+                Error::bad_database(
+                    "Invalid server bytes in server_currenttransaction",
+                )
+            })?
+            .try_into()
+            .map_err(|_| {
                 Error::bad_database(
                     "Invalid server string in server_currenttransaction",
                 )
-            })?),
-            if value.is_empty() {
-                SendingEventType::Pdu(event.to_vec())
-            } else {
-                SendingEventType::Edu(value)
-            },
-        )
-    })
+            })?;
+        (Destination::Normal(server), event)
+    };
+
+    Ok((
+        destination,
+        if value.is_empty() {
+            SendingEventType::Pdu(event.to_vec())
+        } else {
+            SendingEventType::Edu(value)
+        },
+    ))
 }
