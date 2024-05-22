@@ -4,7 +4,7 @@ use crate::{
     database::KeyValueDatabase,
     service::{
         self,
-        sending::{OutgoingKind, RequestKey, SendingEventType},
+        sending::{Destination, RequestKey, SendingEventType},
     },
     services, utils, Error, Result,
 };
@@ -13,9 +13,8 @@ impl service::sending::Data for KeyValueDatabase {
     fn active_requests<'a>(
         &'a self,
     ) -> Box<
-        dyn Iterator<
-                Item = Result<(RequestKey, OutgoingKind, SendingEventType)>,
-            > + 'a,
+        dyn Iterator<Item = Result<(RequestKey, Destination, SendingEventType)>>
+            + 'a,
     > {
         Box::new(self.servercurrentevent_data.iter().map(|(key, v)| {
             let key = RequestKey::new(key);
@@ -25,10 +24,10 @@ impl service::sending::Data for KeyValueDatabase {
 
     fn active_requests_for<'a>(
         &'a self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Box<dyn Iterator<Item = Result<(RequestKey, SendingEventType)>> + 'a>
     {
-        let prefix = outgoing_kind.get_prefix();
+        let prefix = destination.get_prefix();
         Box::new(self.servercurrentevent_data.scan_prefix(prefix).map(
             |(key, v)| {
                 let key = RequestKey::new(key);
@@ -43,9 +42,9 @@ impl service::sending::Data for KeyValueDatabase {
 
     fn delete_all_active_requests_for(
         &self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Result<()> {
-        let prefix = outgoing_kind.get_prefix();
+        let prefix = destination.get_prefix();
         for (key, _) in self.servercurrentevent_data.scan_prefix(prefix) {
             self.servercurrentevent_data.remove(&key)?;
         }
@@ -55,12 +54,12 @@ impl service::sending::Data for KeyValueDatabase {
 
     fn queue_requests(
         &self,
-        requests: &[(&OutgoingKind, SendingEventType)],
+        requests: &[(&Destination, SendingEventType)],
     ) -> Result<Vec<RequestKey>> {
         let mut batch = Vec::new();
         let mut keys = Vec::new();
-        for (outgoing_kind, event) in requests {
-            let mut key = outgoing_kind.get_prefix();
+        for (destination, event) in requests {
+            let mut key = destination.get_prefix();
             if let SendingEventType::Pdu(value) = &event {
                 key.extend_from_slice(value);
             } else {
@@ -82,10 +81,10 @@ impl service::sending::Data for KeyValueDatabase {
 
     fn queued_requests<'a>(
         &'a self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Box<dyn Iterator<Item = Result<(SendingEventType, RequestKey)>> + 'a>
     {
-        let prefix = outgoing_kind.get_prefix();
+        let prefix = destination.get_prefix();
         return Box::new(self.servernameevent_data.scan_prefix(prefix).map(
             |(k, v)| {
                 let k = RequestKey::new(k);
@@ -136,7 +135,7 @@ impl service::sending::Data for KeyValueDatabase {
 fn parse_servercurrentevent(
     key: &RequestKey,
     value: Vec<u8>,
-) -> Result<(OutgoingKind, SendingEventType)> {
+) -> Result<(Destination, SendingEventType)> {
     let key = key.as_bytes();
     // Appservices start with a plus
     Ok::<_, Error>(if key.starts_with(b"+") {
@@ -154,7 +153,7 @@ fn parse_servercurrentevent(
         })?;
 
         (
-            OutgoingKind::Appservice(server),
+            Destination::Appservice(server),
             if value.is_empty() {
                 SendingEventType::Pdu(event.to_vec())
             } else {
@@ -185,7 +184,7 @@ fn parse_servercurrentevent(
         })?;
 
         (
-            OutgoingKind::Push(user_id, pushkey_string),
+            Destination::Push(user_id, pushkey_string),
             if value.is_empty() {
                 SendingEventType::Pdu(event.to_vec())
             } else {
@@ -208,7 +207,7 @@ fn parse_servercurrentevent(
         })?;
 
         (
-            OutgoingKind::Normal(ServerName::parse(server).map_err(|_| {
+            Destination::Normal(ServerName::parse(server).map_err(|_| {
                 Error::bad_database(
                     "Invalid server string in server_currenttransaction",
                 )

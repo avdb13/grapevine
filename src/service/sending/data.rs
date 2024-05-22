@@ -1,6 +1,6 @@
 use ruma::ServerName;
 
-use super::{OutgoingKind, RequestKey, SendingEventType};
+use super::{Destination, RequestKey, SendingEventType};
 use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
@@ -8,26 +8,25 @@ pub(crate) trait Data: Send + Sync {
     fn active_requests<'a>(
         &'a self,
     ) -> Box<
-        dyn Iterator<
-                Item = Result<(RequestKey, OutgoingKind, SendingEventType)>,
-            > + 'a,
+        dyn Iterator<Item = Result<(RequestKey, Destination, SendingEventType)>>
+            + 'a,
     >;
     fn active_requests_for<'a>(
         &'a self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Box<dyn Iterator<Item = Result<(RequestKey, SendingEventType)>> + 'a>;
     fn delete_active_request(&self, key: RequestKey) -> Result<()>;
     fn delete_all_active_requests_for(
         &self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Result<()>;
     fn queue_requests(
         &self,
-        requests: &[(&OutgoingKind, SendingEventType)],
+        requests: &[(&Destination, SendingEventType)],
     ) -> Result<Vec<RequestKey>>;
     fn queued_requests<'a>(
         &'a self,
-        outgoing_kind: &OutgoingKind,
+        destination: &Destination,
     ) -> Box<dyn Iterator<Item = Result<(SendingEventType, RequestKey)>> + 'a>;
     fn mark_as_active(
         &self,
