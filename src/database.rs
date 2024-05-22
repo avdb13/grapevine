@@ -159,7 +159,7 @@ pub(crate) struct KeyValueDatabase {
     /// Remember the state hash at events in the past.
     pub(super) shorteventid_shortstatehash: Arc<dyn KvTree>,
 
-    /// StateKey = EventType + StateKey, ShortStateKey = Count
+    /// `StateKey = EventType + StateKey`, `ShortStateKey = Count`
     pub(super) statekey_shortstatekey: Arc<dyn KvTree>,
     pub(super) shortstatekey_statekey: Arc<dyn KvTree>,
 
@@ -176,16 +176,17 @@ pub(crate) struct KeyValueDatabase {
 
     pub(super) shorteventid_authchain: Arc<dyn KvTree>,
 
-    /// RoomId + EventId -> outlier PDU.
+    /// `RoomId + EventId -> outlier PDU`
+    ///
     /// Any pdu that has passed the steps 1-8 in the incoming event
     /// /federation/send/txn.
     pub(super) eventid_outlierpdu: Arc<dyn KvTree>,
     pub(super) softfailedeventids: Arc<dyn KvTree>,
 
-    /// ShortEventId + ShortEventId -> ().
+    /// `ShortEventId + ShortEventId -> ()`
     pub(super) tofrom_relation: Arc<dyn KvTree>,
 
-    /// RoomId + EventId -> Parent PDU EventId.
+    /// `RoomId + EventId -> Parent PDU EventId`
     pub(super) referencedevents: Arc<dyn KvTree>,
 
     // Trees "owned" by `self::key_value::account_data`

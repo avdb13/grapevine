@@ -60,6 +60,8 @@ enum AdminCommand {
     /// # ```
     /// # yaml content here
     /// # ```
+    // Allowed because the doc comment gets parsed by our code later
+    #[allow(clippy::doc_markdown)]
     RegisterAppservice,
 
     /// Unregister an appservice using its ID
@@ -107,6 +109,8 @@ enum AdminCommand {
     /// # ```
     /// # User list here
     /// # ```
+    // Allowed because the doc comment gets parsed by our code later
+    #[allow(clippy::doc_markdown)]
     DeactivateAll {
         #[arg(short, long)]
         /// Remove users from their joined rooms
@@ -116,7 +120,7 @@ enum AdminCommand {
         force: bool,
     },
 
-    /// Get the auth_chain of a PDU
+    /// Get the `auth_chain` of a PDU
     GetAuthChain {
         /// An event ID (the $ character followed by the base64 reference hash)
         event_id: Box<EventId>,
@@ -132,6 +136,8 @@ enum AdminCommand {
     /// # ```
     /// # PDU json content here
     /// # ```
+    // Allowed because the doc comment gets parsed by our code later
+    #[allow(clippy::doc_markdown)]
     ParsePdu,
 
     /// Retrieve and print a PDU by ID from the Grapevine database
@@ -186,6 +192,8 @@ enum AdminCommand {
     /// # ```
     /// # json here
     /// # ```
+    // Allowed because the doc comment gets parsed by our code later
+    #[allow(clippy::doc_markdown)]
     SignJson,
 
     /// Verify json signatures
@@ -193,6 +201,8 @@ enum AdminCommand {
     /// # ```
     /// # json here
     /// # ```
+    // Allowed because the doc comment gets parsed by our code later
+    #[allow(clippy::doc_markdown)]
     VerifyJson,
 }
 

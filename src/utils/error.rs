@@ -63,7 +63,7 @@ pub(crate) enum Error {
     #[error("{0}")]
     BadConfig(&'static str),
     #[error("{0}")]
-    /// Don't create this directly. Use Error::bad_database instead.
+    /// Don't create this directly. Use [`Error::bad_database`] instead.
     BadDatabase(&'static str),
     #[error("uiaa")]
     Uiaa(UiaaInfo),
