@@ -33,7 +33,7 @@ before_script:
 
 ci:
   stage: ci
-  image: nixos/nix:2.20.4
+  image: nixos/nix:2.18.2
   script:
     - ./bin/nix-build-and-cache ci
 
@@ -45,6 +45,6 @@ ci:
 
 artifacts:
   stage: artifacts
-  image: nixos/nix:2.20.4
+  image: nixos/nix:2.18.2
   script:
     - ./bin/nix-build-and-cache packages
