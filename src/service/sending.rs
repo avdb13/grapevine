@@ -88,15 +88,28 @@ pub(crate) enum SendingEventType {
     Edu(Vec<u8>),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct RequestKey(Vec<u8>);
+
+impl RequestKey {
+    pub(crate) fn new(key: Vec<u8>) -> Self {
+        Self(key)
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 pub(crate) struct Service {
     db: &'static dyn Data,
 
     /// The state for a given state hash.
     pub(super) maximum_requests: Arc<Semaphore>,
     pub(crate) sender:
-        mpsc::UnboundedSender<(OutgoingKind, SendingEventType, Vec<u8>)>,
+        mpsc::UnboundedSender<(OutgoingKind, SendingEventType, RequestKey)>,
     receiver: Mutex<
-        mpsc::UnboundedReceiver<(OutgoingKind, SendingEventType, Vec<u8>)>,
+        mpsc::UnboundedReceiver<(OutgoingKind, SendingEventType, RequestKey)>,
     >,
 }
 
@@ -284,7 +297,7 @@ impl Service {
         &self,
         outgoing_kind: OutgoingKind,
         event: SendingEventType,
-        key: Vec<u8>,
+        key: RequestKey,
         current_transaction_status: &mut TransactionStatusMap,
     ) -> Option<HandlerInputs> {
         if let Ok(Some(events)) = self.select_events(
@@ -312,7 +325,7 @@ impl Service {
         &self,
         outgoing_kind: &OutgoingKind,
         // Events we want to send: event and full key
-        new_events: Vec<(SendingEventType, Vec<u8>)>,
+        new_events: Vec<(SendingEventType, RequestKey)>,
         current_transaction_status: &mut HashMap<
             OutgoingKind,
             TransactionStatus,

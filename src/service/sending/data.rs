@@ -1,6 +1,6 @@
 use ruma::ServerName;
 
-use super::{OutgoingKind, SendingEventType};
+use super::{OutgoingKind, RequestKey, SendingEventType};
 use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
@@ -8,14 +8,15 @@ pub(crate) trait Data: Send + Sync {
     fn active_requests<'a>(
         &'a self,
     ) -> Box<
-        dyn Iterator<Item = Result<(Vec<u8>, OutgoingKind, SendingEventType)>>
-            + 'a,
+        dyn Iterator<
+                Item = Result<(RequestKey, OutgoingKind, SendingEventType)>,
+            > + 'a,
     >;
     fn active_requests_for<'a>(
         &'a self,
         outgoing_kind: &OutgoingKind,
-    ) -> Box<dyn Iterator<Item = Result<(Vec<u8>, SendingEventType)>> + 'a>;
-    fn delete_active_request(&self, key: Vec<u8>) -> Result<()>;
+    ) -> Box<dyn Iterator<Item = Result<(RequestKey, SendingEventType)>> + 'a>;
+    fn delete_active_request(&self, key: RequestKey) -> Result<()>;
     fn delete_all_active_requests_for(
         &self,
         outgoing_kind: &OutgoingKind,
@@ -23,14 +24,14 @@ pub(crate) trait Data: Send + Sync {
     fn queue_requests(
         &self,
         requests: &[(&OutgoingKind, SendingEventType)],
-    ) -> Result<Vec<Vec<u8>>>;
+    ) -> Result<Vec<RequestKey>>;
     fn queued_requests<'a>(
         &'a self,
         outgoing_kind: &OutgoingKind,
-    ) -> Box<dyn Iterator<Item = Result<(SendingEventType, Vec<u8>)>> + 'a>;
+    ) -> Box<dyn Iterator<Item = Result<(SendingEventType, RequestKey)>> + 'a>;
     fn mark_as_active(
         &self,
-        events: &[(SendingEventType, Vec<u8>)],
+        events: &[(SendingEventType, RequestKey)],
     ) -> Result<()>;
     fn set_latest_educount(
         &self,
