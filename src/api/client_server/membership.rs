@@ -221,7 +221,7 @@ pub(crate) async fn kick_user_route(
     .map_err(|_| Error::bad_database("Invalid member event in database."))?;
 
     event.membership = MembershipState::Leave;
-    event.reason = body.reason.clone();
+    event.reason.clone_from(&body.reason);
 
     let mutex_state = Arc::clone(
         services()
@@ -360,7 +360,7 @@ pub(crate) async fn unban_user_route(
     .map_err(|_| Error::bad_database("Invalid member event in database."))?;
 
     event.membership = MembershipState::Leave;
-    event.reason = body.reason.clone();
+    event.reason.clone_from(&body.reason);
 
     let mutex_state = Arc::clone(
         services()

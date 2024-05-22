@@ -87,11 +87,12 @@ impl Service {
         for (list_id, list) in &mut request.lists {
             if let Some(cached_list) = cached.lists.get(list_id) {
                 if list.sort.is_empty() {
-                    list.sort = cached_list.sort.clone();
+                    list.sort.clone_from(&cached_list.sort);
                 };
                 if list.room_details.required_state.is_empty() {
-                    list.room_details.required_state =
-                        cached_list.room_details.required_state.clone();
+                    list.room_details
+                        .required_state
+                        .clone_from(&cached_list.room_details.required_state);
                 };
                 list.room_details.timeline_limit = list
                     .room_details
@@ -140,8 +141,8 @@ impl Service {
                     (..) => {}
                 }
                 if list.bump_event_types.is_empty() {
-                    list.bump_event_types =
-                        cached_list.bump_event_types.clone();
+                    list.bump_event_types
+                        .clone_from(&cached_list.bump_event_types);
                 };
             }
             cached.lists.insert(list_id.clone(), list.clone());

@@ -256,11 +256,11 @@ impl Service {
                     pusher.ids.pushkey.clone(),
                 );
                 device.data.default_payload = http.default_payload.clone();
-                device.data.format = http.format.clone();
+                device.data.format.clone_from(&http.format);
 
                 // Tweaks are only added if the format is NOT event_id_only
                 if !event_id_only {
-                    device.tweaks = tweaks.clone();
+                    device.tweaks.clone_from(&tweaks);
                 }
 
                 let d = vec![device];
