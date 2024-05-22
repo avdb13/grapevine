@@ -305,7 +305,7 @@ impl KeyValueDatabase {
         Self::check_db_setup(&config)?;
 
         if !Path::new(&config.database_path).exists() {
-            std::fs::create_dir_all(&config.database_path).map_err(|_| {
+            fs::create_dir_all(&config.database_path).map_err(|_| {
                 Error::BadConfig(
                     "Database folder doesn't exists and couldn't be created \
                      (e.g. due to missing permissions). Please create the \
@@ -1085,8 +1085,7 @@ impl KeyValueDatabase {
                         )
                         .unwrap();
 
-                    let user_default_rules =
-                        ruma::push::Ruleset::server_default(&user);
+                    let user_default_rules = Ruleset::server_default(&user);
                     account_data
                         .content
                         .global

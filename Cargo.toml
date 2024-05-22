@@ -13,8 +13,7 @@ unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_lifetimes = "warn"
 unused_macro_rules = "warn"
-
-unused_qualifications = "allow"
+unused_qualifications = "warn"
 
 [workspace.lints.clippy]
 # Groups. Keep alphabetically sorted

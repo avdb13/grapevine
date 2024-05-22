@@ -23,7 +23,7 @@ impl Watchers {
         {
             hash_map::Entry::Occupied(o) => o.get().1.clone(),
             hash_map::Entry::Vacant(v) => {
-                let (tx, rx) = tokio::sync::watch::channel(());
+                let (tx, rx) = watch::channel(());
                 v.insert((tx, rx.clone()));
                 rx
             }

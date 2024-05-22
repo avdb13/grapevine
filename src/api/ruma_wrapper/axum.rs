@@ -326,7 +326,7 @@ where
             };
 
         let mut http_request =
-            http::Request::builder().uri(parts.uri).method(parts.method);
+            Request::builder().uri(parts.uri).method(parts.method);
         *http_request.headers_mut().unwrap() = parts.headers;
 
         if let Some(CanonicalJsonValue::Object(json_body)) = &mut json_body {
