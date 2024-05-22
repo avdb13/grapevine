@@ -393,7 +393,7 @@ pub(crate) async fn whoami_route(
     body: Ar<whoami::v3::Request>,
 ) -> Result<Ra<whoami::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
-    let device_id = body.sender_device.as_ref().cloned();
+    let device_id = body.sender_device.clone();
 
     Ok(Ra(whoami::v3::Response {
         user_id: sender_user.clone(),
