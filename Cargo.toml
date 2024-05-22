@@ -72,7 +72,6 @@ wildcard_dependencies = "warn"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
-thread_local_initializer_can_be_made_const = "allow"
 unnecessary_to_owned = "allow"
 
 [package]
