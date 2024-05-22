@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::Future,
     pin::Pin,
     sync::{Arc, RwLock},
@@ -20,7 +21,7 @@ pub(crate) struct Engine {
     rocks: DBWithThreadMode<MultiThreaded>,
     max_open_files: i32,
     cache: Cache,
-    old_cfs: Vec<String>,
+    old_cfs: HashSet<String>,
 }
 
 pub(crate) struct RocksDbEngineTree<'a> {
@@ -84,6 +85,7 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             &db_opts,
             &config.database_path,
         )
+        .map(|x| x.into_iter().collect::<HashSet<_>>())
         .unwrap_or_default();
 
         let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
