@@ -489,6 +489,7 @@ impl service::users::Data for KeyValueDatabase {
         Ok(counts)
     }
 
+    #[tracing::instrument(skip(self, device_keys))]
     fn add_device_keys(
         &self,
         user_id: &UserId,
@@ -510,6 +511,12 @@ impl service::users::Data for KeyValueDatabase {
         Ok(())
     }
 
+    #[tracing::instrument(skip(
+        self,
+        master_key,
+        self_signing_key,
+        user_signing_key
+    ))]
     fn add_cross_signing_keys(
         &self,
         user_id: &UserId,
@@ -724,6 +731,7 @@ impl service::users::Data for KeyValueDatabase {
         )
     }
 
+    #[tracing::instrument(skip(self))]
     fn mark_device_key_update(&self, user_id: &UserId) -> Result<()> {
         let count = services().globals.next_count()?.to_be_bytes();
         for room_id in services()

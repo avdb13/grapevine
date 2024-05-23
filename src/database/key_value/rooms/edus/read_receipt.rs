@@ -10,6 +10,7 @@ use crate::{
 };
 
 impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
+    #[tracing::instrument(skip(self, event))]
     fn readreceipt_update(
         &self,
         user_id: &UserId,

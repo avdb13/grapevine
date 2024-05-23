@@ -461,6 +461,7 @@ pub(crate) async fn sync_events_route(
     Ok(Ra(response))
 }
 
+#[tracing::instrument(skip_all, fields(room_id = %room_id))]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn load_joined_room(
     sender_user: &UserId,

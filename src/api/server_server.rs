@@ -361,6 +361,7 @@ fn add_port_to_hostname(destination_str: &str) -> FedDest {
 /// Numbers in comments below refer to bullet points in linked section of
 /// specification
 #[allow(clippy::too_many_lines)]
+#[tracing::instrument(ret(level = "debug"))]
 async fn find_actual_destination(
     destination: &'_ ServerName,
 ) -> (FedDest, FedDest) {
@@ -504,6 +505,7 @@ async fn find_actual_destination(
     (actual_destination, hostname)
 }
 
+#[tracing::instrument(ret(level = "debug"))]
 async fn query_given_srv_record(record: &str) -> Option<FedDest> {
     services()
         .globals
@@ -525,6 +527,7 @@ async fn query_given_srv_record(record: &str) -> Option<FedDest> {
         .unwrap_or(None)
 }
 
+#[tracing::instrument(ret(level = "debug"))]
 async fn query_srv_record(hostname: &'_ str) -> Option<FedDest> {
     let hostname = hostname.trim_end_matches('.');
 
@@ -537,6 +540,7 @@ async fn query_srv_record(hostname: &'_ str) -> Option<FedDest> {
     }
 }
 
+#[tracing::instrument(ret(level = "debug"))]
 async fn request_well_known(destination: &str) -> Option<String> {
     let response = services()
         .globals
@@ -678,6 +682,7 @@ pub(crate) async fn get_public_rooms_route(
     }))
 }
 
+#[tracing::instrument(skip(pdu))]
 pub(crate) fn parse_incoming_pdu(
     pdu: &RawJsonValue,
 ) -> Result<(OwnedEventId, CanonicalJsonObject, OwnedRoomId)> {
