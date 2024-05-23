@@ -30,6 +30,7 @@ impl service::globals::Data for KeyValueDatabase {
         })
     }
 
+    #[tracing::instrument(skip(self))]
     async fn watch(
         &self,
         user_id: &UserId,
