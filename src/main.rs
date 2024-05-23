@@ -168,7 +168,7 @@ async fn run_server() -> io::Result<()> {
                     request.uri().path()
                 };
 
-                tracing::info_span!("http_request", %path)
+                tracing::info_span!("http_request", %path, method = %request.method())
             },
         ))
         .layer(axum::middleware::from_fn(unrecognized_method))
