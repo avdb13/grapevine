@@ -24,8 +24,6 @@ use http::{
     header::{self, HeaderName},
     Method, StatusCode, Uri,
 };
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::Resource;
 use ruma::api::{
     client::{
         error::{Error as RumaError, ErrorBody, ErrorKind},
@@ -41,13 +39,13 @@ use tower_http::{
     ServiceBuilderExt as _,
 };
 use tracing::{debug, info, warn};
-use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub(crate) mod api;
 pub(crate) mod clap;
 mod config;
 mod database;
 mod error;
+mod observability;
 mod service;
 mod utils;
 
@@ -127,48 +125,7 @@ async fn try_main() -> Result<(), error::Main> {
 
     config.warn_deprecated();
 
-    if config.allow_jaeger {
-        opentelemetry::global::set_text_map_propagator(
-            opentelemetry_jaeger_propagator::Propagator::new(),
-        );
-        let tracer = opentelemetry_otlp::new_pipeline()
-            .tracing()
-            .with_trace_config(
-                opentelemetry_sdk::trace::config().with_resource(
-                    Resource::new(vec![KeyValue::new(
-                        "service.name",
-                        env!("CARGO_PKG_NAME"),
-                    )]),
-                ),
-            )
-            .with_exporter(opentelemetry_otlp::new_exporter().tonic())
-            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-        let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-        let filter_layer = EnvFilter::try_new(&config.log)?;
-
-        let subscriber = tracing_subscriber::Registry::default()
-            .with(filter_layer)
-            .with(telemetry);
-        tracing::subscriber::set_global_default(subscriber)?;
-    } else if config.tracing_flame {
-        let registry = tracing_subscriber::Registry::default();
-        let (flame_layer, _guard) =
-            tracing_flame::FlameLayer::with_file("./tracing.folded")?;
-        let flame_layer = flame_layer.with_empty_samples(false);
-
-        let filter_layer = EnvFilter::new("trace,h2=off");
-
-        let subscriber = registry.with(filter_layer).with(flame_layer);
-        tracing::subscriber::set_global_default(subscriber)?;
-    } else {
-        let registry = tracing_subscriber::Registry::default();
-        let fmt_layer = tracing_subscriber::fmt::Layer::new();
-        let filter_layer = EnvFilter::try_new(&config.log)?;
-
-        let subscriber = registry.with(filter_layer).with(fmt_layer);
-        tracing::subscriber::set_global_default(subscriber)?;
-    }
+    let _guard = observability::init(&config);
 
     // This is needed for opening lots of file descriptors, which tends to
     // happen more often when using RocksDB and making lots of federation
@@ -185,14 +142,9 @@ async fn try_main() -> Result<(), error::Main> {
     KeyValueDatabase::load_or_create(config)
         .await
         .map_err(Error::DatabaseError)?;
-    let config = &services().globals.config;
 
     info!("Starting server");
     run_server().await.map_err(Error::Serve)?;
-
-    if config.allow_jaeger {
-        opentelemetry::global::shutdown_tracer_provider();
-    }
 
     Ok(())
 }

@@ -48,6 +48,22 @@ pub(crate) enum Main {
     #[error("invalid configuration")]
     ConfigInvalid(#[from] figment::Error),
 
+    #[error("failed to initialize observability")]
+    Observability(#[from] Observability),
+
+    #[error("failed to load or create the database")]
+    DatabaseError(#[source] crate::utils::error::Error),
+
+    #[error("failed to serve requests")]
+    Serve(#[source] std::io::Error),
+}
+
+/// Observability initialization errors
+// Missing docs are allowed here since that kind of information should be
+// encoded in the error messages themselves anyway.
+#[allow(missing_docs)]
+#[derive(Error, Debug)]
+pub(crate) enum Observability {
     // Upstream's documentation on what this error means is very sparse
     #[error("opentelemetry error")]
     Otel(#[from] opentelemetry::trace::TraceError),
@@ -61,10 +77,4 @@ pub(crate) enum Main {
     // Upstream's documentation on what this error means is very sparse
     #[error("tracing_flame error")]
     TracingFlame(#[from] tracing_flame::Error),
-
-    #[error("failed to load or create the database")]
-    DatabaseError(#[source] crate::utils::error::Error),
-
-    #[error("failed to serve requests")]
-    Serve(#[source] std::io::Error),
 }
