@@ -16,7 +16,14 @@
 }:
 
 let
-  featureEnabled = feature : builtins.elem feature features;
+  # We perform default-feature unification in nix, because some of the dependencies
+  # on the nix side depend on feature values.
+  allDefaultFeatures =
+    (lib.importTOML "${inputs.self}/Cargo.toml").features.default;
+  features' = lib.unique
+    (features ++ lib.optionals default-features allDefaultFeatures);
+
+  featureEnabled = feature : builtins.elem feature features';
 
   # This derivation will set the JEMALLOC_OVERRIDE variable, causing the
   # tikv-jemalloc-sys crate to use the nixpkgs jemalloc instead of building it's
@@ -96,13 +103,10 @@ craneLib.buildPackage ( commonAttrs // {
     env = buildDepsOnlyEnv;
   });
 
-  cargoExtraArgs = "--locked "
+  cargoExtraArgs = "--locked --no-default-features "
     + lib.optionalString
-      (!default-features)
-      "--no-default-features "
-    + lib.optionalString
-      (features != [])
-      "--features " + (builtins.concatStringsSep "," features);
+      (features' != [])
+      "--features " + (builtins.concatStringsSep "," features');
 
   # This is redundant with CI
   doCheck = false;
