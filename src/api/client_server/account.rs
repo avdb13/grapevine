@@ -93,7 +93,7 @@ pub(crate) async fn register_route(
         && body.appservice_info.is_none()
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Registration has been disabled.",
         ));
     }

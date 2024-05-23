@@ -63,7 +63,7 @@ pub(crate) async fn send_state_event_for_empty_key_route(
         && !services().globals.allow_encryption()
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Encryption has been disabled",
         ));
     }
@@ -101,7 +101,7 @@ pub(crate) async fn get_state_events_route(
         .user_can_see_state_events(sender_user, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view the room state.",
         ));
     }
@@ -135,7 +135,7 @@ pub(crate) async fn get_state_events_for_key_route(
         .user_can_see_state_events(sender_user, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view the room state.",
         ));
     }
@@ -176,7 +176,7 @@ pub(crate) async fn get_state_events_for_empty_key_route(
         .user_can_see_state_events(sender_user, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view the room state.",
         ));
     }
@@ -232,7 +232,7 @@ async fn send_state_event_for_key_helper(
                     .is_none()
             {
                 return Err(Error::BadRequest(
-                    ErrorKind::Forbidden,
+                    ErrorKind::forbidden(),
                     "You are only allowed to send canonical_alias events when \
                      it's aliases already exists",
                 ));

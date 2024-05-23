@@ -48,7 +48,7 @@ pub(crate) async fn send_message_event_route(
         && !services().globals.allow_encryption()
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Encryption has been disabled",
         ));
     }

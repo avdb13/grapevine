@@ -53,7 +53,7 @@ pub(crate) async fn search_events_route(
     for room_id in room_ids {
         if !services().rooms.state_cache.is_joined(sender_user, &room_id)? {
             return Err(Error::BadRequest(
-                ErrorKind::Forbidden,
+                ErrorKind::forbidden(),
                 "You don't have permission to view this room.",
             ));
         }

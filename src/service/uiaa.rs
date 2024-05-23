@@ -94,7 +94,7 @@ impl Service {
                     if !hash_matches {
                         uiaainfo.auth_error =
                             Some(ruma::api::client::error::StandardErrorBody {
-                                kind: ErrorKind::Forbidden,
+                                kind: ErrorKind::forbidden(),
                                 message: "Invalid username or password."
                                     .to_owned(),
                             });
@@ -113,7 +113,7 @@ impl Service {
                 } else {
                     uiaainfo.auth_error =
                         Some(ruma::api::client::error::StandardErrorBody {
-                            kind: ErrorKind::Forbidden,
+                            kind: ErrorKind::forbidden(),
                             message: "Invalid registration token.".to_owned(),
                         });
                     return Ok((false, uiaainfo));

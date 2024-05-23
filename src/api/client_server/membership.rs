@@ -450,7 +450,7 @@ pub(crate) async fn get_member_events_route(
         .user_can_see_state_events(sender_user, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view this room.",
         ));
     }
@@ -485,7 +485,7 @@ pub(crate) async fn joined_members_route(
         .user_can_see_state_events(sender_user, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view this room.",
         ));
     }
@@ -1399,7 +1399,7 @@ pub(crate) async fn invite_helper(
 
     if !services().rooms.state_cache.is_joined(sender_user, room_id)? {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view this room.",
         ));
     }

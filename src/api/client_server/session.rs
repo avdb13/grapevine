@@ -81,7 +81,7 @@ pub(crate) async fn login_route(
                 } else {
                     warn!("Bad login type: {:?}", &body.login_info);
                     return Err(Error::BadRequest(
-                        ErrorKind::Forbidden,
+                        ErrorKind::forbidden(),
                         "Bad login type.",
                     ));
                 }
@@ -101,7 +101,7 @@ pub(crate) async fn login_route(
 
             let hash = services().users.password_hash(&user_id)?.ok_or(
                 Error::BadRequest(
-                    ErrorKind::Forbidden,
+                    ErrorKind::forbidden(),
                     "Wrong username or password.",
                 ),
             )?;
@@ -119,7 +119,7 @@ pub(crate) async fn login_route(
 
             if !hash_matches {
                 return Err(Error::BadRequest(
-                    ErrorKind::Forbidden,
+                    ErrorKind::forbidden(),
                     "Wrong username or password.",
                 ));
             }
@@ -190,7 +190,7 @@ pub(crate) async fn login_route(
                 } else {
                     warn!("Bad login type: {:?}", &body.login_info);
                     return Err(Error::BadRequest(
-                        ErrorKind::Forbidden,
+                        ErrorKind::forbidden(),
                         "Bad login type.",
                     ));
                 }

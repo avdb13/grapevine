@@ -14,7 +14,7 @@ pub(crate) async fn create_typing_event_route(
 
     if !services().rooms.state_cache.is_joined(sender_user, &body.room_id)? {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You are not in this room.",
         ));
     }

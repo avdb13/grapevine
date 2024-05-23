@@ -155,7 +155,7 @@ impl Service {
                 Ok(Some(pdu)) => {
                     if pdu.room_id != room_id {
                         return Err(Error::BadRequest(
-                            ErrorKind::Forbidden,
+                            ErrorKind::forbidden(),
                             "Evil event in db",
                         ));
                     }

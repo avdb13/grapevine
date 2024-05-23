@@ -17,11 +17,11 @@ use std::{
 use base64::{engine::general_purpose, Engine as _};
 pub(crate) use data::Data;
 use futures_util::FutureExt;
-use hyper::{
-    client::connect::dns::{GaiResolver, Name},
-    service::Service as HyperService,
+use hyper::service::Service as _;
+use hyper_util::{
+    client::legacy::connect::dns::GaiResolver, service::TowerToHyperService,
 };
-use reqwest::dns::{Addrs, Resolve, Resolving};
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use ruma::{
     api::federation::discovery::{ServerSigningKeys, VerifyKey},
     serde::Base64,
@@ -147,9 +147,13 @@ impl Resolve for Resolver {
                 })
             })
             .unwrap_or_else(|| {
-                let this = &mut self.inner.clone();
+                // This should never fail because reqwest's type is a wrapper
+                // around hyper-utils' type
+                let name = name.as_str().parse().expect("name should be valid");
+
                 Box::pin(
-                    HyperService::<Name>::call(this, name)
+                    TowerToHyperService::new(self.inner.clone())
+                        .call(name)
                         .map(|result| {
                             result
                                 .map(|addrs| -> Addrs { Box::new(addrs) })

@@ -1023,7 +1023,7 @@ pub(crate) async fn get_event_route(
         .server_in_room(sender_servername, room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room",
         ));
     }
@@ -1034,7 +1034,7 @@ pub(crate) async fn get_event_route(
         &body.event_id,
     )? {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not allowed to see event.",
         ));
     }
@@ -1064,7 +1064,7 @@ pub(crate) async fn get_backfill_route(
         .server_in_room(sender_servername, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room.",
         ));
     }
@@ -1132,7 +1132,7 @@ pub(crate) async fn get_missing_events_route(
         .server_in_room(sender_servername, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room",
         ));
     }
@@ -1234,7 +1234,7 @@ pub(crate) async fn get_event_authorization_route(
         .server_in_room(sender_servername, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room.",
         ));
     }
@@ -1292,7 +1292,7 @@ pub(crate) async fn get_room_state_route(
         .server_in_room(sender_servername, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room.",
         ));
     }
@@ -1362,7 +1362,7 @@ pub(crate) async fn get_room_state_ids_route(
         .server_in_room(sender_servername, &body.room_id)?
     {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "Server is not in room.",
         ));
     }

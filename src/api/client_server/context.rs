@@ -53,7 +53,7 @@ pub(crate) async fn get_context_route(
         &body.event_id,
     )? {
         return Err(Error::BadRequest(
-            ErrorKind::Forbidden,
+            ErrorKind::forbidden(),
             "You don't have permission to view this event.",
         ));
     }

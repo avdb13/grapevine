@@ -605,7 +605,9 @@ async fn load_joined_room(
                                     .state_cache
                                     .is_invited(&user_id, room_id)?)
                             {
-                                Ok::<_, Error>(Some(state_key.clone()))
+                                Ok::<_, Error>(Some(state_key.parse().expect(
+                                    "`state_key` should be a valid user ID",
+                                )))
                             } else {
                                 Ok(None)
                             }
@@ -1686,6 +1688,8 @@ pub(crate) async fn sync_events_v4_route(
                 // Count events in timeline greater than global sync counter
                 num_live: None,
                 timestamp: None,
+                // TODO
+                heroes: None,
             },
         );
     }

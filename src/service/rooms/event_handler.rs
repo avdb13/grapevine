@@ -96,7 +96,7 @@ impl Service {
 
         if services().rooms.metadata.is_disabled(room_id)? {
             return Err(Error::BadRequest(
-                ErrorKind::Forbidden,
+                ErrorKind::forbidden(),
                 "Federation of this room is currently disabled on this server.",
             ));
         }
@@ -170,7 +170,7 @@ impl Service {
             // Check for disabled again because it might have changed
             if services().rooms.metadata.is_disabled(room_id)? {
                 return Err(Error::BadRequest(
-                    ErrorKind::Forbidden,
+                    ErrorKind::forbidden(),
                     "Federation of this room is currently disabled on this \
                      server.",
                 ));
@@ -1836,7 +1836,7 @@ impl Service {
                 server_name, room_id
             );
             Err(Error::BadRequest(
-                ErrorKind::Forbidden,
+                ErrorKind::forbidden(),
                 "Server was denied by room ACL",
             ))
         }

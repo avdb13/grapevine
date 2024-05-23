@@ -24,6 +24,8 @@ use http::{
     header::{self, HeaderName},
     Method, StatusCode, Uri,
 };
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::Resource;
 use ruma::api::{
     client::{
         error::{Error as RumaError, ErrorBody, ErrorKind},
@@ -127,12 +129,20 @@ async fn try_main() -> Result<(), error::Main> {
 
     if config.allow_jaeger {
         opentelemetry::global::set_text_map_propagator(
-            opentelemetry_jaeger::Propagator::new(),
+            opentelemetry_jaeger_propagator::Propagator::new(),
         );
-        let tracer = opentelemetry_jaeger::new_agent_pipeline()
-            .with_auto_split_batch(true)
-            .with_service_name("grapevine")
-            .install_batch(opentelemetry::runtime::Tokio)?;
+        let tracer = opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_trace_config(
+                opentelemetry_sdk::trace::config().with_resource(
+                    Resource::new(vec![KeyValue::new(
+                        "service.name",
+                        env!("CARGO_PKG_NAME"),
+                    )]),
+                ),
+            )
+            .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
         let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
         let filter_layer = EnvFilter::try_new(&config.log)?;
@@ -271,9 +281,9 @@ async fn run_server() -> io::Result<()> {
 ///
 /// The axum request handler task gets cancelled if the connection is shut down;
 /// by spawning our own task, processing continue after the client disconnects.
-async fn spawn_task<B: Send + 'static>(
-    req: http::Request<B>,
-    next: axum::middleware::Next<B>,
+async fn spawn_task(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
 ) -> std::result::Result<axum::response::Response, StatusCode> {
     if services().globals.shutdown.load(atomic::Ordering::Relaxed) {
         return Err(StatusCode::SERVICE_UNAVAILABLE);
@@ -283,9 +293,9 @@ async fn spawn_task<B: Send + 'static>(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-async fn unrecognized_method<B: Send>(
-    req: http::Request<B>,
-    next: axum::middleware::Next<B>,
+async fn unrecognized_method(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
 ) -> std::result::Result<axum::response::Response, StatusCode> {
     let method = req.method().clone();
     let uri = req.uri().clone();
