@@ -30,5 +30,9 @@ mkShell {
     toolchain
   ]
   ++
-  default.nativeBuildInputs;
+  default.nativeBuildInputs
+  ++
+  default.propagatedBuildInputs
+  ++
+  default.buildInputs;
 }
