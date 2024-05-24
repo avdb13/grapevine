@@ -1,15 +1,21 @@
 //! Facilities for observing runtime behavior
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
+use std::{fs::File, io::BufWriter};
+
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::Resource;
-use tracing_flame::FlameLayer;
+use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 use crate::{config::Config, error, utils::error::Result};
 
 /// Cleans up resources relating to observability when [`Drop`]ped
-pub(crate) struct Guard;
+pub(crate) struct Guard {
+    /// Drop guard used to flush [`tracing_flame`] data on exit
+    #[allow(dead_code)]
+    flame_guard: Option<FlushGuard<BufWriter<File>>>,
+}
 
 impl Drop for Guard {
     fn drop(&mut self) {
@@ -19,6 +25,7 @@ impl Drop for Guard {
 
 /// Initialize observability
 pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
+    let mut flame_guard = None;
     if config.allow_jaeger {
         opentelemetry::global::set_text_map_propagator(
             opentelemetry_jaeger_propagator::Propagator::new(),
@@ -43,7 +50,8 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         tracing::subscriber::set_global_default(subscriber)?;
     } else if config.tracing_flame {
         let registry = Registry::default();
-        let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded")?;
+        let (flame_layer, guard) = FlameLayer::with_file("./tracing.folded")?;
+        flame_guard = Some(guard);
         let flame_layer = flame_layer.with_empty_samples(false);
 
         let filter_layer = EnvFilter::new("trace,h2=off");
@@ -59,5 +67,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         tracing::subscriber::set_global_default(subscriber)?;
     }
 
-    Ok(Guard)
+    Ok(Guard {
+        flame_guard,
+    })
 }
