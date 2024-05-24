@@ -118,6 +118,76 @@ impl Service {
         }
     }
 
+    /// Generates a thumbnail from the given image file contents. Returns
+    /// `Ok(None)` if the input image should be used as-is.
+    #[tracing::instrument(skip(file), fields(input_size = file.len()))]
+    fn generate_thumbnail(
+        file: &[u8],
+        width: u32,
+        height: u32,
+        crop: bool,
+    ) -> Result<Option<Vec<u8>>> {
+        let Ok(image) = image::load_from_memory(file) else {
+            return Ok(None);
+        };
+
+        let original_width = image.width();
+        let original_height = image.height();
+        if width > original_width || height > original_height {
+            return Ok(None);
+        }
+
+        let thumbnail = if crop {
+            image.resize_to_fill(width, height, FilterType::CatmullRom)
+        } else {
+            let (exact_width, exact_height) = {
+                // Copied from image::dynimage::resize_dimensions
+                let use_width = (u64::from(width) * u64::from(original_height))
+                    <= (u64::from(original_width) * u64::from(height));
+                let intermediate = if use_width {
+                    u64::from(original_height) * u64::from(width)
+                        / u64::from(original_width)
+                } else {
+                    u64::from(original_width) * u64::from(height)
+                        / u64::from(original_height)
+                };
+                if use_width {
+                    if intermediate <= u64::from(::std::u32::MAX) {
+                        (width, intermediate.try_into().unwrap_or(u32::MAX))
+                    } else {
+                        (
+                            (u64::from(width) * u64::from(::std::u32::MAX)
+                                / intermediate)
+                                .try_into()
+                                .unwrap_or(u32::MAX),
+                            ::std::u32::MAX,
+                        )
+                    }
+                } else if intermediate <= u64::from(::std::u32::MAX) {
+                    (intermediate.try_into().unwrap_or(u32::MAX), height)
+                } else {
+                    (
+                        ::std::u32::MAX,
+                        (u64::from(height) * u64::from(::std::u32::MAX)
+                            / intermediate)
+                            .try_into()
+                            .unwrap_or(u32::MAX),
+                    )
+                }
+            };
+
+            image.thumbnail_exact(exact_width, exact_height)
+        };
+
+        let mut thumbnail_bytes = Vec::new();
+        thumbnail.write_to(
+            &mut Cursor::new(&mut thumbnail_bytes),
+            image::ImageFormat::Png,
+        )?;
+
+        Ok(Some(thumbnail_bytes))
+    }
+
     /// Downloads a file's thumbnail.
     ///
     /// Here's an example on how it works:
@@ -171,72 +241,26 @@ impl Service {
         let mut file = Vec::new();
         File::open(path).await?.read_to_end(&mut file).await?;
 
-        let Ok(image) = image::load_from_memory(&file) else {
-            // Couldn't parse file to generate thumbnail, send original
+        let thumbnail_result = {
+            let file = file.clone();
+            let outer_span = tracing::span::Span::current();
+
+            tokio::task::spawn_blocking(move || {
+                outer_span.in_scope(|| {
+                    Self::generate_thumbnail(&file, width, height, crop)
+                })
+            })
+            .await
+            .expect("failed to join thumbnailer task")
+        };
+
+        let Some(thumbnail_bytes) = thumbnail_result? else {
             return Ok(Some(FileMeta {
                 content_disposition,
                 content_type,
-                file: file.clone(),
+                file,
             }));
         };
-
-        let original_width = image.width();
-        let original_height = image.height();
-        if width > original_width || height > original_height {
-            return Ok(Some(FileMeta {
-                content_disposition,
-                content_type,
-                file: file.clone(),
-            }));
-        }
-
-        let thumbnail = if crop {
-            image.resize_to_fill(width, height, FilterType::CatmullRom)
-        } else {
-            let (exact_width, exact_height) = {
-                // Copied from image::dynimage::resize_dimensions
-                let use_width = (u64::from(width) * u64::from(original_height))
-                    <= (u64::from(original_width) * u64::from(height));
-                let intermediate = if use_width {
-                    u64::from(original_height) * u64::from(width)
-                        / u64::from(original_width)
-                } else {
-                    u64::from(original_width) * u64::from(height)
-                        / u64::from(original_height)
-                };
-                if use_width {
-                    if intermediate <= u64::from(::std::u32::MAX) {
-                        (width, intermediate.try_into().unwrap_or(u32::MAX))
-                    } else {
-                        (
-                            (u64::from(width) * u64::from(::std::u32::MAX)
-                                / intermediate)
-                                .try_into()
-                                .unwrap_or(u32::MAX),
-                            ::std::u32::MAX,
-                        )
-                    }
-                } else if intermediate <= u64::from(::std::u32::MAX) {
-                    (intermediate.try_into().unwrap_or(u32::MAX), height)
-                } else {
-                    (
-                        ::std::u32::MAX,
-                        (u64::from(height) * u64::from(::std::u32::MAX)
-                            / intermediate)
-                            .try_into()
-                            .unwrap_or(u32::MAX),
-                    )
-                }
-            };
-
-            image.thumbnail_exact(exact_width, exact_height)
-        };
-
-        let mut thumbnail_bytes = Vec::new();
-        thumbnail.write_to(
-            &mut Cursor::new(&mut thumbnail_bytes),
-            image::ImageFormat::Png,
-        )?;
 
         // Save thumbnail in database so we don't have to generate it
         // again next time
