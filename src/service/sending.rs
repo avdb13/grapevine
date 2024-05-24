@@ -232,11 +232,12 @@ impl Service {
     }
 
     #[tracing::instrument(
-        skip(self, handler_span, current_transaction_status),
+        skip(self, result, handler_span, current_transaction_status),
         fields(
             current_status = ?current_transaction_status.get(
                 &destination
             ),
+            error,
         ),
     )]
     fn handle_response(
@@ -250,6 +251,10 @@ impl Service {
     ) -> Result<Option<HandlerInputs>> {
         // clone() is required for the relationship to show up in jaeger
         Span::current().follows_from(handler_span.clone());
+
+        if let Err(e) = &result {
+            Span::current().record("error", e.to_string());
+        }
 
         match result {
             Ok(()) => {
