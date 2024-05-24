@@ -308,7 +308,7 @@ impl Service {
     }
 
     #[allow(clippy::type_complexity, clippy::too_many_arguments)]
-    #[tracing::instrument(skip(self, create_event, value, pub_key_map))]
+    #[tracing::instrument(skip(self, origin, room_id, value, pub_key_map))]
     fn handle_outlier_pdu<'a>(
         &'a self,
         origin: &'a ServerName,
@@ -512,12 +512,9 @@ impl Service {
         })
     }
 
-    #[tracing::instrument(skip(
-        self,
-        incoming_pdu,
-        val,
-        create_event,
-        pub_key_map
+    #[tracing::instrument(skip_all, fields(
+        incoming_pdu = %incoming_pdu.event_id,
+        create_event = %create_event.event_id,
     ))]
     pub(crate) async fn upgrade_outlier_to_timeline_pdu(
         &self,

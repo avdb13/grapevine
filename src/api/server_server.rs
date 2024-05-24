@@ -361,7 +361,7 @@ fn add_port_to_hostname(destination_str: &str) -> FedDest {
 /// Numbers in comments below refer to bullet points in linked section of
 /// specification
 #[allow(clippy::too_many_lines)]
-#[tracing::instrument(ret(level = "debug"))]
+#[tracing::instrument(skip(destination), ret(level = "debug"))]
 async fn find_actual_destination(
     destination: &'_ ServerName,
 ) -> (FedDest, FedDest) {
