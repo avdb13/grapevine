@@ -1,4 +1,5 @@
 pub(crate) mod error;
+pub(crate) mod on_demand_hashmap;
 
 use std::{
     borrow::Cow,
@@ -14,6 +15,7 @@ use ring::digest;
 use ruma::{
     canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject,
 };
+use tracing::warn;
 
 // Hopefully we have a better chat protocol in 530 years
 #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]

@@ -1,7 +1,7 @@
 //! Facilities for observing runtime behavior
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
-use std::{collections::HashSet, fs::File, io::BufWriter};
+use std::{collections::HashSet, fs::File, io::BufWriter, sync::Arc};
 
 use axum::{
     extract::{MatchedPath, Request},
@@ -26,10 +26,12 @@ use tracing_subscriber::{
     layer::SubscriberExt, reload, EnvFilter, Layer, Registry,
 };
 
+#[allow(unused_imports)] // used in doc comments
+use crate::utils::on_demand_hashmap::OnDemandHashMap;
 use crate::{
     config::{Config, EnvFilterClone, LogFormat},
     error,
-    utils::error::Result,
+    utils::{error::Result, on_demand_hashmap},
 };
 
 /// Globally accessible metrics state
@@ -269,6 +271,13 @@ pub(crate) struct Metrics {
 
     /// Counts where data is found from
     lookup: opentelemetry::metrics::Counter<u64>,
+
+    /// Actions performed when looking up entries in [`OnDemandHashMap`]
+    on_demand_hashmap_get: opentelemetry::metrics::Counter<u64>,
+    /// Verdict of cleanup performed for [`OnDemandHashMap`]
+    on_demand_hashmap_drop: opentelemetry::metrics::Counter<u64>,
+    /// Number of entries in an [`OnDemandHashMap`]
+    on_demand_hashmap_size: opentelemetry::metrics::Gauge<u64>,
 }
 
 impl Metrics {
@@ -319,10 +328,30 @@ impl Metrics {
             .with_description("Counts where data is found from")
             .init();
 
+        let on_demand_hashmap_get = meter
+            .u64_counter("on_demand_hashmap_get")
+            .with_description(
+                "Actions performed when looking up entries in OnDemandHashMap",
+            )
+            .init();
+        let on_demand_hashmap_drop = meter
+            .u64_counter("on_demand_hashmap_drop")
+            .with_description(
+                "Verdict of cleanup performed for OnDemandHashMap",
+            )
+            .init();
+        let on_demand_hashmap_size = meter
+            .u64_gauge("on_demand_hashmap_size")
+            .with_description("Number of entries in OnDemandHashMap")
+            .init();
+
         Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
             lookup,
+            on_demand_hashmap_get,
+            on_demand_hashmap_drop,
+            on_demand_hashmap_size,
         }
     }
 
@@ -341,6 +370,48 @@ impl Metrics {
                 KeyValue::new("lookup", <&str>::from(lookup)),
                 KeyValue::new("found_in", <&str>::from(found_in)),
             ],
+        );
+    }
+
+    /// Record action performed during [`OnDemandHashMap::get_or_insert_with()`]
+    pub(crate) fn record_on_demand_hashmap_get(
+        &self,
+        name: Arc<str>,
+        action: on_demand_hashmap::GetAction,
+    ) {
+        self.on_demand_hashmap_get.add(
+            1,
+            &[
+                KeyValue::new("name", name),
+                KeyValue::new("action", <&str>::from(action)),
+            ],
+        );
+    }
+
+    /// Record verdict of cleanup performed for [`OnDemandHashMap`]
+    pub(crate) fn record_on_demand_hashmap_drop(
+        &self,
+        name: Arc<str>,
+        verdict: on_demand_hashmap::DropVerdict,
+    ) {
+        self.on_demand_hashmap_drop.add(
+            1,
+            &[
+                KeyValue::new("name", name),
+                KeyValue::new("verdict", <&str>::from(verdict)),
+            ],
+        );
+    }
+
+    /// Record verdict of cleanup performed for [`OnDemandHashMap`]
+    pub(crate) fn record_on_demand_hashmap_size(
+        &self,
+        name: Arc<str>,
+        size: usize,
+    ) {
+        self.on_demand_hashmap_size.record(
+            size.try_into().unwrap_or(u64::MAX),
+            &[KeyValue::new("name", name)],
         );
     }
 }
