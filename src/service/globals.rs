@@ -34,7 +34,7 @@ use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{
     api::server_server::FedDest, observability::FilterReloadHandles, services,
-    Config, Error, Result,
+    utils::on_demand_hashmap::OnDemandHashMap, Config, Error, Result,
 };
 
 type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
@@ -66,7 +66,7 @@ pub(crate) struct Service {
     pub(crate) bad_query_ratelimiter:
         Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
     pub(crate) servername_ratelimiter:
-        Arc<RwLock<HashMap<OwnedServerName, Arc<Semaphore>>>>,
+        OnDemandHashMap<OwnedServerName, Semaphore>,
     pub(crate) roomid_mutex_insert:
         RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
     pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
@@ -263,7 +263,9 @@ impl Service {
             bad_event_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_signature_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_query_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
-            servername_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
+            servername_ratelimiter: OnDemandHashMap::new(
+                "servername_ratelimiter".to_owned(),
+            ),
             roomid_mutex_state: RwLock::new(HashMap::new()),
             roomid_mutex_insert: RwLock::new(HashMap::new()),
             roomid_mutex_federation: RwLock::new(HashMap::new()),

@@ -1935,25 +1935,9 @@ impl Service {
         let permit = services()
             .globals
             .servername_ratelimiter
-            .read()
-            .await
-            .get(origin)
-            .map(|s| Arc::clone(s).acquire_owned());
-
-        let permit = if let Some(p) = permit {
-            p
-        } else {
-            let mut write =
-                services().globals.servername_ratelimiter.write().await;
-            let s = Arc::clone(
-                write
-                    .entry(origin.to_owned())
-                    .or_insert_with(|| Arc::new(Semaphore::new(1))),
-            );
-
-            s.acquire_owned()
-        }
-        .await;
+            .get_or_insert_with(origin.to_owned(), || Semaphore::new(1))
+            .await;
+        let permit = permit.acquire().await;
 
         let back_off = |id| async {
             match services()
