@@ -60,10 +60,8 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
                 FlameLayer::with_file("./tracing.folded")?;
             let flame_layer = flame_layer.with_empty_samples(false);
 
-            let filter_layer = EnvFilter::new("trace,h2=off");
-
             Ok::<_, error::Observability>((
-                flame_layer.with_filter(filter_layer),
+                flame_layer.with_filter(config_filter_layer()?),
                 guard,
             ))
         })
