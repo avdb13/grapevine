@@ -151,116 +151,111 @@ impl Service {
             let mut file = Vec::new();
             File::open(path).await?.read_to_end(&mut file).await?;
 
-            Ok(Some(FileMeta {
+            return Ok(Some(FileMeta {
                 content_disposition,
                 content_type,
                 file: file.clone(),
-            }))
-        } else if let Ok((content_disposition, content_type, key)) =
-            self.db.search_file_metadata(mxc.clone(), 0, 0)
-        {
-            // Generate a thumbnail
-            let path = services().globals.get_media_file(&key);
-            let mut file = Vec::new();
-            File::open(path).await?.read_to_end(&mut file).await?;
-
-            if let Ok(image) = image::load_from_memory(&file) {
-                let original_width = image.width();
-                let original_height = image.height();
-                if width > original_width || height > original_height {
-                    return Ok(Some(FileMeta {
-                        content_disposition,
-                        content_type,
-                        file: file.clone(),
-                    }));
-                }
-
-                let thumbnail = if crop {
-                    image.resize_to_fill(width, height, FilterType::CatmullRom)
-                } else {
-                    let (exact_width, exact_height) = {
-                        // Copied from image::dynimage::resize_dimensions
-                        let use_width = (u64::from(width)
-                            * u64::from(original_height))
-                            <= (u64::from(original_width) * u64::from(height));
-                        let intermediate = if use_width {
-                            u64::from(original_height) * u64::from(width)
-                                / u64::from(original_width)
-                        } else {
-                            u64::from(original_width) * u64::from(height)
-                                / u64::from(original_height)
-                        };
-                        if use_width {
-                            if intermediate <= u64::from(::std::u32::MAX) {
-                                (
-                                    width,
-                                    intermediate.try_into().unwrap_or(u32::MAX),
-                                )
-                            } else {
-                                (
-                                    (u64::from(width)
-                                        * u64::from(::std::u32::MAX)
-                                        / intermediate)
-                                        .try_into()
-                                        .unwrap_or(u32::MAX),
-                                    ::std::u32::MAX,
-                                )
-                            }
-                        } else if intermediate <= u64::from(::std::u32::MAX) {
-                            (
-                                intermediate.try_into().unwrap_or(u32::MAX),
-                                height,
-                            )
-                        } else {
-                            (
-                                ::std::u32::MAX,
-                                (u64::from(height)
-                                    * u64::from(::std::u32::MAX)
-                                    / intermediate)
-                                    .try_into()
-                                    .unwrap_or(u32::MAX),
-                            )
-                        }
-                    };
-
-                    image.thumbnail_exact(exact_width, exact_height)
-                };
-
-                let mut thumbnail_bytes = Vec::new();
-                thumbnail.write_to(
-                    &mut Cursor::new(&mut thumbnail_bytes),
-                    image::ImageFormat::Png,
-                )?;
-
-                // Save thumbnail in database so we don't have to generate it
-                // again next time
-                let thumbnail_key = self.db.create_file_metadata(
-                    mxc,
-                    width,
-                    height,
-                    content_disposition.as_deref(),
-                    content_type.as_deref(),
-                )?;
-
-                let path = services().globals.get_media_file(&thumbnail_key);
-                let mut f = File::create(path).await?;
-                f.write_all(&thumbnail_bytes).await?;
-
-                Ok(Some(FileMeta {
-                    content_disposition,
-                    content_type,
-                    file: thumbnail_bytes.clone(),
-                }))
-            } else {
-                // Couldn't parse file to generate thumbnail, send original
-                Ok(Some(FileMeta {
-                    content_disposition,
-                    content_type,
-                    file: file.clone(),
-                }))
-            }
-        } else {
-            Ok(None)
+            }));
         }
+
+        // thumbnail not found, generate
+
+        let Ok((content_disposition, content_type, key)) =
+            self.db.search_file_metadata(mxc.clone(), 0, 0)
+        else {
+            return Ok(None);
+        };
+
+        // Generate a thumbnail
+        let path = services().globals.get_media_file(&key);
+        let mut file = Vec::new();
+        File::open(path).await?.read_to_end(&mut file).await?;
+
+        let Ok(image) = image::load_from_memory(&file) else {
+            // Couldn't parse file to generate thumbnail, send original
+            return Ok(Some(FileMeta {
+                content_disposition,
+                content_type,
+                file: file.clone(),
+            }));
+        };
+
+        let original_width = image.width();
+        let original_height = image.height();
+        if width > original_width || height > original_height {
+            return Ok(Some(FileMeta {
+                content_disposition,
+                content_type,
+                file: file.clone(),
+            }));
+        }
+
+        let thumbnail = if crop {
+            image.resize_to_fill(width, height, FilterType::CatmullRom)
+        } else {
+            let (exact_width, exact_height) = {
+                // Copied from image::dynimage::resize_dimensions
+                let use_width = (u64::from(width) * u64::from(original_height))
+                    <= (u64::from(original_width) * u64::from(height));
+                let intermediate = if use_width {
+                    u64::from(original_height) * u64::from(width)
+                        / u64::from(original_width)
+                } else {
+                    u64::from(original_width) * u64::from(height)
+                        / u64::from(original_height)
+                };
+                if use_width {
+                    if intermediate <= u64::from(::std::u32::MAX) {
+                        (width, intermediate.try_into().unwrap_or(u32::MAX))
+                    } else {
+                        (
+                            (u64::from(width) * u64::from(::std::u32::MAX)
+                                / intermediate)
+                                .try_into()
+                                .unwrap_or(u32::MAX),
+                            ::std::u32::MAX,
+                        )
+                    }
+                } else if intermediate <= u64::from(::std::u32::MAX) {
+                    (intermediate.try_into().unwrap_or(u32::MAX), height)
+                } else {
+                    (
+                        ::std::u32::MAX,
+                        (u64::from(height) * u64::from(::std::u32::MAX)
+                            / intermediate)
+                            .try_into()
+                            .unwrap_or(u32::MAX),
+                    )
+                }
+            };
+
+            image.thumbnail_exact(exact_width, exact_height)
+        };
+
+        let mut thumbnail_bytes = Vec::new();
+        thumbnail.write_to(
+            &mut Cursor::new(&mut thumbnail_bytes),
+            image::ImageFormat::Png,
+        )?;
+
+        // Save thumbnail in database so we don't have to generate it
+        // again next time
+        let thumbnail_key = self.db.create_file_metadata(
+            mxc,
+            width,
+            height,
+            content_disposition.as_deref(),
+            content_type.as_deref(),
+        )?;
+
+        let path = services().globals.get_media_file(&thumbnail_key);
+        let mut f = File::create(path).await?;
+        f.write_all(&thumbnail_bytes).await?;
+
+        Ok(Some(FileMeta {
+            content_disposition,
+            content_type,
+            file: thumbnail_bytes.clone(),
+        }))
     }
 }
