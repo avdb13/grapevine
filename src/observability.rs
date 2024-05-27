@@ -1,7 +1,7 @@
 //! Facilities for observing runtime behavior
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
-use std::{collections::HashSet, fs::File, io::BufWriter};
+use std::{collections::HashSet, fs::File, io::BufWriter, sync::Arc};
 
 use axum::{
     extract::{MatchedPath, Request},
@@ -269,6 +269,10 @@ pub(crate) struct Metrics {
 
     /// Counts where data is found from
     lookup: opentelemetry::metrics::Counter<u64>,
+
+    /// Number of entries in an
+    /// [`OnDemandHashMap`](crate::utils::on_demand_hashmap::OnDemandHashMap)
+    on_demand_hashmap_size: opentelemetry::metrics::Gauge<u64>,
 }
 
 impl Metrics {
@@ -319,10 +323,16 @@ impl Metrics {
             .with_description("Counts where data is found from")
             .init();
 
+        let on_demand_hashmap_size = meter
+            .u64_gauge("on_demand_hashmap_size")
+            .with_description("Number of entries in OnDemandHashMap")
+            .init();
+
         Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
             lookup,
+            on_demand_hashmap_size,
         }
     }
 
@@ -341,6 +351,20 @@ impl Metrics {
                 KeyValue::new("lookup", <&str>::from(lookup)),
                 KeyValue::new("found_in", <&str>::from(found_in)),
             ],
+        );
+    }
+
+    /// Record size of [`OnDemandHashMap`]
+    ///
+    /// [`OnDemandHashMap`]: crate::utils::on_demand_hashmap::OnDemandHashMap
+    pub(crate) fn record_on_demand_hashmap_size(
+        &self,
+        name: Arc<str>,
+        size: usize,
+    ) {
+        self.on_demand_hashmap_size.record(
+            size.try_into().unwrap_or(u64::MAX),
+            &[KeyValue::new("name", name)],
         );
     }
 }
