@@ -5,6 +5,7 @@ use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
 };
+use tracing::{debug, warn};
 
 use crate::{services, Result};
 
@@ -120,20 +121,31 @@ impl Service {
 
     /// Generates a thumbnail from the given image file contents. Returns
     /// `Ok(None)` if the input image should be used as-is.
-    #[tracing::instrument(skip(file), fields(input_size = file.len()))]
+    #[tracing::instrument(
+        skip(file),
+        fields(input_size = file.len(), original_width, original_height),
+    )]
     fn generate_thumbnail(
         file: &[u8],
         width: u32,
         height: u32,
         crop: bool,
     ) -> Result<Option<Vec<u8>>> {
-        let Ok(image) = image::load_from_memory(file) else {
-            return Ok(None);
+        let image = match image::load_from_memory(file) {
+            Ok(image) => image,
+            Err(error) => {
+                warn!(%error, "Failed to parse source image");
+                return Ok(None);
+            }
         };
 
         let original_width = image.width();
         let original_height = image.height();
+        tracing::Span::current().record("original_width", original_width);
+        tracing::Span::current().record("original_height", original_height);
+
         if width > original_width || height > original_height {
+            debug!("Requested thumbnail is larger than source image");
             return Ok(None);
         }
 
@@ -179,6 +191,7 @@ impl Service {
             image.thumbnail_exact(exact_width, exact_height)
         };
 
+        debug!("Serializing thumbnail as PNG");
         let mut thumbnail_bytes = Vec::new();
         thumbnail.write_to(
             &mut Cursor::new(&mut thumbnail_bytes),
@@ -216,7 +229,7 @@ impl Service {
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc.clone(), width, height)
         {
-            // Using saved thumbnail
+            debug!("Using saved thumbnail");
             let path = services().globals.get_media_file(&key);
             let mut file = Vec::new();
             File::open(path).await?.read_to_end(&mut file).await?;
@@ -228,19 +241,18 @@ impl Service {
             }));
         }
 
-        // thumbnail not found, generate
-
         let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc.clone(), 0, 0)
         else {
+            debug!("Original image not found, can't generate thumbnail");
             return Ok(None);
         };
 
-        // Generate a thumbnail
         let path = services().globals.get_media_file(&key);
         let mut file = Vec::new();
         File::open(path).await?.read_to_end(&mut file).await?;
 
+        debug!("Generating thumbnail");
         let thumbnail_result = {
             let file = file.clone();
             let outer_span = tracing::span::Span::current();
@@ -255,12 +267,15 @@ impl Service {
         };
 
         let Some(thumbnail_bytes) = thumbnail_result? else {
+            debug!("Returning source image as-is");
             return Ok(Some(FileMeta {
                 content_disposition,
                 content_type,
                 file,
             }));
         };
+
+        debug!("Saving created thumbnail");
 
         // Save thumbnail in database so we don't have to generate it
         // again next time
