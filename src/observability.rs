@@ -3,12 +3,16 @@
 
 use std::{fs::File, io::BufWriter};
 
-use opentelemetry::KeyValue;
-use opentelemetry_sdk::Resource;
+use once_cell::sync::Lazy;
+use opentelemetry::{metrics::MeterProvider, KeyValue};
+use opentelemetry_sdk::{metrics::SdkMeterProvider, Resource};
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
 
 use crate::{config::Config, error, utils::error::Result};
+
+/// Globally accessible metrics state
+pub(crate) static METRICS: Lazy<Metrics> = Lazy::new(Metrics::new);
 
 /// Cleans up resources relating to observability when [`Drop`]ped
 pub(crate) struct Guard {
@@ -84,4 +88,44 @@ fn standard_resource() -> Resource {
         "service.name",
         env!("CARGO_PKG_NAME"),
     )]))
+}
+
+/// Holds state relating to metrics
+pub(crate) struct Metrics {
+    /// Internal state for OpenTelemetry metrics
+    ///
+    /// We never directly read from [`SdkMeterProvider`], but it needs to
+    /// outlive all calls to `self.otel_state.0.gather()`, otherwise
+    /// metrics collection will fail.
+    otel_state: (prometheus::Registry, SdkMeterProvider),
+}
+
+impl Metrics {
+    /// Initializes metric-collecting and exporting facilities
+    fn new() -> Self {
+        // Set up OpenTelemetry state
+        let registry = prometheus::Registry::new();
+        let exporter = opentelemetry_prometheus::exporter()
+            .with_registry(registry.clone())
+            .build()
+            .expect("exporter configuration should be valid");
+        let provider = SdkMeterProvider::builder()
+            .with_reader(exporter)
+            .with_resource(standard_resource())
+            .build();
+        let _meter = provider.meter(env!("CARGO_PKG_NAME"));
+
+        // TODO: Add some metrics
+
+        Metrics {
+            otel_state: (registry, provider),
+        }
+    }
+
+    /// Export metrics to a string suitable for consumption by e.g. Prometheus
+    pub(crate) fn export(&self) -> String {
+        prometheus::TextEncoder::new()
+            .encode_to_string(&self.otel_state.0.gather())
+            .expect("should be able to encode metrics")
+    }
 }

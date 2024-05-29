@@ -60,6 +60,8 @@ pub(crate) struct Config {
     #[serde(default = "false_fn")]
     pub(crate) allow_jaeger: bool,
     #[serde(default = "false_fn")]
+    pub(crate) allow_prometheus: bool,
+    #[serde(default = "false_fn")]
     pub(crate) tracing_flame: bool,
     #[serde(default)]
     pub(crate) proxy: ProxyConfig,

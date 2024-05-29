@@ -412,6 +412,15 @@ fn routes(config: &Config) -> Router {
                 .put(c2s::send_state_event_for_empty_key_route),
         );
 
+    let router = if config.allow_prometheus {
+        router.route(
+            "/metrics",
+            get(|| async { observability::METRICS.export() }),
+        )
+    } else {
+        router
+    };
+
     let router = router
         .route(
             "/_matrix/client/r0/rooms/:room_id/initialSync",
