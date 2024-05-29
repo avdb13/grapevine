@@ -36,12 +36,8 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
             let tracer = opentelemetry_otlp::new_pipeline()
                 .tracing()
                 .with_trace_config(
-                    opentelemetry_sdk::trace::config().with_resource(
-                        Resource::new(vec![KeyValue::new(
-                            "service.name",
-                            env!("CARGO_PKG_NAME"),
-                        )]),
-                    ),
+                    opentelemetry_sdk::trace::config()
+                        .with_resource(standard_resource()),
                 )
                 .with_exporter(opentelemetry_otlp::new_exporter().tonic())
                 .install_batch(opentelemetry_sdk::runtime::Tokio)?;
@@ -80,4 +76,12 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
     Ok(Guard {
         flame_guard,
     })
+}
+
+/// Construct the standard [`Resource`] value to use for this service
+fn standard_resource() -> Resource {
+    Resource::default().merge(&Resource::new([KeyValue::new(
+        "service.name",
+        env!("CARGO_PKG_NAME"),
+    )]))
 }
