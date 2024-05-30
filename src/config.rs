@@ -49,7 +49,7 @@ pub(crate) struct Config {
     pub(crate) registration_token: Option<String>,
     #[serde(default = "true_fn")]
     pub(crate) allow_encryption: bool,
-    #[serde(default = "false_fn")]
+    #[serde(default = "true_fn")]
     pub(crate) allow_federation: bool,
     #[serde(default = "true_fn")]
     pub(crate) allow_room_creation: bool,
