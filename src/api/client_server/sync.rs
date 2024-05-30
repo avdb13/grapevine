@@ -457,11 +457,8 @@ pub(crate) async fn sync_events_route(
             Ok(x) => x.expect("watcher should succeed"),
             Err(error) => debug!(%error, "timed out"),
         };
-        Ok(Ra(response))
-    } else {
-        // Only cache if we made progress
-        Ok(Ra(response))
     }
+    Ok(Ra(response))
 }
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
