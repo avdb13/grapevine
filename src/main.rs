@@ -196,7 +196,8 @@ async fn run_server() -> io::Result<()> {
                 .max_request_size
                 .try_into()
                 .expect("failed to convert max request size"),
-        ));
+        ))
+        .layer(axum::middleware::from_fn(observability::http_metrics_layer));
 
     let app = routes(config).layer(middlewares).into_make_service();
     let handle = ServerHandle::new();

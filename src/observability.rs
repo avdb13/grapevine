@@ -1,11 +1,24 @@
 //! Facilities for observing runtime behavior
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
-use std::{fs::File, io::BufWriter};
+use std::{collections::HashSet, fs::File, io::BufWriter};
 
+use axum::{
+    extract::{MatchedPath, Request},
+    middleware::Next,
+    response::Response,
+};
+use http::Method;
 use once_cell::sync::Lazy;
-use opentelemetry::{metrics::MeterProvider, KeyValue};
-use opentelemetry_sdk::{metrics::SdkMeterProvider, Resource};
+use opentelemetry::{
+    metrics::{MeterProvider, Unit},
+    KeyValue,
+};
+use opentelemetry_sdk::{
+    metrics::{new_view, Aggregation, Instrument, SdkMeterProvider, Stream},
+    Resource,
+};
+use tokio::time::Instant;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
 
@@ -98,11 +111,17 @@ pub(crate) struct Metrics {
     /// outlive all calls to `self.otel_state.0.gather()`, otherwise
     /// metrics collection will fail.
     otel_state: (prometheus::Registry, SdkMeterProvider),
+
+    /// Histogram of HTTP requests
+    http_requests_histogram: opentelemetry::metrics::Histogram<f64>,
 }
 
 impl Metrics {
     /// Initializes metric-collecting and exporting facilities
     fn new() -> Self {
+        // Metric names
+        let http_requests_histogram_name = "http.requests";
+
         // Set up OpenTelemetry state
         let registry = prometheus::Registry::new();
         let exporter = opentelemetry_prometheus::exporter()
@@ -111,14 +130,38 @@ impl Metrics {
             .expect("exporter configuration should be valid");
         let provider = SdkMeterProvider::builder()
             .with_reader(exporter)
+            .with_view(
+                new_view(
+                    Instrument::new().name(http_requests_histogram_name),
+                    Stream::new().aggregation(
+                        Aggregation::ExplicitBucketHistogram {
+                            boundaries: vec![
+                                0., 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07,
+                                0.08, 0.09, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,
+                                0.8, 0.9, 1., 2., 3., 4., 5., 6., 7., 8., 9.,
+                                10., 20., 30., 40., 50.,
+                            ],
+                            record_min_max: true,
+                        },
+                    ),
+                )
+                .expect("view should be valid"),
+            )
             .with_resource(standard_resource())
             .build();
-        let _meter = provider.meter(env!("CARGO_PKG_NAME"));
+        let meter = provider.meter(env!("CARGO_PKG_NAME"));
 
-        // TODO: Add some metrics
+        // Define metrics
+
+        let http_requests_histogram = meter
+            .f64_histogram(http_requests_histogram_name)
+            .with_unit(Unit::new("seconds"))
+            .with_description("Histogram of HTTP requests")
+            .init();
 
         Metrics {
             otel_state: (registry, provider),
+            http_requests_histogram,
         }
     }
 
@@ -127,5 +170,50 @@ impl Metrics {
         prometheus::TextEncoder::new()
             .encode_to_string(&self.otel_state.0.gather())
             .expect("should be able to encode metrics")
+    }
+}
+
+/// Track HTTP metrics by converting this into an [`axum`] layer
+pub(crate) async fn http_metrics_layer(req: Request, next: Next) -> Response {
+    /// Routes that should not be included in the metrics
+    static IGNORED_ROUTES: Lazy<HashSet<(&Method, &str)>> =
+        Lazy::new(|| [(&Method::GET, "/metrics")].into_iter().collect());
+
+    let matched_path =
+        req.extensions().get::<MatchedPath>().map(|x| x.as_str().to_owned());
+
+    let method = req.method().to_owned();
+
+    match matched_path {
+        // Run the next layer if the route should be ignored
+        Some(matched_path)
+            if IGNORED_ROUTES.contains(&(&method, matched_path.as_str())) =>
+        {
+            next.run(req).await
+        }
+
+        // Run the next layer if the route is unknown
+        None => next.run(req).await,
+
+        // Otherwise, run the next layer and record metrics
+        Some(matched_path) => {
+            let start = Instant::now();
+            let resp = next.run(req).await;
+            let elapsed = start.elapsed();
+
+            let status_code = resp.status().as_str().to_owned();
+
+            let attrs = &[
+                KeyValue::new("method", method.as_str().to_owned()),
+                KeyValue::new("path", matched_path),
+                KeyValue::new("status_code", status_code),
+            ];
+
+            METRICS
+                .http_requests_histogram
+                .record(elapsed.as_secs_f64(), attrs);
+
+            resp
+        }
     }
 }
