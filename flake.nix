@@ -23,6 +23,11 @@
 
         oci-image = self.callPackage ./nix/pkgs/oci-image {};
 
+        # Return a new scope with overrides applied to the 'default' package
+        overrideDefaultPackage = args: self.overrideScope (final: prev: {
+          default = prev.default.override args;
+        });
+
         shell = self.callPackage ./nix/shell.nix {};
 
         # The Rust toolchain to use
@@ -84,6 +89,9 @@
           );
 
         devShells.default = (mkScope pkgs).shell;
+        devShells.all-features = ((mkScope pkgs).overrideDefaultPackage {
+          all-features = true;
+        }).shell;
       }
     )
     //
