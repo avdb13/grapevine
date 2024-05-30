@@ -504,8 +504,8 @@ async fn federation_disabled(_: Uri) -> impl IntoResponse {
     Error::bad_config("Federation is disabled.")
 }
 
-async fn not_found(uri: Uri) -> impl IntoResponse {
-    warn!("Not found: {uri}");
+async fn not_found(method: Method, uri: Uri) -> impl IntoResponse {
+    debug!(%method, %uri, "unknown route");
     Error::BadRequest(ErrorKind::Unrecognized, "Unrecognized request")
 }
 
