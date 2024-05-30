@@ -971,6 +971,7 @@ pub(crate) async fn send_transaction_message_route(
                 self_signing_key,
             }) => {
                 if user_id.server_name() != sender_servername {
+                    warn!(%user_id, %sender_servername, "Got signing key update from incorrect homeserver, ignoring");
                     continue;
                 }
                 if let Some(master_key) = master_key {
