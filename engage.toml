@@ -80,7 +80,7 @@ env DIRENV_DEVSHELL=all-features \
 """
 
 [[task]]
-name = "cargo"
+name = "cargo/default"
 group = "tests"
 script = """
 cargo test \
@@ -89,4 +89,19 @@ cargo test \
     --color=always \
     -- \
     --color=always
+"""
+
+[[task]]
+name = "cargo/all"
+group = "tests"
+script = """
+env DIRENV_DEVSHELL=all-features \
+    direnv exec . \
+    cargo test \
+        --all-features \
+        --workspace \
+        --all-targets \
+        --color=always \
+        -- \
+        --color=always
 """
