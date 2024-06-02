@@ -38,7 +38,7 @@ use tower_http::{
     trace::TraceLayer,
     ServiceBuilderExt as _,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info, info_span, warn, Instrument};
 
 pub(crate) mod api;
 pub(crate) mod clap;
@@ -570,8 +570,17 @@ macro_rules! impl_ruma_handler {
                         path,
                         on(
                             method_filter,
-                            |$( $ty: $ty, )* req| async move {
-                                handler($($ty,)* req).await
+                            |$( $ty: $ty, )* req: Ar<Req>| async move {
+                                let span = info_span!(
+                                    "run_ruma_handler",
+                                    auth.user = ?req.sender_user,
+                                    auth.device = ?req.sender_device,
+                                    auth.servername = ?req.sender_servername,
+                                    auth.appservice_id = ?req.appservice_info
+                                        .as_ref()
+                                        .map(|i| &i.registration.id)
+                                );
+                                handler($($ty,)* req).instrument(span).await
                             }
                         )
                     )
