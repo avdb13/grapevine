@@ -63,7 +63,7 @@ use ruma::{
 };
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, field, warn};
 
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
@@ -129,7 +129,7 @@ impl FedDest {
     }
 }
 
-#[tracing::instrument(skip(request), fields(destination_cache_result))]
+#[tracing::instrument(skip(request), fields(destination_cache_result, url))]
 pub(crate) async fn send_request<T>(
     destination: &ServerName,
     request: T,
@@ -147,7 +147,7 @@ where
         ));
     }
 
-    debug!("Preparing to send request to {destination}");
+    debug!("Preparing to send request");
 
     let mut write_destination_to_cache = false;
 
@@ -250,16 +250,17 @@ where
     let reqwest_request = reqwest::Request::try_from(http_request)?;
 
     let url = reqwest_request.url().clone();
+    tracing::Span::current().record("url", field::display(url));
 
-    debug!("Sending request to {destination} at {url}");
+    debug!("Sending request");
     let response =
         services().globals.federation_client().execute(reqwest_request).await;
-    debug!("Received response from {destination} at {url}");
 
     match response {
         Ok(mut response) => {
             // reqwest::Response -> http::Response conversion
             let status = response.status();
+            debug!(status = u16::from(status), "Received response");
             let mut http_response_builder = http::Response::builder()
                 .status(status)
                 .version(response.version());
@@ -270,23 +271,22 @@ where
                     .expect("http::response::Builder is usable"),
             );
 
-            debug!("Getting response bytes from {destination}");
+            debug!("Getting response bytes");
             // TODO: handle timeout
             let body = response.bytes().await.unwrap_or_else(|e| {
                 warn!("server error {}", e);
                 Vec::new().into()
             });
-            debug!("Got response bytes from {destination}");
+            debug!("Got response bytes");
 
             if status != 200 {
                 warn!(
-                    "{} {}: {}",
-                    url,
-                    status,
-                    String::from_utf8_lossy(&body)
+                    status = u16::from(status),
+                    response = String::from_utf8_lossy(&body)
                         .lines()
                         .collect::<Vec<_>>()
-                        .join(" ")
+                        .join(" "),
+                    "Received error over federation",
                 );
             }
 
@@ -295,7 +295,7 @@ where
                 .expect("reqwest body is valid http body");
 
             if status == 200 {
-                debug!("Parsing response bytes from {destination}");
+                debug!("Parsing response bytes");
                 let response =
                     T::IncomingResponse::try_from_http_response(http_response);
                 if response.is_ok() && write_destination_to_cache {
@@ -312,16 +312,12 @@ where
                 }
 
                 response.map_err(|e| {
-                    warn!(
-                        "Invalid 200 response from {} on: {} {}",
-                        &destination, url, e
-                    );
+                    warn!(error = %e, "Invalid 200 response",);
                     Error::BadServerResponse(
                         "Server returned bad 200 response.",
                     )
                 })
             } else {
-                debug!("Returning error from {destination}");
                 Err(Error::Federation(
                     destination.to_owned(),
                     RumaError::from_http_response(http_response),
@@ -330,8 +326,8 @@ where
         }
         Err(e) => {
             warn!(
-                "Could not send request to {} at {}: {}",
-                destination, actual_destination_str, e
+                error = %e,
+                "Could not send request",
             );
             Err(e.into())
         }
