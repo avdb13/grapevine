@@ -382,6 +382,7 @@ where
 {
     type Rejection = Error;
 
+    #[tracing::instrument("ar_from_request", skip_all)]
     async fn from_request(
         req: axum::extract::Request,
         _state: &S,
