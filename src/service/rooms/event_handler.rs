@@ -42,7 +42,10 @@ use tokio::sync::{RwLock, RwLockWriteGuard, Semaphore};
 use tracing::{debug, error, info, trace, warn};
 
 use super::state_compressor::CompressedStateEvent;
-use crate::{service::pdu, services, Error, PduEvent, Result};
+use crate::{
+    service::pdu, services, utils::debug_slice_truncated, Error, PduEvent,
+    Result,
+};
 
 pub(crate) struct Service;
 
@@ -1841,7 +1844,10 @@ impl Service {
 
     /// Search the DB for the signing keys of the given server, if we don't have
     /// them fetch them from the server and save to our DB.
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(
+        skip(self, signature_ids),
+        fields(signature_ids = debug_slice_truncated(&signature_ids, 3))
+    )]
     pub(crate) async fn fetch_signing_keys(
         &self,
         origin: &ServerName,
@@ -1913,7 +1919,7 @@ impl Service {
             }
         }
 
-        trace!("Loading signing keys for {}", origin);
+        trace!("Loading signing keys from database");
 
         let mut result: BTreeMap<_, _> = services()
             .globals
@@ -1926,7 +1932,7 @@ impl Service {
             return Ok(result);
         }
 
-        debug!("Fetching signing keys for {} over federation", origin);
+        debug!("Fetching signing keys over federation");
 
         if let Some(server_key) = services()
             .sending
@@ -1959,7 +1965,7 @@ impl Service {
         }
 
         for server in services().globals.trusted_servers() {
-            debug!("Asking {} for {}'s signing key", server, origin);
+            debug!(trusted_server = %server, "Asking trusted server for signing keys");
             if let Some(server_keys) = services()
                 .sending
                 .send_federation_request(
@@ -1983,7 +1989,7 @@ impl Service {
                         .collect::<Vec<_>>()
                 })
             {
-                trace!("Got signing keys: {:?}", server_keys);
+                trace!(?server_keys, "Got signing keys from trusted server");
                 for k in server_keys {
                     services().globals.add_signing_key(origin, k.clone())?;
                     result.extend(
@@ -2008,7 +2014,7 @@ impl Service {
 
         back_off(signature_ids).await;
 
-        warn!("Failed to find public key for server: {}", origin);
+        warn!("Failed to find all public keys");
         Err(Error::BadServerResponse("Failed to find public key for server"))
     }
 
