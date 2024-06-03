@@ -18,6 +18,23 @@ use ruma::{api::client::filter::RoomEventFilter, RoomId};
 
 use crate::Error;
 
+// 'DoS' is not a type
+#[allow(clippy::doc_markdown)]
+/// Returns the total limit of events to example when evaluating a filter.
+///
+/// When a filter matches only a very small fraction of available events, we may
+/// need to example a very large number of events before we find enough allowed
+/// events to fill the supplied limit. This is a possible DoS vector, and a
+/// performance issue for legitimate requests. To avoid this, we put a "load
+/// limit" on the total number of events that will be examined. This value is
+/// always higher than the original event limit.
+pub(crate) fn load_limit(limit: usize) -> usize {
+    // the 2xlimit value was pulled from synapse, and no real performance
+    // measurement has been done on our side yet to determine whether it's
+    // appropriate.
+    limit.saturating_mul(2)
+}
+
 /// Structure for testing against an allowlist and a denylist with a single
 /// `HashSet` lookup.
 ///

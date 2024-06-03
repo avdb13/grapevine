@@ -15,7 +15,7 @@ use ruma::{
 use crate::{
     service::{pdu::PduBuilder, rooms::timeline::PduCount},
     services, utils,
-    utils::filter::CompiledRoomEventFilter,
+    utils::filter::{load_limit, CompiledRoomEventFilter},
     Ar, Error, Ra, Result,
 };
 
@@ -194,6 +194,7 @@ pub(crate) async fn get_message_events_route(
                 .rooms
                 .timeline
                 .pdus_after(sender_user, &body.room_id, from)?
+                .take(load_limit(limit))
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
@@ -250,6 +251,7 @@ pub(crate) async fn get_message_events_route(
                 .rooms
                 .timeline
                 .pdus_until(sender_user, &body.room_id, from)?
+                .take(load_limit(limit))
                 .filter_map(Result::ok)
                 .filter(|(_, pdu)| {
                     services()
