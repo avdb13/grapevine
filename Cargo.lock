@@ -2129,6 +2129,7 @@ dependencies = [
  "ruma-federation-api",
  "ruma-identity-service-api",
  "ruma-push-gateway-api",
+ "ruma-server-util",
  "ruma-signatures",
  "ruma-state-res",
  "web-time",
@@ -2277,6 +2278,17 @@ dependencies = [
  "ruma-events",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ruma-server-util"
+version = "0.3.0"
+source = "git+https://github.com/ruma/ruma?branch=main#ba9a492fdee6ad89b179e2b3ab689c3114107012"
+dependencies = [
+ "headers",
+ "ruma-common",
+ "tracing",
+ "yap",
 ]
 
 [[package]]
@@ -3675,6 +3687,12 @@ name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
+
+[[package]]
+name = "yap"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfe269e7b803a5e8e20cbd97860e136529cd83bf2c9c6d37b142467e7e1f051f"
 
 [[package]]
 name = "zerocopy"

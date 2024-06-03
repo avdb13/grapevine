@@ -10,8 +10,8 @@ use std::{
 };
 
 use axum::{response::IntoResponse, Json};
+use axum_extra::headers::{Authorization, HeaderMapExt};
 use get_profile_information::v1::ProfileField;
-use http::header::{HeaderValue, AUTHORIZATION};
 use ruma::{
     api::{
         client::error::{Error as RumaError, ErrorKind},
@@ -54,10 +54,12 @@ use ruma::{
         StateEventType, TimelineEventType,
     },
     serde::{Base64, JsonObject, Raw},
+    server_util::authorization::XMatrix,
     to_device::DeviceIdOrAllDevices,
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedServerSigningKeyId, OwnedUserId, RoomId, ServerName,
+    OwnedServerSigningKeyId, OwnedSigningKeyId, OwnedUserId, RoomId,
+    ServerName,
 };
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
@@ -225,25 +227,25 @@ where
         serde_json::from_slice(&serde_json::to_vec(&request_json).unwrap())
             .unwrap();
 
-    let signatures =
-        request_json["signatures"].as_object().unwrap().values().map(|v| {
-            v.as_object().unwrap().iter().map(|(k, v)| (k, v.as_str().unwrap()))
-        });
+    // There's exactly the one signature we just created, fish it back out again
+    let (key_id, signature) = request_json["signatures"]
+        .get(services().globals.server_name().as_str())
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .iter()
+        .next()
+        .unwrap();
 
-    for signature_server in signatures {
-        for s in signature_server {
-            http_request.headers_mut().insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&format!(
-                    "X-Matrix origin={},key=\"{}\",sig=\"{}\"",
-                    services().globals.server_name(),
-                    s.0,
-                    s.1
-                ))
-                .unwrap(),
-            );
-        }
-    }
+    let key_id = OwnedSigningKeyId::try_from(key_id.clone()).unwrap();
+    let signature = signature.as_str().unwrap().to_owned();
+
+    http_request.headers_mut().typed_insert(Authorization(XMatrix::new(
+        services().globals.server_name().to_owned(),
+        None,
+        key_id,
+        signature,
+    )));
 
     let reqwest_request = reqwest::Request::try_from(http_request)?;
 

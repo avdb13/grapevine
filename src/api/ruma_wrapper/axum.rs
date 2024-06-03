@@ -8,10 +8,7 @@ use axum::{
     RequestExt, RequestPartsExt,
 };
 use axum_extra::{
-    headers::{
-        authorization::{Bearer, Credentials},
-        Authorization,
-    },
+    headers::{authorization::Bearer, Authorization},
     typed_header::TypedHeaderRejectionReason,
     TypedHeader,
 };
@@ -23,6 +20,7 @@ use ruma::{
         client::error::ErrorKind, AuthScheme, IncomingRequest, Metadata,
         OutgoingResponse,
     },
+    server_util::authorization::XMatrix,
     CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
 };
 use serde::Deserialize;
@@ -199,7 +197,7 @@ async fn ar_from_request_inner(
                     })?;
 
                 let origin_signatures = BTreeMap::from_iter([(
-                    x_matrix.key.clone(),
+                    x_matrix.key.to_string(),
                     CanonicalJsonValue::String(x_matrix.sig),
                 )]);
 
@@ -248,7 +246,7 @@ async fn ar_from_request_inner(
                     .event_handler
                     .fetch_signing_keys(
                         &x_matrix.origin,
-                        vec![x_matrix.key.clone()],
+                        vec![x_matrix.key.to_string()],
                     )
                     .await;
 
@@ -400,67 +398,6 @@ where
         })
     }
 }
-
-struct XMatrix {
-    origin: OwnedServerName,
-    // KeyName?
-    key: String,
-    sig: String,
-}
-
-impl Credentials for XMatrix {
-    const SCHEME: &'static str = "X-Matrix";
-
-    fn decode(value: &http::HeaderValue) -> Option<Self> {
-        debug_assert!(
-            value.as_bytes().starts_with(b"X-Matrix "),
-            "HeaderValue to decode should start with \"X-Matrix ..\", \
-             received = {value:?}",
-        );
-
-        let parameters = str::from_utf8(&value.as_bytes()["X-Matrix ".len()..])
-            .ok()?
-            .trim_start();
-
-        let mut origin = None;
-        let mut key = None;
-        let mut sig = None;
-
-        for entry in parameters.split_terminator(',') {
-            let (name, value) = entry.split_once('=')?;
-
-            // It's not at all clear why some fields are quoted and others not
-            // in the spec, let's simply accept either form for
-            // every field.
-            let value = value
-                .strip_prefix('"')
-                .and_then(|rest| rest.strip_suffix('"'))
-                .unwrap_or(value);
-
-            // FIXME: Catch multiple fields of the same name
-            match name {
-                "origin" => origin = Some(value.try_into().ok()?),
-                "key" => key = Some(value.to_owned()),
-                "sig" => sig = Some(value.to_owned()),
-                _ => debug!(
-                    "Unexpected field `{}` in X-Matrix Authorization header",
-                    name
-                ),
-            }
-        }
-
-        Some(Self {
-            origin: origin?,
-            key: key?,
-            sig: sig?,
-        })
-    }
-
-    fn encode(&self) -> http::HeaderValue {
-        todo!()
-    }
-}
-
 impl<T: OutgoingResponse> IntoResponse for Ra<T> {
     fn into_response(self) -> Response {
         match self.0.try_into_http_response::<BytesMut>() {
