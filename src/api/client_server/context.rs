@@ -107,12 +107,15 @@ pub(crate) async fn get_context_route(
         }));
     }
 
+    let mut start_token = None;
     let events_before: Vec<_> = services()
         .rooms
         .timeline
         .pdus_until(sender_user, &room_id, base_token)?
         .take(load_limit(half_limit))
         .filter_map(Result::ok)
+        .inspect(|&(count, _)| start_token = Some(count))
+        .filter(|(_, pdu)| filter.pdu_event_allowed(pdu))
         .filter(|(_, pdu)| {
             services()
                 .rooms
@@ -122,6 +125,8 @@ pub(crate) async fn get_context_route(
         })
         .take(half_limit)
         .collect();
+
+    let start_token = start_token.map(|token| token.stringify());
 
     for (_, event) in &events_before {
         if !services().rooms.lazy_loading.lazy_load_was_sent_before(
@@ -135,19 +140,18 @@ pub(crate) async fn get_context_route(
         }
     }
 
-    let start_token = events_before
-        .last()
-        .map_or_else(|| base_token.stringify(), |(count, _)| count.stringify());
-
     let events_before: Vec<_> =
         events_before.into_iter().map(|(_, pdu)| pdu.to_room_event()).collect();
 
+    let mut end_token = None;
     let events_after: Vec<_> = services()
         .rooms
         .timeline
         .pdus_after(sender_user, &room_id, base_token)?
         .take(load_limit(half_limit))
         .filter_map(Result::ok)
+        .inspect(|&(count, _)| end_token = Some(count))
+        .filter(|(_, pdu)| filter.pdu_event_allowed(pdu))
         .filter(|(_, pdu)| {
             services()
                 .rooms
@@ -157,6 +161,8 @@ pub(crate) async fn get_context_route(
         })
         .take(half_limit)
         .collect();
+
+    let end_token = end_token.map(|token| token.stringify());
 
     for (_, event) in &events_after {
         if !services().rooms.lazy_loading.lazy_load_was_sent_before(
@@ -185,10 +191,6 @@ pub(crate) async fn get_context_route(
     let state_ids =
         services().rooms.state_accessor.state_full_ids(shortstatehash).await?;
 
-    let end_token = events_after
-        .last()
-        .map_or_else(|| base_token.stringify(), |(count, _)| count.stringify());
-
     let events_after: Vec<_> =
         events_after.into_iter().map(|(_, pdu)| pdu.to_room_event()).collect();
 
@@ -214,8 +216,8 @@ pub(crate) async fn get_context_route(
     }
 
     let resp = get_context::v3::Response {
-        start: Some(start_token),
-        end: Some(end_token),
+        start: start_token,
+        end: end_token,
         events_before,
         event: Some(base_event),
         events_after,
