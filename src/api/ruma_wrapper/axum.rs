@@ -196,6 +196,19 @@ async fn ar_from_request_inner(
                         Error::BadRequest(ErrorKind::forbidden(), msg)
                     })?;
 
+                if let Some(destination) = x_matrix.destination {
+                    if destination != services().globals.server_name() {
+                        warn!(
+                            %destination,
+                            "Incorrect destination in X-Matrix header"
+                        );
+                        return Err(Error::BadRequest(
+                            ErrorKind::Unauthorized,
+                            "Incorrect destination in X-Matrix header",
+                        ));
+                    }
+                }
+
                 let origin_signatures = BTreeMap::from_iter([(
                     x_matrix.key.to_string(),
                     CanonicalJsonValue::String(x_matrix.sig),

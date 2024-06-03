@@ -242,7 +242,7 @@ where
 
     http_request.headers_mut().typed_insert(Authorization(XMatrix::new(
         services().globals.server_name().to_owned(),
-        None,
+        Some(destination.to_owned()),
         key_id,
         signature,
     )));
