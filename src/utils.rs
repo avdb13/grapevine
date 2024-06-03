@@ -7,9 +7,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use argon2::{Config, Variant};
+use argon2::{password_hash, Argon2, PasswordHasher, PasswordVerifier};
 use cmp::Ordering;
-use rand::prelude::*;
+use rand::{prelude::*, rngs::OsRng};
 use ring::digest;
 use ruma::{
     canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject,
@@ -72,16 +72,33 @@ pub(crate) fn random_string(length: usize) -> String {
 }
 
 /// Calculate a new hash for the given password
-pub(crate) fn calculate_password_hash(
-    password: &str,
-) -> Result<String, argon2::Error> {
-    let hashing_config = Config {
-        variant: Variant::Argon2id,
-        ..Default::default()
+pub(crate) fn calculate_password_hash<B>(
+    password: B,
+) -> Result<password_hash::PasswordHashString, password_hash::Error>
+where
+    B: AsRef<[u8]>,
+{
+    Argon2::default()
+        .hash_password(
+            password.as_ref(),
+            &password_hash::SaltString::generate(&mut OsRng),
+        )
+        .map(|x| x.serialize())
+}
+
+/// Compare a password to a hash
+///
+/// Returns `true` if the password matches the hash, `false` otherwise.
+pub(crate) fn verify_password_hash<S, B>(hash: S, password: B) -> bool
+where
+    S: AsRef<str>,
+    B: AsRef<[u8]>,
+{
+    let Ok(hash) = password_hash::PasswordHash::new(hash.as_ref()) else {
+        return false;
     };
 
-    let salt = random_string(32);
-    argon2::hash_encoded(password.as_bytes(), salt.as_bytes(), &hashing_config)
+    Argon2::default().verify_password(password.as_ref(), &hash).is_ok()
 }
 
 #[tracing::instrument(skip(keys))]

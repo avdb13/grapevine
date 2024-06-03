@@ -113,11 +113,7 @@ pub(crate) async fn login_route(
                 ));
             }
 
-            let hash_matches =
-                argon2::verify_encoded(&hash, password.as_bytes())
-                    .unwrap_or(false);
-
-            if !hash_matches {
+            if !utils::verify_password_hash(hash, password) {
                 return Err(Error::BadRequest(
                     ErrorKind::forbidden(),
                     "Wrong username or password.",

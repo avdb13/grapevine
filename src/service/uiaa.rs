@@ -87,11 +87,7 @@ impl Service {
 
                 // Check if password is correct
                 if let Some(hash) = services().users.password_hash(&user_id)? {
-                    let hash_matches =
-                        argon2::verify_encoded(&hash, password.as_bytes())
-                            .unwrap_or(false);
-
-                    if !hash_matches {
+                    if !utils::verify_password_hash(hash, password) {
                         uiaainfo.auth_error =
                             Some(ruma::api::client::error::StandardErrorBody {
                                 kind: ErrorKind::forbidden(),

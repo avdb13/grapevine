@@ -584,10 +584,9 @@ impl KeyValueDatabase {
                 for (userid, password) in db.userid_password.iter() {
                     let password = utils::string_from_bytes(&password);
 
-                    let empty_hashed_password =
-                        password.map_or(false, |password| {
-                            argon2::verify_encoded(&password, b"")
-                                .unwrap_or(false)
+                    let empty_hashed_password = password
+                        .map_or(false, |password| {
+                            utils::verify_password_hash("", password)
                         });
 
                     if empty_hashed_password {
