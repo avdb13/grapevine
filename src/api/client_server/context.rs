@@ -5,12 +5,14 @@ use ruma::{
         context::get_context, error::ErrorKind, filter::LazyLoadOptions,
     },
     events::StateEventType,
-    uint,
+    uint, UInt,
 };
 use tracing::error;
 
 use crate::{
-    services, utils::filter::CompiledRoomEventFilter, Ar, Error, Ra, Result,
+    services,
+    utils::filter::{load_limit, CompiledRoomEventFilter},
+    Ar, Error, Ra, Result,
 };
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/context`
@@ -77,9 +79,13 @@ pub(crate) async fn get_context_route(
         lazy_loaded.insert(base_event.sender.as_str().to_owned());
     }
 
-    // Use limit with maximum 100
-    let half_limit = usize::try_from(body.limit.min(uint!(100)) / uint!(2))
-        .expect("0-50 should fit in usize");
+    let limit: usize = body
+        .limit
+        .min(body.filter.limit.unwrap_or(UInt::MAX))
+        .min(uint!(100))
+        .try_into()
+        .expect("0-100 should fit in usize");
+    let half_limit = limit / 2;
 
     let base_event = base_event.to_room_event();
 
@@ -105,7 +111,7 @@ pub(crate) async fn get_context_route(
         .rooms
         .timeline
         .pdus_until(sender_user, &room_id, base_token)?
-        .take(half_limit)
+        .take(load_limit(half_limit))
         .filter_map(Result::ok)
         .filter(|(_, pdu)| {
             services()
@@ -114,6 +120,7 @@ pub(crate) async fn get_context_route(
                 .user_can_see_event(sender_user, &room_id, &pdu.event_id)
                 .unwrap_or(false)
         })
+        .take(half_limit)
         .collect();
 
     for (_, event) in &events_before {
@@ -139,7 +146,7 @@ pub(crate) async fn get_context_route(
         .rooms
         .timeline
         .pdus_after(sender_user, &room_id, base_token)?
-        .take(half_limit)
+        .take(load_limit(half_limit))
         .filter_map(Result::ok)
         .filter(|(_, pdu)| {
             services()
@@ -148,6 +155,7 @@ pub(crate) async fn get_context_route(
                 .user_can_see_event(sender_user, &room_id, &pdu.event_id)
                 .unwrap_or(false)
         })
+        .take(half_limit)
         .collect();
 
     for (_, event) in &events_after {
