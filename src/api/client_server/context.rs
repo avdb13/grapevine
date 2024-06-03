@@ -9,7 +9,9 @@ use ruma::{
 };
 use tracing::error;
 
-use crate::{services, Ar, Error, Ra, Result};
+use crate::{
+    services, utils::filter::CompiledRoomEventFilter, Ar, Error, Ra, Result,
+};
 
 /// # `GET /_matrix/client/r0/rooms/{roomId}/context`
 ///
@@ -25,6 +27,13 @@ pub(crate) async fn get_context_route(
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device =
         body.sender_device.as_ref().expect("user is authenticated");
+
+    let Ok(filter) = CompiledRoomEventFilter::try_from(&body.filter) else {
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "invalid 'filter' parameter",
+        ));
+    };
 
     let (lazy_load_enabled, lazy_load_send_redundant) =
         match &body.filter.lazy_load_options {
@@ -73,6 +82,24 @@ pub(crate) async fn get_context_route(
         .expect("0-50 should fit in usize");
 
     let base_event = base_event.to_room_event();
+
+    if !filter.room_allowed(&body.room_id) {
+        // The spec states that
+        //
+        // > The filter is only applied to events_before, events_after, and
+        // > state. It is not applied to the event itself.
+        //
+        // so we need to fetch the event before we can early-return after
+        // testing the room filter.
+        return Ok(Ra(get_context::v3::Response {
+            start: None,
+            end: None,
+            events_before: vec![],
+            event: Some(base_event),
+            events_after: vec![],
+            state: vec![],
+        }));
+    }
 
     let events_before: Vec<_> = services()
         .rooms
