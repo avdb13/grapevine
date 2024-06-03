@@ -135,7 +135,7 @@ impl service::users::Data for KeyValueDatabase {
         password: Option<&str>,
     ) -> Result<()> {
         if let Some(password) = password {
-            if let Ok(hash) = utils::calculate_password_hash(password) {
+            if let Ok(hash) = utils::hash_password(password) {
                 self.userid_password
                     .insert(user_id.as_bytes(), hash.as_bytes())?;
                 Ok(())

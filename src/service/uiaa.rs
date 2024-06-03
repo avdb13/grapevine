@@ -87,7 +87,7 @@ impl Service {
 
                 // Check if password is correct
                 if let Some(hash) = services().users.password_hash(&user_id)? {
-                    if !utils::verify_password_hash(hash, password) {
+                    if !utils::verify_password(hash, password) {
                         uiaainfo.auth_error =
                             Some(ruma::api::client::error::StandardErrorBody {
                                 kind: ErrorKind::forbidden(),

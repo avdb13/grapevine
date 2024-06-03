@@ -113,7 +113,7 @@ pub(crate) async fn login_route(
                 ));
             }
 
-            if !utils::verify_password_hash(hash, password) {
+            if !utils::verify_password(hash, password) {
                 return Err(Error::BadRequest(
                     ErrorKind::forbidden(),
                     "Wrong username or password.",

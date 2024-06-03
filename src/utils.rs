@@ -71,8 +71,8 @@ pub(crate) fn random_string(length: usize) -> String {
         .collect()
 }
 
-/// Calculate a new hash for the given password
-pub(crate) fn calculate_password_hash<B>(
+/// Hash the given password
+pub(crate) fn hash_password<B>(
     password: B,
 ) -> Result<password_hash::PasswordHashString, password_hash::Error>
 where
@@ -89,7 +89,7 @@ where
 /// Compare a password to a hash
 ///
 /// Returns `true` if the password matches the hash, `false` otherwise.
-pub(crate) fn verify_password_hash<S, B>(hash: S, password: B) -> bool
+pub(crate) fn verify_password<S, B>(hash: S, password: B) -> bool
 where
     S: AsRef<str>,
     B: AsRef<[u8]>,

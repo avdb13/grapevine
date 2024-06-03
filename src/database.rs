@@ -586,7 +586,7 @@ impl KeyValueDatabase {
 
                     let empty_hashed_password = password
                         .map_or(false, |password| {
-                            utils::verify_password_hash("", password)
+                            utils::verify_password("", password)
                         });
 
                     if empty_hashed_password {
