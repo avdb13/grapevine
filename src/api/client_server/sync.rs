@@ -958,6 +958,19 @@ async fn load_joined_room(
 
     let mut edus = vec![];
     if compiled_filter.room.ephemeral.room_allowed(room_id) {
+        // Typing and read receipt ephemeral events are limited separately, so
+        // we may have both up to `ephemeral_limit` typing events and up to
+        // `ephemeral_limit` receipt events, for a total of `2 *
+        // ephemeral_limit` ephemeral events. The spec is unclear on how
+        // ephemeral limits should work, and this matches synapse's
+        // behavior.
+        let ephemeral_limit = filter
+            .room
+            .ephemeral
+            .limit
+            .map_or(10, |x| usize::try_from(x).unwrap_or(usize::MAX))
+            .min(100);
+
         // We only filter on event type for ephemeral events because none of the
         // other filter parameters apply to the specific ephemeral
         // events we're generating (m.room.receipt and m.room.typing).
@@ -975,14 +988,17 @@ async fn load_joined_room(
                     .edus
                     .read_receipt
                     .readreceipts_since(room_id, since)
+                    .take(load_limit(ephemeral_limit))
                     .filter_map(Result::ok)
-                    .map(|(_, _, v)| v),
+                    .map(|(_, _, v)| v)
+                    .take(ephemeral_limit),
             );
         }
 
         if compiled_filter.room.ephemeral.type_allowed(TypingEventContent::TYPE)
             && services().rooms.edus.typing.last_typing_update(room_id).await?
                 > since
+            && ephemeral_limit > 1
         {
             let edu = services().rooms.edus.typing.typings_all(room_id).await?;
             edus.push(
