@@ -57,10 +57,10 @@ impl FoundIn {
     /// Returns a stringified representation of the current value
     fn as_str(&self) -> &'static str {
         match self {
-            FoundIn::Cache => "hit",
-            FoundIn::Database => "miss-database",
-            FoundIn::Remote => "miss-remote",
-            FoundIn::Nothing => "not-found",
+            FoundIn::Cache => "Cache",
+            FoundIn::Database => "Database",
+            FoundIn::Remote => "Remote",
+            FoundIn::Nothing => "Nothing",
         }
     }
 
