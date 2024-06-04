@@ -93,6 +93,7 @@ pub(crate) async fn search_events_route(
 
     let results: Vec<_> = results
         .iter()
+        .skip(skip)
         .filter_map(|result| {
             services()
                 .rooms
@@ -126,7 +127,6 @@ pub(crate) async fn search_events_route(
             })
         })
         .filter_map(Result::ok)
-        .skip(skip)
         .take(limit)
         .collect();
 
