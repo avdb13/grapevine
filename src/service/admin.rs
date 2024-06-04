@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     convert::{TryFrom, TryInto},
     fmt::Write,
     sync::Arc,
@@ -28,8 +28,8 @@ use ruma::{
         },
         TimelineEventType,
     },
-    EventId, OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId, RoomVersionId,
-    ServerName, UserId,
+    EventId, OwnedRoomAliasId, OwnedRoomId, OwnedServerName, OwnedUserId,
+    RoomAliasId, RoomId, RoomVersionId, ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -204,6 +204,11 @@ enum AdminCommand {
     // Allowed because the doc comment gets parsed by our code later
     #[allow(clippy::doc_markdown)]
     VerifyJson,
+
+    /// Print out some of the cached state for the given room ID
+    DebugStateCache {
+        room_id: OwnedRoomId,
+    },
 }
 
 #[derive(Debug)]
@@ -268,7 +273,7 @@ impl Service {
         &self,
         event: AdminRoomEvent,
         grapevine_room: &OwnedRoomId,
-        grapevine_user: &ruma::OwnedUserId,
+        grapevine_user: &OwnedUserId,
     ) {
         let message_content = match event {
             AdminRoomEvent::SendMessage(content) => content,
@@ -1092,6 +1097,9 @@ impl Service {
                     )
                 }
             }
+            AdminCommand::DebugStateCache {
+                room_id,
+            } => debug_state_cache(room_id),
         };
 
         Ok(reply_message_content)
@@ -1579,6 +1587,66 @@ impl Service {
         }
         Ok(())
     }
+}
+
+/// Print out some of the cached state for the given room ID
+#[allow(clippy::needless_pass_by_value)]
+fn debug_state_cache(room_id: OwnedRoomId) -> RoomMessageEventContent {
+    #[derive(Debug)]
+    #[allow(dead_code)]
+    struct Output {
+        our_real_users: Arc<HashSet<OwnedUserId>>,
+        servers_in_room: Vec<OwnedServerName>,
+        room_members: Vec<OwnedUserId>,
+        room_joined_count: Option<u64>,
+        room_invited_count: Option<u64>,
+        room_members_invited: Vec<OwnedUserId>,
+    }
+
+    let our_real_users =
+        services().rooms.state_cache.get_our_real_users(&room_id).unwrap();
+
+    let servers_in_room = services()
+        .rooms
+        .state_cache
+        .room_servers(&room_id)
+        .map(Result::unwrap)
+        .collect();
+
+    let room_members = services()
+        .rooms
+        .state_cache
+        .room_members(&room_id)
+        .map(Result::unwrap)
+        .collect();
+
+    let room_joined_count =
+        services().rooms.state_cache.room_joined_count(&room_id).unwrap();
+
+    let room_invited_count =
+        services().rooms.state_cache.room_invited_count(&room_id).unwrap();
+
+    let room_members_invited = services()
+        .rooms
+        .state_cache
+        .room_members_invited(&room_id)
+        .map(Result::unwrap)
+        .collect();
+
+    let output = Output {
+        our_real_users,
+        servers_in_room,
+        room_members,
+        room_joined_count,
+        room_invited_count,
+        room_members_invited,
+    };
+
+    let text = format!("{output:#?}");
+    let html =
+        format!(r#"<pre><code class="language-rust">{text}</code></pre>"#);
+
+    RoomMessageEventContent::text_html(text, html)
 }
 
 #[cfg(test)]
