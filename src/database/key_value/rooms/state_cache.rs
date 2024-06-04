@@ -8,7 +8,7 @@ use ruma::{
 
 use crate::{
     database::KeyValueDatabase,
-    observability::FoundIn,
+    observability::{FoundIn, Lookup, METRICS},
     service::{self, appservice::RegistrationInfo},
     services, utils, Error, Result,
 };
@@ -171,19 +171,21 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self), fields(cache_result))]
+    #[tracing::instrument(skip(self))]
     fn get_our_real_users(
         &self,
         room_id: &RoomId,
     ) -> Result<Arc<HashSet<OwnedUserId>>> {
+        let lookup = Lookup::OurRealUsers;
+
         let maybe =
             self.our_real_users_cache.read().unwrap().get(room_id).cloned();
         if let Some(users) = maybe {
-            FoundIn::Cache.record("cache_result");
+            METRICS.record_lookup(lookup, FoundIn::Cache);
             Ok(users)
         } else {
             self.update_joined_count(room_id)?;
-            FoundIn::Database.record("cache_result");
+            METRICS.record_lookup(lookup, FoundIn::Database);
             Ok(Arc::clone(
                 self.our_real_users_cache.read().unwrap().get(room_id).unwrap(),
             ))
@@ -192,13 +194,15 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
 
     #[tracing::instrument(
         skip(self, appservice),
-        fields(cache_result, appservice_id = appservice.registration.id),
+        fields(appservice_id = appservice.registration.id),
     )]
     fn appservice_in_room(
         &self,
         room_id: &RoomId,
         appservice: &RegistrationInfo,
     ) -> Result<bool> {
+        let lookup = Lookup::AppserviceInRoom;
+
         let maybe = self
             .appservice_in_room_cache
             .read()
@@ -208,7 +212,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
             .copied();
 
         if let Some(b) = maybe {
-            FoundIn::Cache.record("cache_result");
+            METRICS.record_lookup(lookup, FoundIn::Cache);
             Ok(b)
         } else {
             let bridge_user_id = UserId::parse_with_server_name(
@@ -225,7 +229,7 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
                 })
             });
 
-            FoundIn::Database.record("cache_result");
+            METRICS.record_lookup(lookup, FoundIn::Database);
             self.appservice_in_room_cache
                 .write()
                 .unwrap()

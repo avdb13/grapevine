@@ -67,7 +67,7 @@ use tracing::{debug, error, field, warn};
 
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
-    observability::FoundIn,
+    observability::{FoundIn, Lookup, METRICS},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
     services, utils, Ar, Error, PduEvent, Ra, Result,
 };
@@ -128,7 +128,7 @@ impl FedDest {
     }
 }
 
-#[tracing::instrument(skip(request), fields(destination_cache_result, url))]
+#[tracing::instrument(skip(request), fields(url))]
 pub(crate) async fn send_request<T>(
     destination: &ServerName,
     request: T,
@@ -159,7 +159,7 @@ where
         .cloned();
 
     let (actual_destination, host) = if let Some(result) = cached_result {
-        FoundIn::Cache.record("destination_cache_result");
+        METRICS.record_lookup(Lookup::FederationDestination, FoundIn::Cache);
         result
     } else {
         write_destination_to_cache = true;
@@ -298,7 +298,10 @@ where
                 let response =
                     T::IncomingResponse::try_from_http_response(http_response);
                 if response.is_ok() && write_destination_to_cache {
-                    FoundIn::Remote.record("destination_cache_result");
+                    METRICS.record_lookup(
+                        Lookup::FederationDestination,
+                        FoundIn::Remote,
+                    );
                     services()
                         .globals
                         .actual_destination_cache

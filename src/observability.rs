@@ -18,7 +18,7 @@ use opentelemetry_sdk::{
     metrics::{new_view, Aggregation, Instrument, SdkMeterProvider, Stream},
     Resource,
 };
-use strum::AsRefStr;
+use strum::{AsRefStr, IntoStaticStr};
 use tokio::time::Instant;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
@@ -41,8 +41,33 @@ impl Drop for Guard {
     }
 }
 
-/// Type to record cache performance in a tracing span field.
-#[derive(Clone, Copy, AsRefStr)]
+/// A kind of data that gets looked up
+///
+/// See also [`Metrics::record_lookup`].
+// Keep variants sorted
+#[allow(clippy::missing_docs_in_private_items)]
+#[derive(Clone, Copy, AsRefStr, IntoStaticStr)]
+pub(crate) enum Lookup {
+    AppserviceInRoom,
+    AuthChain,
+    CreateEventIdToShort,
+    CreateStateKeyToShort,
+    FederationDestination,
+    LastTimelineCount,
+    OurRealUsers,
+    Pdu,
+    ShortToEventId,
+    ShortToStateKey,
+    StateInfo,
+    StateKeyToShort,
+    VisibilityForServer,
+    VisibilityForUser,
+}
+
+/// Locations where a [`Lookup`] value may be found
+///
+/// Not all of these variants are used for each value of [`Lookup`].
+#[derive(Clone, Copy, AsRefStr, IntoStaticStr)]
 pub(crate) enum FoundIn {
     /// Found in cache
     Cache,
@@ -53,14 +78,6 @@ pub(crate) enum FoundIn {
     Remote,
     /// The entry could not be found anywhere.
     Nothing,
-}
-
-impl FoundIn {
-    /// Record the current value to the current [`tracing::Span`]
-    // TODO: use tracing::Value instead if it ever becomes accessible
-    pub(crate) fn record(self, field: &str) {
-        tracing::Span::current().record(field, self.as_ref());
-    }
 }
 
 /// Initialize observability
@@ -137,6 +154,9 @@ pub(crate) struct Metrics {
 
     /// Histogram of HTTP requests
     http_requests_histogram: opentelemetry::metrics::Histogram<f64>,
+
+    /// Counts where data is found from
+    lookup: opentelemetry::metrics::Counter<u64>,
 }
 
 impl Metrics {
@@ -182,9 +202,15 @@ impl Metrics {
             .with_description("Histogram of HTTP requests")
             .init();
 
+        let lookup = meter
+            .u64_counter("lookup")
+            .with_description("Counts where data is found from")
+            .init();
+
         Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
+            lookup,
         }
     }
 
@@ -193,6 +219,17 @@ impl Metrics {
         prometheus::TextEncoder::new()
             .encode_to_string(&self.otel_state.0.gather())
             .expect("should be able to encode metrics")
+    }
+
+    /// Record that some data was found in a particular storage location
+    pub(crate) fn record_lookup(&self, lookup: Lookup, found_in: FoundIn) {
+        self.lookup.add(
+            1,
+            &[
+                KeyValue::new("lookup", <&str>::from(lookup)),
+                KeyValue::new("found_in", <&str>::from(found_in)),
+            ],
+        );
     }
 }
 
