@@ -125,6 +125,12 @@ pub(crate) trait Data: Send + Sync {
             + 'a,
     >;
 
+    /// Returns an iterator over all rooms a user has been in.
+    fn rooms_once_joined<'a>(
+        &'a self,
+        user_id: &UserId,
+    ) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a>;
+
     fn once_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool>;
 
     fn is_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool>;

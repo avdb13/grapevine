@@ -35,7 +35,7 @@ pub(crate) async fn search_events_route(
         services()
             .rooms
             .state_cache
-            .rooms_joined(sender_user)
+            .rooms_once_joined(sender_user)
             .filter_map(Result::ok)
             .collect()
     });
@@ -51,7 +51,7 @@ pub(crate) async fn search_events_route(
     let mut searches = Vec::new();
 
     for room_id in room_ids {
-        if !services().rooms.state_cache.is_joined(sender_user, &room_id)? {
+        if !services().rooms.state_cache.once_joined(sender_user, &room_id)? {
             return Err(Error::BadRequest(
                 ErrorKind::forbidden(),
                 "You don't have permission to view this room.",

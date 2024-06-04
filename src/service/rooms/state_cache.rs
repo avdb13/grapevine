@@ -387,6 +387,15 @@ impl Service {
         self.db.rooms_left(user_id)
     }
 
+    /// Returns an iterator over all rooms a user has been in.
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn rooms_once_joined<'a>(
+        &'a self,
+        user_id: &UserId,
+    ) -> impl Iterator<Item = Result<OwnedRoomId>> + 'a {
+        self.db.rooms_once_joined(user_id)
+    }
+
     #[tracing::instrument(skip(self))]
     pub(crate) fn once_joined(
         &self,

@@ -615,6 +615,39 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         ))
     }
 
+    /// Returns an iterator over all rooms a user has been in.
+    #[tracing::instrument(skip(self))]
+    fn rooms_once_joined<'a>(
+        &'a self,
+        user_id: &UserId,
+    ) -> Box<dyn Iterator<Item = Result<OwnedRoomId>> + 'a> {
+        let mut prefix = user_id.as_bytes().to_vec();
+        prefix.push(0xFF);
+
+        Box::new(self.roomuseroncejoinedids.scan_prefix(prefix).map(
+            |(key, _)| {
+                RoomId::parse(
+                    utils::string_from_bytes(
+                        key.rsplit(|&b| b == 0xFF)
+                            .next()
+                            .expect("rsplit always returns an element"),
+                    )
+                    .map_err(|_| {
+                        Error::bad_database(
+                            "Room ID in roomuseroncejoinedids is invalid \
+                             unicode.",
+                        )
+                    })?,
+                )
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Room ID in roomuseroncejoinedids is invalid.",
+                    )
+                })
+            },
+        ))
+    }
+
     #[tracing::instrument(skip(self))]
     fn once_joined(&self, user_id: &UserId, room_id: &RoomId) -> Result<bool> {
         let mut userroom_id = user_id.as_bytes().to_vec();
