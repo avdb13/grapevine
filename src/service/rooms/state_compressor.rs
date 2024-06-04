@@ -10,7 +10,10 @@ use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
 use self::data::StateDiff;
-use crate::{observability::FoundIn, services, utils, Result};
+use crate::{
+    observability::{FoundIn, FoundKind, METRICS},
+    services, utils, Result,
+};
 
 #[derive(Clone)]
 pub(crate) struct CompressedStateLayer {
@@ -33,15 +36,17 @@ impl Service {
     /// Returns a stack with info on shortstatehash, full state, added diff and
     /// removed diff for the selected shortstatehash and each parent layer.
     #[allow(clippy::type_complexity)]
-    #[tracing::instrument(skip(self), fields(cache_result))]
+    #[tracing::instrument(skip(self))]
     pub(crate) fn load_shortstatehash_info(
         &self,
         shortstatehash: u64,
     ) -> Result<Vec<CompressedStateLayer>> {
+        let found_kind = FoundKind::StateInfo;
+
         if let Some(r) =
             self.stateinfo_cache.lock().unwrap().get_mut(&shortstatehash)
         {
-            FoundIn::Cache.record("cache_result");
+            METRICS.record_lookup(found_kind, FoundIn::Cache);
             return Ok(r.clone());
         }
 
@@ -76,7 +81,7 @@ impl Service {
             }]
         };
 
-        FoundIn::Database.record("cache_result");
+        METRICS.record_lookup(found_kind, FoundIn::Database);
         self.stateinfo_cache
             .lock()
             .unwrap()

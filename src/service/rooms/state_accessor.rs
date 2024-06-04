@@ -28,8 +28,9 @@ use tokio::sync::MutexGuard;
 use tracing::{error, warn};
 
 use crate::{
-    observability::FoundIn, service::pdu::PduBuilder, services, Error,
-    PduEvent, Result,
+    observability::{FoundIn, FoundKind, METRICS},
+    service::pdu::PduBuilder,
+    services, Error, PduEvent, Result,
 };
 
 pub(crate) struct Service {
@@ -123,13 +124,15 @@ impl Service {
 
     /// Whether a server is allowed to see an event through federation, based on
     /// the room's history_visibility at that event's state.
-    #[tracing::instrument(skip(self), fields(cache_result))]
+    #[tracing::instrument(skip(self))]
     pub(crate) fn server_can_see_event(
         &self,
         origin: &ServerName,
         room_id: &RoomId,
         event_id: &EventId,
     ) -> Result<bool> {
+        let found_kind = FoundKind::VisibilityForServer;
+
         let Some(shortstatehash) = self.pdu_shortstatehash(event_id)? else {
             return Ok(true);
         };
@@ -140,7 +143,7 @@ impl Service {
             .unwrap()
             .get_mut(&(origin.to_owned(), shortstatehash))
         {
-            FoundIn::Cache.record("cache_result");
+            METRICS.record_lookup(found_kind, FoundIn::Cache);
             return Ok(*visibility);
         }
 
@@ -191,7 +194,7 @@ impl Service {
             }
         };
 
-        FoundIn::Database.record("cache_result");
+        METRICS.record_lookup(found_kind, FoundIn::Database);
         self.server_visibility_cache
             .lock()
             .unwrap()
@@ -202,13 +205,15 @@ impl Service {
 
     /// Whether a user is allowed to see an event, based on
     /// the room's history_visibility at that event's state.
-    #[tracing::instrument(skip(self), fields(cache_result))]
+    #[tracing::instrument(skip(self))]
     pub(crate) fn user_can_see_event(
         &self,
         user_id: &UserId,
         room_id: &RoomId,
         event_id: &EventId,
     ) -> Result<bool> {
+        let found_kind = FoundKind::VisibilityForUser;
+
         let Some(shortstatehash) = self.pdu_shortstatehash(event_id)? else {
             return Ok(true);
         };
@@ -219,7 +224,7 @@ impl Service {
             .unwrap()
             .get_mut(&(user_id.to_owned(), shortstatehash))
         {
-            FoundIn::Cache.record("cache_result");
+            METRICS.record_lookup(found_kind, FoundIn::Cache);
             return Ok(*visibility);
         }
 
@@ -262,7 +267,7 @@ impl Service {
             }
         };
 
-        FoundIn::Database.record("cache_result");
+        METRICS.record_lookup(found_kind, FoundIn::Database);
         self.user_visibility_cache
             .lock()
             .unwrap()
