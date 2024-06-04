@@ -40,6 +40,37 @@ impl Drop for Guard {
     }
 }
 
+/// Type to record cache performance in a tracing span field.
+pub(crate) enum FoundIn {
+    /// Found in cache
+    Cache,
+    /// Cache miss, but it was in the database. The cache has been updated.
+    Database,
+    /// Cache and database miss, but another server had it. The cache has been
+    /// updated.
+    Remote,
+    /// The entry could not be found anywhere.
+    Nothing,
+}
+
+impl FoundIn {
+    /// Returns a stringified representation of the current value
+    fn value(&self) -> &'static str {
+        match self {
+            FoundIn::Cache => "hit",
+            FoundIn::Database => "miss-database",
+            FoundIn::Remote => "miss-remote",
+            FoundIn::Nothing => "not-found",
+        }
+    }
+
+    /// Record the current value to the current [`tracing::Span`]
+    // TODO: use tracing::Value instead if it ever becomes accessible
+    pub(crate) fn record(&self, field: &str) {
+        tracing::Span::current().record(field, self.value());
+    }
+}
+
 /// Initialize observability
 pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
     let config_filter_layer = || EnvFilter::try_new(&config.log);

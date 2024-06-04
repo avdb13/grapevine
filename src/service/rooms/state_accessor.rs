@@ -28,7 +28,8 @@ use tokio::sync::MutexGuard;
 use tracing::{error, warn};
 
 use crate::{
-    service::pdu::PduBuilder, services, utils::FoundIn, Error, PduEvent, Result,
+    observability::FoundIn, service::pdu::PduBuilder, services, Error,
+    PduEvent, Result,
 };
 
 pub(crate) struct Service {

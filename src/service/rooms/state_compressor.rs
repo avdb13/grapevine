@@ -10,11 +10,7 @@ use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
 use self::data::StateDiff;
-use crate::{
-    services,
-    utils::{self, FoundIn},
-    Result,
-};
+use crate::{observability::FoundIn, services, utils, Result};
 
 #[derive(Clone)]
 pub(crate) struct CompressedStateLayer {

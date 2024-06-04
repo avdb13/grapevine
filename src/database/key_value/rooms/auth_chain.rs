@@ -1,10 +1,7 @@
 use std::{collections::HashSet, mem::size_of, sync::Arc};
 
 use crate::{
-    database::KeyValueDatabase,
-    service,
-    utils::{self, FoundIn},
-    Result,
+    database::KeyValueDatabase, observability::FoundIn, service, utils, Result,
 };
 
 impl service::rooms::auth_chain::Data for KeyValueDatabase {

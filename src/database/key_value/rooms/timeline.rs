@@ -8,10 +8,8 @@ use service::rooms::timeline::PduCount;
 use tracing::error;
 
 use crate::{
-    database::KeyValueDatabase,
-    service, services,
-    utils::{self, FoundIn},
-    Error, PduEvent, Result,
+    database::KeyValueDatabase, observability::FoundIn, service, services,
+    utils, Error, PduEvent, Result,
 };
 
 impl service::rooms::timeline::Data for KeyValueDatabase {

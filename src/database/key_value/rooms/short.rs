@@ -3,10 +3,8 @@ use std::sync::Arc;
 use ruma::{events::StateEventType, EventId, RoomId};
 
 use crate::{
-    database::KeyValueDatabase,
-    service, services,
-    utils::{self, FoundIn},
-    Error, Result,
+    database::KeyValueDatabase, observability::FoundIn, service, services,
+    utils, Error, Result,
 };
 
 impl service::rooms::short::Data for KeyValueDatabase {
