@@ -67,10 +67,9 @@ use tracing::{debug, error, field, warn};
 
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
+    observability::FoundIn,
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services,
-    utils::{self, FoundIn},
-    Ar, Error, PduEvent, Ra, Result,
+    services, utils, Ar, Error, PduEvent, Ra, Result,
 };
 
 /// Wraps either an literal IP address plus port, or a hostname plus complement

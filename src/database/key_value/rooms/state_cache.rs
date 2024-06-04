@@ -8,10 +8,9 @@ use ruma::{
 
 use crate::{
     database::KeyValueDatabase,
+    observability::FoundIn,
     service::{self, appservice::RegistrationInfo},
-    services,
-    utils::{self, FoundIn},
-    Error, Result,
+    services, utils, Error, Result,
 };
 
 impl service::rooms::state_cache::Data for KeyValueDatabase {
