@@ -11,7 +11,7 @@ use ruma::{
             },
         },
     },
-    uint,
+    uint, UInt,
 };
 
 use crate::{services, Ar, Error, Ra, Result};
@@ -138,7 +138,13 @@ pub(crate) async fn search_events_route(
 
     Ok(Ra(search_events::v3::Response::new(ResultCategories {
         room_events: ResultRoomEvents {
-            count: None,
+            // TODO(compat): this is not a good estimate of the total number of
+            // results. we should just be returning None, but
+            // element incorrectly relies on this field. Switch back
+            // to None when [1] is fixed
+            //
+            // [1]: https://github.com/element-hq/element-web/issues/27517
+            count: Some(results.len().try_into().unwrap_or(UInt::MAX)),
             // TODO
             groups: BTreeMap::new(),
             next_batch,
