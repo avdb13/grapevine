@@ -130,11 +130,8 @@ pub(crate) async fn search_events_route(
         .take(limit)
         .collect();
 
-    let next_batch = if results.len() < limit {
-        None
-    } else {
-        Some((skip + limit).to_string())
-    };
+    let more_unloaded_results = searches.iter_mut().any(|s| s.peek().is_some());
+    let next_batch = more_unloaded_results.then(|| (skip + limit).to_string());
 
     Ok(Ra(search_events::v3::Response::new(ResultCategories {
         room_events: ResultRoomEvents {
