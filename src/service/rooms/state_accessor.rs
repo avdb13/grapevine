@@ -222,8 +222,8 @@ impl Service {
             return Ok(*visibility);
         }
 
-        let currently_member =
-            services().rooms.state_cache.is_joined(user_id, room_id)?;
+        let once_member =
+            services().rooms.state_cache.once_joined(user_id, room_id)?;
 
         let history_visibility = self
             .state_get(
@@ -245,7 +245,7 @@ impl Service {
 
         let visibility = match history_visibility {
             HistoryVisibility::WorldReadable => true,
-            HistoryVisibility::Shared => currently_member,
+            HistoryVisibility::Shared => once_member,
             HistoryVisibility::Invited => {
                 // Allow if any member on requesting server was AT LEAST
                 // invited, else deny
