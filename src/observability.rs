@@ -18,6 +18,7 @@ use opentelemetry_sdk::{
     metrics::{new_view, Aggregation, Instrument, SdkMeterProvider, Stream},
     Resource,
 };
+use strum::AsRefStr;
 use tokio::time::Instant;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
@@ -41,7 +42,7 @@ impl Drop for Guard {
 }
 
 /// Type to record cache performance in a tracing span field.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, AsRefStr)]
 pub(crate) enum FoundIn {
     /// Found in cache
     Cache,
@@ -55,20 +56,10 @@ pub(crate) enum FoundIn {
 }
 
 impl FoundIn {
-    /// Returns a stringified representation of the current value
-    fn as_str(self) -> &'static str {
-        match self {
-            FoundIn::Cache => "Cache",
-            FoundIn::Database => "Database",
-            FoundIn::Remote => "Remote",
-            FoundIn::Nothing => "Nothing",
-        }
-    }
-
     /// Record the current value to the current [`tracing::Span`]
     // TODO: use tracing::Value instead if it ever becomes accessible
     pub(crate) fn record(self, field: &str) {
-        tracing::Span::current().record(field, self.as_str());
+        tracing::Span::current().record(field, self.as_ref());
     }
 }
 
