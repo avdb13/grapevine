@@ -280,6 +280,8 @@ impl Service {
     ) -> Result<bool> {
         let currently_member =
             services().rooms.state_cache.is_joined(user_id, room_id)?;
+        let once_member =
+            services().rooms.state_cache.once_joined(user_id, room_id)?;
 
         let history_visibility = self
             .room_state_get(
@@ -299,8 +301,11 @@ impl Service {
                     })
             })?;
 
-        Ok(currently_member
-            || history_visibility == HistoryVisibility::WorldReadable)
+        Ok(match history_visibility {
+            HistoryVisibility::WorldReadable => true,
+            HistoryVisibility::Shared => once_member,
+            _ => currently_member,
+        })
     }
 
     /// Returns the state hash for this pdu.
