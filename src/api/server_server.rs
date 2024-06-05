@@ -252,87 +252,68 @@ where
     tracing::Span::current().record("url", field::display(url));
 
     debug!("Sending request");
-    let response =
-        services().globals.federation_client().execute(reqwest_request).await;
+    let mut response =
+        services().globals.federation_client().execute(reqwest_request).await?;
 
-    match response {
-        Ok(mut response) => {
-            // reqwest::Response -> http::Response conversion
-            let status = response.status();
-            debug!(status = u16::from(status), "Received response");
-            let mut http_response_builder = http::Response::builder()
-                .status(status)
-                .version(response.version());
-            mem::swap(
-                response.headers_mut(),
-                http_response_builder
-                    .headers_mut()
-                    .expect("http::response::Builder is usable"),
+    // reqwest::Response -> http::Response conversion
+    let status = response.status();
+    debug!(status = u16::from(status), "Received response");
+    let mut http_response_builder =
+        http::Response::builder().status(status).version(response.version());
+    mem::swap(
+        response.headers_mut(),
+        http_response_builder
+            .headers_mut()
+            .expect("http::response::Builder is usable"),
+    );
+
+    debug!("Getting response bytes");
+    // TODO: handle timeout
+    let body = response.bytes().await.unwrap_or_else(|e| {
+        warn!("server error {}", e);
+        Vec::new().into()
+    });
+    debug!("Got response bytes");
+
+    if status != 200 {
+        warn!(
+            status = u16::from(status),
+            response = String::from_utf8_lossy(&body)
+                .lines()
+                .collect::<Vec<_>>()
+                .join(" "),
+            "Received error over federation",
+        );
+    }
+
+    let http_response = http_response_builder
+        .body(body)
+        .expect("reqwest body is valid http body");
+
+    if status == 200 {
+        debug!("Parsing response bytes");
+        let response =
+            T::IncomingResponse::try_from_http_response(http_response);
+        if response.is_ok() && write_destination_to_cache {
+            METRICS.record_lookup(
+                FoundKind::FederationDestination,
+                FoundIn::Remote,
             );
-
-            debug!("Getting response bytes");
-            // TODO: handle timeout
-            let body = response.bytes().await.unwrap_or_else(|e| {
-                warn!("server error {}", e);
-                Vec::new().into()
-            });
-            debug!("Got response bytes");
-
-            if status != 200 {
-                warn!(
-                    status = u16::from(status),
-                    response = String::from_utf8_lossy(&body)
-                        .lines()
-                        .collect::<Vec<_>>()
-                        .join(" "),
-                    "Received error over federation",
-                );
-            }
-
-            let http_response = http_response_builder
-                .body(body)
-                .expect("reqwest body is valid http body");
-
-            if status == 200 {
-                debug!("Parsing response bytes");
-                let response =
-                    T::IncomingResponse::try_from_http_response(http_response);
-                if response.is_ok() && write_destination_to_cache {
-                    METRICS.record_lookup(
-                        FoundKind::FederationDestination,
-                        FoundIn::Remote,
-                    );
-                    services()
-                        .globals
-                        .actual_destination_cache
-                        .write()
-                        .await
-                        .insert(
-                            OwnedServerName::from(destination),
-                            (actual_destination, host),
-                        );
-                }
-
-                response.map_err(|e| {
-                    warn!(error = %e, "Invalid 200 response",);
-                    Error::BadServerResponse(
-                        "Server returned bad 200 response.",
-                    )
-                })
-            } else {
-                Err(Error::Federation(
-                    destination.to_owned(),
-                    RumaError::from_http_response(http_response),
-                ))
-            }
-        }
-        Err(e) => {
-            warn!(
-                error = %e,
-                "Could not send request",
+            services().globals.actual_destination_cache.write().await.insert(
+                OwnedServerName::from(destination),
+                (actual_destination, host),
             );
-            Err(e.into())
         }
+
+        response.map_err(|e| {
+            warn!(error = %e, "Invalid 200 response",);
+            Error::BadServerResponse("Server returned bad 200 response.")
+        })
+    } else {
+        Err(Error::Federation(
+            destination.to_owned(),
+            RumaError::from_http_response(http_response),
+        ))
     }
 }
 
