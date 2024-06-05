@@ -89,6 +89,8 @@ let
       ];
     };
 
+    dontStrip = profile == "dev";
+
     buildInputs = lib.optional (featureEnabled "jemalloc") rust-jemalloc-sys';
 
     nativeBuildInputs = [
