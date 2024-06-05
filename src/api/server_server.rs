@@ -12,6 +12,7 @@ use std::{
 use axum::{response::IntoResponse, Json};
 use axum_extra::headers::{Authorization, HeaderMapExt};
 use get_profile_information::v1::ProfileField;
+use opentelemetry::KeyValue;
 use ruma::{
     api::{
         client::error::{Error as RumaError, ErrorKind},
@@ -702,6 +703,10 @@ pub(crate) async fn send_transaction_message_route(
 ) -> Result<Ra<send_transaction_message::v1::Response>> {
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
+
+    METRICS
+        .federation_requests
+        .add(1, &[KeyValue::new("server_name", sender_servername.to_string())]);
 
     let mut resolved_map = BTreeMap::new();
 

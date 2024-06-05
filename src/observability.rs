@@ -155,6 +155,9 @@ pub(crate) struct Metrics {
 
     /// Counts where data is found from
     lookup: opentelemetry::metrics::Counter<u64>,
+
+    /// Counts incoming federation requests by origin
+    pub(crate) federation_requests: opentelemetry::metrics::Counter<u64>,
 }
 
 impl Metrics {
@@ -205,10 +208,16 @@ impl Metrics {
             .with_description("Counts where data is found from")
             .init();
 
+        let federation_requests = meter
+            .u64_counter("federation_requests")
+            .with_description("Counts incoming federation requests by origin")
+            .init();
+
         Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
             lookup,
+            federation_requests,
         }
     }
 
