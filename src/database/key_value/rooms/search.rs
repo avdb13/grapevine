@@ -34,6 +34,29 @@ impl service::rooms::search::Data for KeyValueDatabase {
     }
 
     #[tracing::instrument(skip(self))]
+    fn deindex_pdu(
+        &self,
+        shortroomid: u64,
+        pdu_id: &[u8],
+        message_body: &str,
+    ) -> Result<()> {
+        let batch = tokenize(message_body).map(|word| {
+            let mut key = shortroomid.to_be_bytes().to_vec();
+            key.extend_from_slice(word.as_bytes());
+            key.push(0xFF);
+            // TODO: currently we save the room id a second time here
+            key.extend_from_slice(pdu_id);
+            key
+        });
+
+        for token in batch {
+            self.tokenids.remove(&token)?;
+        }
+
+        Ok(())
+    }
+
+    #[tracing::instrument(skip(self))]
     #[allow(clippy::type_complexity)]
     fn search_pdus<'a>(
         &'a self,

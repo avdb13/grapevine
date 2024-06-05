@@ -10,6 +10,13 @@ pub(crate) trait Data: Send + Sync {
         message_body: &str,
     ) -> Result<()>;
 
+    fn deindex_pdu(
+        &self,
+        shortroomid: u64,
+        pdu_id: &[u8],
+        message_body: &str,
+    ) -> Result<()>;
+
     #[allow(clippy::type_complexity)]
     fn search_pdus<'a>(
         &'a self,
