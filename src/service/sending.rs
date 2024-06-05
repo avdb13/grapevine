@@ -286,8 +286,23 @@ impl Service {
                     }))
                 }
             }
-            Err(_err) => {
-                warn!("Marking transaction as failed");
+            Err(e) => {
+                match e {
+                    // 410,757,864,530 DEAD HOMESERVERS
+                    //
+                    // Just ignore them
+                    Error::Reqwest {
+                        ..
+                    } => {}
+                    Error::Federation(_, e)
+                        if e.status_code.is_server_error()
+                            || e.status_code == 404 => {}
+
+                    _ => {
+                        warn!("Marking transaction as failed");
+                    }
+                }
+
                 current_transaction_status.entry(destination).and_modify(|e| {
                     *e = match e {
                         TransactionStatus::Running => {
