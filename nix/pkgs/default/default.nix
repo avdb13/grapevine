@@ -106,7 +106,7 @@ let
   };
 in
 
-craneLib.buildPackage ( commonAttrs // {
+craneLib.buildPackage (commonAttrs // {
   cargoArtifacts = craneLib.buildDepsOnly (commonAttrs // {
     env = buildDepsOnlyEnv;
   });
