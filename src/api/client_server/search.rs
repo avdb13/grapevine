@@ -110,6 +110,7 @@ pub(crate) async fn search_events_route(
                 .timeline
                 .get_pdu_from_id(result)
                 .ok()?
+                .filter(|pdu| compiled_filter.pdu_event_allowed(pdu))
                 .filter(|pdu| {
                     services()
                         .rooms
