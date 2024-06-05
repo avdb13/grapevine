@@ -182,7 +182,7 @@ pub(crate) struct CompiledRoomEventFilter<'a> {
     // AllowDenyList<TimelineEventType> when none of the type patterns
     // include a wildcard.
     types: WildcardAllowDenyList,
-    rooms: AllowDenyList<'a, RoomId>,
+    pub(crate) rooms: AllowDenyList<'a, RoomId>,
     senders: AllowDenyList<'a, UserId>,
     url_filter: Option<UrlFilter>,
 }

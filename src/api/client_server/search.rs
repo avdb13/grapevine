@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use ruma::{
     api::client::{
@@ -14,7 +14,11 @@ use ruma::{
     uint, UInt,
 };
 
-use crate::{services, Ar, Error, Ra, Result};
+use crate::{
+    services,
+    utils::filter::{AllowDenyList, CompiledRoomEventFilter},
+    Ar, Error, Ra, Result,
+};
 
 /// # `POST /_matrix/client/r0/search`
 ///
@@ -30,15 +34,28 @@ pub(crate) async fn search_events_route(
 
     let search_criteria = body.search_categories.room_events.as_ref().unwrap();
     let filter = &search_criteria.filter;
+    let Ok(compiled_filter) = CompiledRoomEventFilter::try_from(filter) else {
+        return Err(Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "invalid 'filter' parameter",
+        ));
+    };
 
-    let room_ids = filter.rooms.clone().unwrap_or_else(|| {
-        services()
-            .rooms
-            .state_cache
-            .rooms_joined(sender_user)
-            .filter_map(Result::ok)
-            .collect()
-    });
+    let mut room_ids = vec![];
+    if let AllowDenyList::Allow(allow_set) = &compiled_filter.rooms {
+        for &room_id in allow_set {
+            if services().rooms.state_cache.is_joined(sender_user, room_id)? {
+                room_ids.push(Cow::Borrowed(room_id));
+            }
+        }
+    } else {
+        for result in services().rooms.state_cache.rooms_joined(sender_user) {
+            let room_id = result?;
+            if compiled_filter.rooms.allowed(&room_id) {
+                room_ids.push(Cow::Owned(room_id));
+            }
+        }
+    }
 
     // Use limit or else 10, with maximum 100
     let limit = filter
@@ -51,13 +68,6 @@ pub(crate) async fn search_events_route(
     let mut searches = Vec::new();
 
     for room_id in room_ids {
-        if !services().rooms.state_cache.is_joined(sender_user, &room_id)? {
-            return Err(Error::BadRequest(
-                ErrorKind::forbidden(),
-                "You don't have permission to view this room.",
-            ));
-        }
-
         if let Some(search) = services()
             .rooms
             .search
