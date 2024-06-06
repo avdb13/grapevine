@@ -2,6 +2,17 @@ use ruma::RoomId;
 
 use crate::{database::KeyValueDatabase, service, services, utils, Result};
 
+/// Splits a string into tokens used as keys in the search inverted index
+///
+/// This may be used to tokenize both message bodies (for indexing) or search
+/// queries (for querying).
+fn tokenize(body: &str) -> impl Iterator<Item = String> + '_ {
+    body.split_terminator(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .filter(|word| word.len() <= 50)
+        .map(str::to_lowercase)
+}
+
 impl service::rooms::search::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
     fn index_pdu(
@@ -10,19 +21,14 @@ impl service::rooms::search::Data for KeyValueDatabase {
         pdu_id: &[u8],
         message_body: &str,
     ) -> Result<()> {
-        let mut batch = message_body
-            .split_terminator(|c: char| !c.is_alphanumeric())
-            .filter(|s| !s.is_empty())
-            .filter(|word| word.len() <= 50)
-            .map(str::to_lowercase)
-            .map(|word| {
-                let mut key = shortroomid.to_be_bytes().to_vec();
-                key.extend_from_slice(word.as_bytes());
-                key.push(0xFF);
-                // TODO: currently we save the room id a second time here
-                key.extend_from_slice(pdu_id);
-                (key, Vec::new())
-            });
+        let mut batch = tokenize(message_body).map(|word| {
+            let mut key = shortroomid.to_be_bytes().to_vec();
+            key.extend_from_slice(word.as_bytes());
+            key.push(0xFF);
+            // TODO: currently we save the room id a second time here
+            key.extend_from_slice(pdu_id);
+            (key, Vec::new())
+        });
 
         self.tokenids.insert_batch(&mut batch)
     }
@@ -43,11 +49,7 @@ impl service::rooms::search::Data for KeyValueDatabase {
             .to_be_bytes()
             .to_vec();
 
-        let words: Vec<_> = search_string
-            .split_terminator(|c: char| !c.is_alphanumeric())
-            .filter(|s| !s.is_empty())
-            .map(str::to_lowercase)
-            .collect();
+        let words: Vec<_> = tokenize(search_string).collect();
 
         let iterators = words.clone().into_iter().map(move |word| {
             let mut prefix2 = prefix.clone();
