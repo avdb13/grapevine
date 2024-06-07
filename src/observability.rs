@@ -24,7 +24,7 @@ use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
 
 use crate::{
-    config::{Config, LogFormat},
+    config::{Config, EnvFilterClone, LogFormat},
     error,
     utils::error::Result,
 };
@@ -84,13 +84,37 @@ pub(crate) enum FoundIn {
     Nothing,
 }
 
+/// Wrapper for the creation of a `tracing` [`Layer`] and any associated opaque
+/// data.
+///
+/// Returns a no-op `None` layer if `enable` is `false`, otherwise calls the
+/// given closure to construct the layer and associated data, then applies the
+/// filter to the layer.
+fn make_backend<S, L, T>(
+    enable: bool,
+    filter: &EnvFilterClone,
+    init: impl FnOnce() -> Result<(L, T), error::Observability>,
+) -> Result<(impl Layer<S>, Option<T>), error::Observability>
+where
+    L: Layer<S>,
+    S: tracing::Subscriber
+        + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
+{
+    enable
+        .then(|| {
+            let (layer, data) = init()?;
+            Ok((layer.with_filter(EnvFilter::from(filter)), data))
+        })
+        .transpose()
+        .map(Option::unzip)
+}
+
 /// Initialize observability
 pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
-    let jaeger_layer = config
-        .observability
-        .traces
-        .enable
-        .then(|| {
+    let (jaeger_layer, _) = make_backend(
+        config.observability.traces.enable,
+        &config.observability.traces.filter,
+        || {
             opentelemetry::global::set_text_map_propagator(
                 opentelemetry_jaeger_propagator::Propagator::new(),
             );
@@ -102,43 +126,32 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
                 )
                 .with_exporter(opentelemetry_otlp::new_exporter().tonic())
                 .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-            let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
+            Ok((tracing_opentelemetry::layer().with_tracer(tracer), ()))
+        },
+    )?;
 
-            Ok::<_, error::Observability>(telemetry.with_filter(
-                EnvFilter::from(&config.observability.logs.filter),
-            ))
-        })
-        .transpose()?;
-
-    let (flame_layer, flame_guard) = config
-        .observability
-        .flame
-        .enable
-        .then(|| {
+    let (flame_layer, flame_guard) = make_backend(
+        config.observability.flame.enable,
+        &config.observability.flame.filter,
+        || {
             let (flame_layer, guard) =
                 FlameLayer::with_file("./tracing.folded")?;
-            let flame_layer = flame_layer.with_empty_samples(false);
+            Ok((flame_layer.with_empty_samples(false), guard))
+        },
+    )?;
 
-            Ok::<_, error::Observability>((
-                flame_layer.with_filter(EnvFilter::from(
-                    &config.observability.logs.filter,
-                )),
-                guard,
-            ))
-        })
-        .transpose()?
-        .unzip();
-
-    let fmt_layer = tracing_subscriber::fmt::Layer::new()
-        .with_ansi(config.observability.logs.colors);
-    let fmt_layer = match config.observability.logs.format {
-        LogFormat::Pretty => fmt_layer.pretty().boxed(),
-        LogFormat::Full => fmt_layer.boxed(),
-        LogFormat::Compact => fmt_layer.compact().boxed(),
-        LogFormat::Json => fmt_layer.json().boxed(),
-    };
-    let fmt_layer = fmt_layer
-        .with_filter(EnvFilter::from(&config.observability.logs.filter));
+    let (fmt_layer, _) =
+        make_backend(true, &config.observability.logs.filter, || {
+            let fmt_layer = tracing_subscriber::fmt::Layer::new()
+                .with_ansi(config.observability.logs.colors);
+            let fmt_layer = match config.observability.logs.format {
+                LogFormat::Pretty => fmt_layer.pretty().boxed(),
+                LogFormat::Full => fmt_layer.boxed(),
+                LogFormat::Compact => fmt_layer.compact().boxed(),
+                LogFormat::Json => fmt_layer.json().boxed(),
+            };
+            Ok((fmt_layer, ()))
+        })?;
 
     let subscriber = Registry::default()
         .with(jaeger_layer)

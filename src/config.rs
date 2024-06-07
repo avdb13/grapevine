@@ -14,7 +14,7 @@ use crate::error;
 mod env_filter_clone;
 mod proxy;
 
-use env_filter_clone::EnvFilterClone;
+pub(crate) use env_filter_clone::EnvFilterClone;
 use proxy::ProxyConfig;
 
 /// The default configuration file path
@@ -180,16 +180,36 @@ pub(crate) struct MetricsConfig {
     pub(crate) enable: bool,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub(crate) struct OtelTraceConfig {
     pub(crate) enable: bool,
+    pub(crate) filter: EnvFilterClone,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+impl Default for OtelTraceConfig {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            filter: default_tracing_filter(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(default)]
 pub(crate) struct FlameConfig {
     pub(crate) enable: bool,
+    pub(crate) filter: EnvFilterClone,
+}
+
+impl Default for FlameConfig {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            filter: default_tracing_filter(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -203,7 +223,7 @@ pub(crate) struct LogConfig {
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
-            filter: default_log(),
+            filter: default_tracing_filter(),
             colors: true,
             format: LogFormat::default(),
         }
@@ -286,7 +306,7 @@ fn default_trusted_servers() -> Vec<OwnedServerName> {
     vec![OwnedServerName::try_from("matrix.org").unwrap()]
 }
 
-fn default_log() -> EnvFilterClone {
+fn default_tracing_filter() -> EnvFilterClone {
     "info,ruma_state_res=warn"
         .parse()
         .expect("hardcoded env filter should be valid")
