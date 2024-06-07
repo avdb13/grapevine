@@ -41,7 +41,7 @@ use tower_http::{
 use tracing::{debug, info, info_span, warn, Instrument};
 
 mod api;
-mod clap;
+mod args;
 mod config;
 mod database;
 mod error;
@@ -108,7 +108,7 @@ async fn main() -> ExitCode {
 async fn try_main() -> Result<(), error::Main> {
     use error::Main as Error;
 
-    clap::parse();
+    args::parse();
 
     // Initialize config
     let raw_config = Figment::new()
