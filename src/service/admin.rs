@@ -156,9 +156,6 @@ enum AdminCommand {
         amount: u32,
     },
 
-    /// Show configuration values
-    ShowConfig,
-
     /// Reset user password
     ResetPassword {
         /// Username of the user for whom the password should be reset
@@ -658,13 +655,6 @@ impl Service {
                 services().clear_caches(amount).await;
 
                 RoomMessageEventContent::text_plain("Done.")
-            }
-            AdminCommand::ShowConfig => {
-                // Construct and send the response
-                RoomMessageEventContent::text_plain(format!(
-                    "{}",
-                    services().globals.config
-                ))
             }
             AdminCommand::ResetPassword {
                 username,
