@@ -85,17 +85,12 @@ in
     systemd.services.grapevine = {
       description = "Grapevine (Matrix homeserver)";
       wantedBy = [ "multi-user.target" ];
-      environment = lib.mkMerge [
-        {
-          GRAPEVINE_CONFIG = configFile;
-        }
-        cfg.extraEnvironment
-      ];
+      environment = cfg.extraEnvironment;
 
       # Keep sorted
       serviceConfig = {
         DynamicUser = true;
-        ExecStart = "${lib.getExe cfg.package}";
+        ExecStart = "${lib.getExe cfg.package} --config ${configFile}";
         LockPersonality = true;
         MemoryDenyWriteExecute = true;
         PrivateDevices = true;

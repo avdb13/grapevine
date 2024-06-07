@@ -38,13 +38,6 @@ impl fmt::Display for DisplayWithSources<'_> {
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub(crate) enum Main {
-    #[error(
-        "the `{0}` environment variable must either be set to a configuration \
-         file path or set to an empty string to force configuration through \
-         environment variables"
-    )]
-    ConfigPathUnset(&'static str),
-
     #[error("invalid configuration")]
     ConfigInvalid(#[from] figment::Error),
 

@@ -108,17 +108,11 @@ async fn main() -> ExitCode {
 async fn try_main() -> Result<(), error::Main> {
     use error::Main as Error;
 
-    args::parse();
+    let args = args::parse();
 
     // Initialize config
     let raw_config = Figment::new()
-        .merge(
-            Toml::file({
-                let name = "GRAPEVINE_CONFIG";
-                Env::var(name).ok_or(Error::ConfigPathUnset(name))?
-            })
-            .nested(),
-        )
+        .merge(Toml::file(&args.config).nested())
         .merge(Env::prefixed("GRAPEVINE_").global());
 
     let config = raw_config.extract::<Config>()?;
