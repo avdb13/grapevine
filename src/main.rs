@@ -115,8 +115,6 @@ async fn try_main() -> Result<(), error::Main> {
 
     let config = raw_config.extract::<Config>()?;
 
-    config.warn_deprecated();
-
     let _guard = observability::init(&config);
 
     // This is needed for opening lots of file descriptors, which tends to

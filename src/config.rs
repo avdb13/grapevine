@@ -1,13 +1,11 @@
 use std::{
-    collections::BTreeMap,
     fmt,
     fmt::Write,
     net::{IpAddr, Ipv4Addr},
 };
 
 use ruma::{OwnedServerName, RoomVersionId};
-use serde::{de::IgnoredAny, Deserialize};
-use tracing::warn;
+use serde::Deserialize;
 
 mod proxy;
 
@@ -82,40 +80,12 @@ pub(crate) struct Config {
     pub(crate) turn_ttl: u64,
 
     pub(crate) emergency_password: Option<String>,
-
-    #[serde(flatten)]
-    // This has special meaning to `serde`
-    #[allow(clippy::zero_sized_map_values)]
-    pub(crate) catchall: BTreeMap<String, IgnoredAny>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TlsConfig {
     pub(crate) certs: String,
     pub(crate) key: String,
-}
-
-const DEPRECATED_KEYS: &[&str] = &["cache_capacity"];
-
-impl Config {
-    pub(crate) fn warn_deprecated(&self) {
-        let mut was_deprecated = false;
-        for key in self
-            .catchall
-            .keys()
-            .filter(|key| DEPRECATED_KEYS.iter().any(|s| s == key))
-        {
-            warn!("Config parameter {} is deprecated", key);
-            was_deprecated = true;
-        }
-
-        if was_deprecated {
-            warn!(
-                "Read grapevine documentation and check your configuration if \
-                 any new configuration parameters should be adjusted"
-            );
-        }
-    }
 }
 
 impl fmt::Display for Config {
