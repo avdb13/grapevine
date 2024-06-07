@@ -14,6 +14,8 @@
     let
       # Keep sorted
       mkScope = pkgs: pkgs.lib.makeScope pkgs.newScope (self: {
+        complement = self.callPackage ./nix/pkgs/complement {};
+
         craneLib =
           (inputs.crane.mkLib pkgs).overrideToolchain self.toolchain;
 
@@ -48,6 +50,7 @@
       {
         packages = {
           default = (mkScope pkgs).default;
+          complement = (mkScope pkgs).complement;
         }
         //
         builtins.listToAttrs
