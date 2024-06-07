@@ -106,12 +106,7 @@ async fn try_main() -> Result<(), error::Main> {
 
     let args = args::parse();
 
-    let config = toml::from_str(
-        &tokio::fs::read_to_string(&args.config)
-            .await
-            .map_err(Error::ConfigRead)?,
-    )
-    .map_err(Error::ConfigParse)?;
+    let config = config::load(&args.config).await?;
 
     let _guard = observability::init(&config);
 

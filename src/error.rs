@@ -1,6 +1,6 @@
 //! Error handling facilities
 
-use std::{fmt, iter};
+use std::{fmt, iter, path::PathBuf};
 
 use thiserror::Error;
 
@@ -38,11 +38,8 @@ impl fmt::Display for DisplayWithSources<'_> {
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub(crate) enum Main {
-    #[error("failed to read configuration file")]
-    ConfigRead(#[source] std::io::Error),
-
-    #[error("failed to parse configuration")]
-    ConfigParse(#[from] toml::de::Error),
+    #[error("failed to load configuration")]
+    Config(#[from] Config),
 
     #[error("failed to initialize observability")]
     Observability(#[from] Observability),
@@ -73,4 +70,17 @@ pub(crate) enum Observability {
     // Upstream's documentation on what this error means is very sparse
     #[error("tracing_flame error")]
     TracingFlame(#[from] tracing_flame::Error),
+}
+
+/// Configuration errors
+// Missing docs are allowed here since that kind of information should be
+// encoded in the error messages themselves anyway.
+#[allow(missing_docs)]
+#[derive(Error, Debug)]
+pub(crate) enum Config {
+    #[error("failed to read configuration file {1:?}")]
+    Read(#[source] std::io::Error, PathBuf),
+
+    #[error("failed to parse configuration file {1:?}")]
+    Parse(#[source] toml::de::Error, PathBuf),
 }

@@ -1,7 +1,12 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    path::Path,
+};
 
 use ruma::{OwnedServerName, RoomVersionId};
 use serde::Deserialize;
+
+use crate::error;
 
 mod proxy;
 
@@ -152,4 +157,21 @@ fn default_turn_ttl() -> u64 {
 // I know, it's a great name
 pub(crate) fn default_default_room_version() -> RoomVersionId {
     RoomVersionId::V10
+}
+
+/// Load the configuration from the given path
+pub(crate) async fn load<P>(path: P) -> Result<Config, error::Config>
+where
+    P: AsRef<Path>,
+{
+    use error::Config as Error;
+
+    let path = path.as_ref();
+
+    toml::from_str(
+        &tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| Error::Read(e, path.to_owned()))?,
+    )
+    .map_err(|e| Error::Parse(e, path.to_owned()))
 }
