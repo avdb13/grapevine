@@ -81,15 +81,7 @@ pub(crate) struct Config {
     #[serde(default)]
     pub(crate) log_format: LogFormat,
     #[serde(default)]
-    pub(crate) turn_username: String,
-    #[serde(default)]
-    pub(crate) turn_password: String,
-    #[serde(default = "Vec::new")]
-    pub(crate) turn_uris: Vec<String>,
-    #[serde(default)]
-    pub(crate) turn_secret: String,
-    #[serde(default = "default_turn_ttl")]
-    pub(crate) turn_ttl: u64,
+    pub(crate) turn: TurnConfig,
 
     pub(crate) emergency_password: Option<String>,
 }
@@ -142,6 +134,28 @@ pub(crate) enum LogFormat {
     Compact,
     /// Use the [`tracing_subscriber::fmt::format::Json`] formatter
     Json,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub(crate) struct TurnConfig {
+    pub(crate) username: String,
+    pub(crate) password: String,
+    pub(crate) uris: Vec<String>,
+    pub(crate) secret: String,
+    pub(crate) ttl: u64,
+}
+
+impl Default for TurnConfig {
+    fn default() -> Self {
+        Self {
+            username: String::new(),
+            password: String::new(),
+            uris: Vec::new(),
+            secret: String::new(),
+            ttl: 60 * 60 * 24,
+        }
+    }
 }
 
 fn false_fn() -> bool {
@@ -211,10 +225,6 @@ fn default_log() -> EnvFilterClone {
     "info,ruma_state_res=warn"
         .parse()
         .expect("hardcoded env filter should be valid")
-}
-
-fn default_turn_ttl() -> u64 {
-    60 * 60 * 24
 }
 
 // I know, it's a great name

@@ -366,23 +366,23 @@ impl Service {
     }
 
     pub(crate) fn turn_password(&self) -> &String {
-        &self.config.turn_password
+        &self.config.turn.password
     }
 
     pub(crate) fn turn_ttl(&self) -> u64 {
-        self.config.turn_ttl
+        self.config.turn.ttl
     }
 
     pub(crate) fn turn_uris(&self) -> &[String] {
-        &self.config.turn_uris
+        &self.config.turn.uris
     }
 
     pub(crate) fn turn_username(&self) -> &String {
-        &self.config.turn_username
+        &self.config.turn.username
     }
 
     pub(crate) fn turn_secret(&self) -> &String {
-        &self.config.turn_secret
+        &self.config.turn.secret
     }
 
     pub(crate) fn emergency_password(&self) -> &Option<String> {
