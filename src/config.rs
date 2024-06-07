@@ -58,23 +58,13 @@ pub(crate) struct Config {
     pub(crate) allow_unstable_room_versions: bool,
     #[serde(default = "default_default_room_version")]
     pub(crate) default_room_version: RoomVersionId,
-    #[serde(default = "false_fn")]
-    pub(crate) allow_jaeger: bool,
-    #[serde(default = "false_fn")]
-    pub(crate) allow_prometheus: bool,
-    #[serde(default = "false_fn")]
-    pub(crate) tracing_flame: bool,
     #[serde(default)]
     pub(crate) proxy: ProxyConfig,
     pub(crate) jwt_secret: Option<String>,
     #[serde(default = "default_trusted_servers")]
     pub(crate) trusted_servers: Vec<OwnedServerName>,
-    #[serde(default = "default_log")]
-    pub(crate) log: EnvFilterClone,
-    #[serde(default = "true_fn")]
-    pub(crate) log_colors: bool,
     #[serde(default)]
-    pub(crate) log_format: LogFormat,
+    pub(crate) observability: ObservabilityConfig,
     #[serde(default)]
     pub(crate) turn: TurnConfig,
 
@@ -182,6 +172,55 @@ pub(crate) struct DatabaseConfig {
     #[cfg(feature = "rocksdb")]
     #[serde(default = "default_rocksdb_max_open_files")]
     pub(crate) rocksdb_max_open_files: i32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct MetricsConfig {
+    pub(crate) enable: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct OtelTraceConfig {
+    pub(crate) enable: bool,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct FlameConfig {
+    pub(crate) enable: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub(crate) struct LogConfig {
+    pub(crate) filter: EnvFilterClone,
+    pub(crate) colors: bool,
+    pub(crate) format: LogFormat,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            filter: default_log(),
+            colors: true,
+            format: LogFormat::default(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct ObservabilityConfig {
+    /// Prometheus metrics
+    pub(crate) metrics: MetricsConfig,
+    /// OpenTelemetry traces
+    pub(crate) traces: OtelTraceConfig,
+    /// Folded inferno stack traces
+    pub(crate) flame: FlameConfig,
+    /// Logging to stdout
+    pub(crate) logs: LogConfig,
 }
 
 fn false_fn() -> bool {

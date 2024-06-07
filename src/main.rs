@@ -442,7 +442,7 @@ fn routes(config: &Config) -> Router {
                 .put(c2s::send_state_event_for_empty_key_route),
         );
 
-    let router = if config.allow_prometheus {
+    let router = if config.observability.metrics.enable {
         router.route(
             "/metrics",
             get(|| async { observability::METRICS.export() }),
