@@ -14,6 +14,7 @@ use opentelemetry::{
     metrics::{MeterProvider, Unit},
     KeyValue,
 };
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
     metrics::{new_view, Aggregation, Instrument, SdkMeterProvider, Stream},
     Resource,
@@ -118,13 +119,17 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
             opentelemetry::global::set_text_map_propagator(
                 opentelemetry_jaeger_propagator::Propagator::new(),
             );
+            let mut exporter = opentelemetry_otlp::new_exporter().tonic();
+            if let Some(endpoint) = &config.observability.traces.endpoint {
+                exporter = exporter.with_endpoint(endpoint);
+            }
             let tracer = opentelemetry_otlp::new_pipeline()
                 .tracing()
                 .with_trace_config(
                     opentelemetry_sdk::trace::config()
                         .with_resource(standard_resource()),
                 )
-                .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+                .with_exporter(exporter)
                 .install_batch(opentelemetry_sdk::runtime::Tokio)?;
             Ok((tracing_opentelemetry::layer().with_tracer(tracer), ()))
         },
@@ -135,15 +140,41 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         &config.observability.flame.filter,
         || {
             let (flame_layer, guard) =
-                FlameLayer::with_file("./tracing.folded")?;
+                FlameLayer::with_file(&config.observability.flame.filename)?;
             Ok((flame_layer.with_empty_samples(false), guard))
         },
     )?;
 
     let (fmt_layer, _) =
         make_backend(true, &config.observability.logs.filter, || {
+            /// Time format selection for `tracing_subscriber` at runtime
+            #[allow(clippy::missing_docs_in_private_items)]
+            enum TimeFormat {
+                SystemTime,
+                NoTime,
+            }
+            impl tracing_subscriber::fmt::time::FormatTime for TimeFormat {
+                fn format_time(
+                    &self,
+                    w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+                ) -> std::fmt::Result {
+                    match self {
+                        TimeFormat::SystemTime => {
+                            tracing_subscriber::fmt::time::SystemTime
+                                .format_time(w)
+                        }
+                        TimeFormat::NoTime => Ok(()),
+                    }
+                }
+            }
+
             let fmt_layer = tracing_subscriber::fmt::Layer::new()
-                .with_ansi(config.observability.logs.colors);
+                .with_ansi(config.observability.logs.colors)
+                .with_timer(if config.observability.logs.timestamp {
+                    TimeFormat::SystemTime
+                } else {
+                    TimeFormat::NoTime
+                });
             let fmt_layer = match config.observability.logs.format {
                 LogFormat::Pretty => fmt_layer.pretty().boxed(),
                 LogFormat::Full => fmt_layer.boxed(),

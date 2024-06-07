@@ -185,6 +185,7 @@ pub(crate) struct MetricsConfig {
 pub(crate) struct OtelTraceConfig {
     pub(crate) enable: bool,
     pub(crate) filter: EnvFilterClone,
+    pub(crate) endpoint: Option<String>,
 }
 
 impl Default for OtelTraceConfig {
@@ -192,6 +193,7 @@ impl Default for OtelTraceConfig {
         Self {
             enable: false,
             filter: default_tracing_filter(),
+            endpoint: None,
         }
     }
 }
@@ -201,6 +203,7 @@ impl Default for OtelTraceConfig {
 pub(crate) struct FlameConfig {
     pub(crate) enable: bool,
     pub(crate) filter: EnvFilterClone,
+    pub(crate) filename: String,
 }
 
 impl Default for FlameConfig {
@@ -208,6 +211,7 @@ impl Default for FlameConfig {
         Self {
             enable: false,
             filter: default_tracing_filter(),
+            filename: "./tracing.folded".to_owned(),
         }
     }
 }
@@ -218,6 +222,7 @@ pub(crate) struct LogConfig {
     pub(crate) filter: EnvFilterClone,
     pub(crate) colors: bool,
     pub(crate) format: LogFormat,
+    pub(crate) timestamp: bool,
 }
 
 impl Default for LogConfig {
@@ -226,6 +231,7 @@ impl Default for LogConfig {
             filter: default_tracing_filter(),
             colors: true,
             format: LogFormat::default(),
+            timestamp: true,
         }
     }
 }
