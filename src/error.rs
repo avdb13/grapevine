@@ -38,8 +38,11 @@ impl fmt::Display for DisplayWithSources<'_> {
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub(crate) enum Main {
-    #[error("invalid configuration")]
-    ConfigInvalid(#[from] figment::Error),
+    #[error("failed to read configuration file")]
+    ConfigRead(#[source] std::io::Error),
+
+    #[error("failed to parse configuration")]
+    ConfigParse(#[from] toml::de::Error),
 
     #[error("failed to initialize observability")]
     Observability(#[from] Observability),

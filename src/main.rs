@@ -16,10 +16,6 @@ use axum::{
 use axum_server::{
     bind, bind_rustls, tls_rustls::RustlsConfig, Handle as ServerHandle,
 };
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 use http::{
     header::{self, HeaderName},
     Method, StatusCode, Uri,
@@ -110,10 +106,12 @@ async fn try_main() -> Result<(), error::Main> {
 
     let args = args::parse();
 
-    // Initialize config
-    let raw_config = Figment::new().merge(Toml::file(&args.config));
-
-    let config = raw_config.extract::<Config>()?;
+    let config = toml::from_str(
+        &tokio::fs::read_to_string(&args.config)
+            .await
+            .map_err(Error::ConfigRead)?,
+    )
+    .map_err(Error::ConfigParse)?;
 
     let _guard = observability::init(&config);
 

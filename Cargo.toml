@@ -95,7 +95,6 @@ axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 base64 = "0.22.1"
 bytes = "1.6.0"
 clap = { version = "4.5.4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "string"] }
-figment = { version = "0.10.19", features = ["env", "toml"] }
 futures-util = { version = "0.3.30", default-features = false }
 hmac = "0.12.1"
 html-escape = "0.2.13"
@@ -134,6 +133,7 @@ thiserror = "1.0.61"
 thread_local = "1.1.8"
 tikv-jemallocator = { version = "0.5.4", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
 tokio = { version = "1.37.0", features = ["fs", "macros", "signal", "sync"] }
+toml = "0.8.14"
 tower = { version = "0.4.13", features = ["util"] }
 tower-http = { version = "0.5.2", features = ["add-extension", "cors", "sensitive-headers", "trace", "util"] }
 tracing = { version = "0.1.40", features = [] }
