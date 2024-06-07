@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use regex::Regex;
 use ruma::{
     api::appservice::Registration,
@@ -196,6 +196,12 @@ enum AdminCommand {
     // Allowed because the doc comment gets parsed by our code later
     #[allow(clippy::doc_markdown)]
     VerifyJson,
+
+    /// Dynamically change a tracing backend's filter string
+    SetTracingFilter {
+        backend: TracingBackend,
+        filter: String,
+    },
 }
 
 #[derive(Debug)]
@@ -207,6 +213,13 @@ pub(crate) enum AdminRoomEvent {
 pub(crate) struct Service {
     pub(crate) sender: mpsc::UnboundedSender<AdminRoomEvent>,
     receiver: Mutex<mpsc::UnboundedReceiver<AdminRoomEvent>>,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum TracingBackend {
+    Log,
+    Flame,
+    Traces,
 }
 
 impl Service {
@@ -1080,6 +1093,39 @@ impl Service {
                          details.",
                     )
                 }
+            }
+            AdminCommand::SetTracingFilter {
+                backend,
+                filter,
+            } => {
+                let handles = &services().globals.reload_handles;
+                let handle = match backend {
+                    TracingBackend::Log => &handles.log,
+                    TracingBackend::Flame => &handles.flame,
+                    TracingBackend::Traces => &handles.traces,
+                };
+                let Some(handle) = handle else {
+                    return Ok(RoomMessageEventContent::text_plain(
+                        "Backend is disabled",
+                    ));
+                };
+                let filter = match filter.parse() {
+                    Ok(filter) => filter,
+                    Err(e) => {
+                        return Ok(RoomMessageEventContent::text_plain(
+                            format!("Invalid filter string: {e}"),
+                        ));
+                    }
+                };
+                if let Err(e) = handle.reload(filter) {
+                    return Ok(RoomMessageEventContent::text_plain(format!(
+                        "Failed to reload filter: {e}"
+                    )));
+                };
+
+                return Ok(RoomMessageEventContent::text_plain(
+                    "Filter reloaded",
+                ));
             }
         };
 

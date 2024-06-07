@@ -32,7 +32,10 @@ use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
 use tracing::{error, Instrument};
 use trust_dns_resolver::TokioAsyncResolver;
 
-use crate::{api::server_server::FedDest, services, Config, Error, Result};
+use crate::{
+    api::server_server::FedDest, observability::FilterReloadHandles, services,
+    Config, Error, Result,
+};
 
 type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
@@ -41,6 +44,7 @@ type RateLimitState = (Instant, u32);
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
+    pub(crate) reload_handles: FilterReloadHandles,
 
     // actual_destination, host
     pub(crate) actual_destination_cache: Arc<RwLock<WellKnownMap>>,
@@ -173,7 +177,11 @@ impl Resolve for Resolver {
 
 impl Service {
     #[tracing::instrument(skip_all)]
-    pub(crate) fn load(db: &'static dyn Data, config: Config) -> Result<Self> {
+    pub(crate) fn load(
+        db: &'static dyn Data,
+        config: Config,
+        reload_handles: FilterReloadHandles,
+    ) -> Result<Self> {
         let keypair = db.load_keypair();
 
         let keypair = match keypair {
@@ -227,6 +235,7 @@ impl Service {
         let mut s = Self {
             db,
             config,
+            reload_handles,
             keypair: Arc::new(keypair),
             dns_resolver: TokioAsyncResolver::tokio_from_system_conf()
                 .map_err(|e| {

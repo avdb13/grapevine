@@ -22,7 +22,9 @@ use opentelemetry_sdk::{
 use strum::{AsRefStr, IntoStaticStr};
 use tokio::time::Instant;
 use tracing_flame::{FlameLayer, FlushGuard};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
+use tracing_subscriber::{
+    layer::SubscriberExt, reload, EnvFilter, Layer, Registry,
+};
 
 use crate::{
     config::{Config, EnvFilterClone, LogFormat},
@@ -44,6 +46,44 @@ impl Drop for Guard {
     fn drop(&mut self) {
         opentelemetry::global::shutdown_tracer_provider();
     }
+}
+
+/// We need to store a [`reload::Handle`] value, but can't name it's type
+/// explicitly because the S type parameter depends on the subscriber's previous
+/// layers. In our case, this includes unnameable 'impl Trait' types.
+///
+/// This is fixed[1] in the unreleased tracing-subscriber from the master
+/// branch, which removes the S parameter. Unfortunately can't use it without
+/// pulling in a version of tracing that's incompatible with the rest of our
+/// deps.
+///
+/// To work around this, we define an trait without the S paramter that forwards
+/// to the [`reload::Handle::reload`] method, and then store the handle as a
+/// trait object.
+///
+/// [1]: https://github.com/tokio-rs/tracing/pull/1035/commits/8a87ea52425098d3ef8f56d92358c2f6c144a28f
+pub(crate) trait ReloadHandle<L> {
+    /// Replace the layer with a new value. See [`reload::Handle::reload`].
+    fn reload(&self, new_value: L) -> Result<(), reload::Error>;
+}
+
+impl<L, S> ReloadHandle<L> for reload::Handle<L, S> {
+    fn reload(&self, new_value: L) -> Result<(), reload::Error> {
+        reload::Handle::reload(self, new_value)
+    }
+}
+
+/// A type-erased [reload handle][reload::Handle] for an [`EnvFilter`].
+pub(crate) type FilterReloadHandle = Box<dyn ReloadHandle<EnvFilter> + Sync>;
+
+/// Collection of [`FilterReloadHandle`]s, allowing the filters for tracing
+/// backends to be changed dynamically. Handles may be [`None`] if the backend
+/// is disabled in the config.
+#[allow(clippy::missing_docs_in_private_items)]
+pub(crate) struct FilterReloadHandles {
+    pub(crate) traces: Option<FilterReloadHandle>,
+    pub(crate) flame: Option<FilterReloadHandle>,
+    pub(crate) log: Option<FilterReloadHandle>,
 }
 
 /// A kind of data that gets looked up
@@ -95,24 +135,29 @@ fn make_backend<S, L, T>(
     enable: bool,
     filter: &EnvFilterClone,
     init: impl FnOnce() -> Result<(L, T), error::Observability>,
-) -> Result<(impl Layer<S>, Option<T>), error::Observability>
+) -> Result<
+    (impl Layer<S>, Option<FilterReloadHandle>, Option<T>),
+    error::Observability,
+>
 where
     L: Layer<S>,
     S: tracing::Subscriber
         + for<'span> tracing_subscriber::registry::LookupSpan<'span>,
 {
-    enable
-        .then(|| {
-            let (layer, data) = init()?;
-            Ok((layer.with_filter(EnvFilter::from(filter)), data))
-        })
-        .transpose()
-        .map(Option::unzip)
+    if !enable {
+        return Ok((None, None, None));
+    }
+
+    let (filter, handle) = reload::Layer::new(EnvFilter::from(filter));
+    let (layer, data) = init()?;
+    Ok((Some(layer.with_filter(filter)), Some(Box::new(handle)), Some(data)))
 }
 
 /// Initialize observability
-pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
-    let (jaeger_layer, _) = make_backend(
+pub(crate) fn init(
+    config: &Config,
+) -> Result<(Guard, FilterReloadHandles), error::Observability> {
+    let (traces_layer, traces_filter, _) = make_backend(
         config.observability.traces.enable,
         &config.observability.traces.filter,
         || {
@@ -135,7 +180,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         },
     )?;
 
-    let (flame_layer, flame_guard) = make_backend(
+    let (flame_layer, flame_filter, flame_guard) = make_backend(
         config.observability.flame.enable,
         &config.observability.flame.filter,
         || {
@@ -145,7 +190,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         },
     )?;
 
-    let (fmt_layer, _) =
+    let (log_layer, log_filter, _) =
         make_backend(true, &config.observability.logs.filter, || {
             /// Time format selection for `tracing_subscriber` at runtime
             #[allow(clippy::missing_docs_in_private_items)]
@@ -185,14 +230,21 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         })?;
 
     let subscriber = Registry::default()
-        .with(jaeger_layer)
+        .with(traces_layer)
         .with(flame_layer)
-        .with(fmt_layer);
+        .with(log_layer);
     tracing::subscriber::set_global_default(subscriber)?;
 
-    Ok(Guard {
-        flame_guard,
-    })
+    Ok((
+        Guard {
+            flame_guard,
+        },
+        FilterReloadHandles {
+            traces: traces_filter,
+            flame: flame_filter,
+            log: log_filter,
+        },
+    ))
 }
 
 /// Construct the standard [`Resource`] value to use for this service

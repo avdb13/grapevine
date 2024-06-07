@@ -112,7 +112,7 @@ async fn try_main() -> Result<(), error::Main> {
 
     let config = config::load(args.config.as_ref()).await?;
 
-    let _guard = observability::init(&config)?;
+    let (_guard, reload_handles) = observability::init(&config)?;
 
     // This is needed for opening lots of file descriptors, which tends to
     // happen more often when using RocksDB and making lots of federation
@@ -126,7 +126,7 @@ async fn try_main() -> Result<(), error::Main> {
         .expect("should be able to increase the soft limit to the hard limit");
 
     info!("Loading database");
-    KeyValueDatabase::load_or_create(config)
+    KeyValueDatabase::load_or_create(config, reload_handles)
         .await
         .map_err(Error::DatabaseError)?;
 

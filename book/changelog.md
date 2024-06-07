@@ -173,3 +173,6 @@ This will be the first release of Grapevine since it was forked from Conduit
    ([!46](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/46))
 10. Recognize the `!admin` prefix to invoke admin commands.
     ([!45](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/45))
+11. Add the `set-tracing-filter` admin command to change log/metrics/flame
+    filters dynamically at runtime.
+    ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))

@@ -25,8 +25,9 @@ use ruma::{
 use tracing::{debug, error, info, info_span, warn, Instrument};
 
 use crate::{
-    config::DatabaseBackend, service::rooms::timeline::PduCount, services,
-    utils, Config, Error, PduEvent, Result, Services, SERVICES,
+    config::DatabaseBackend, observability::FilterReloadHandles,
+    service::rooms::timeline::PduCount, services, utils, Config, Error,
+    PduEvent, Result, Services, SERVICES,
 };
 
 pub(crate) struct KeyValueDatabase {
@@ -310,7 +311,10 @@ impl KeyValueDatabase {
         allow(unreachable_code)
     )]
     #[allow(clippy::too_many_lines)]
-    pub(crate) async fn load_or_create(config: Config) -> Result<()> {
+    pub(crate) async fn load_or_create(
+        config: Config,
+        reload_handles: FilterReloadHandles,
+    ) -> Result<()> {
         Self::check_db_setup(&config)?;
 
         if !Path::new(&config.database.path).exists() {
@@ -527,7 +531,8 @@ impl KeyValueDatabase {
 
         let db = Box::leak(db_raw);
 
-        let services_raw = Box::new(Services::build(db, config)?);
+        let services_raw =
+            Box::new(Services::build(db, config, reload_handles)?);
 
         // This is the first and only time we initialize the SERVICE static
         *SERVICES.write().unwrap() = Some(Box::leak(services_raw));

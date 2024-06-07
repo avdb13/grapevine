@@ -6,7 +6,7 @@ use std::{
 use lru_cache::LruCache;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
-use crate::{Config, Result};
+use crate::{observability::FilterReloadHandles, Config, Result};
 
 pub(crate) mod account_data;
 pub(crate) mod admin;
@@ -54,6 +54,7 @@ impl Services {
     >(
         db: &'static D,
         config: Config,
+        reload_handles: FilterReloadHandles,
     ) -> Result<Self> {
         Ok(Self {
             appservice: appservice::Service::build(db)?,
@@ -149,7 +150,7 @@ impl Services {
             },
             sending: sending::Service::build(db, &config),
 
-            globals: globals::Service::load(db, config)?,
+            globals: globals::Service::load(db, config, reload_handles)?,
         })
     }
 
