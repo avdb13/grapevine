@@ -111,7 +111,7 @@ async fn try_main() -> Result<(), error::Main> {
     let args = args::parse();
 
     // Initialize config
-    let raw_config = Figment::new().merge(Toml::file(&args.config).nested());
+    let raw_config = Figment::new().merge(Toml::file(&args.config));
 
     let config = raw_config.extract::<Config>()?;
 

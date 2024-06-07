@@ -10,13 +10,12 @@ use crate::Result;
 /// ```
 /// - Global proxy
 /// ```toml
-/// [global.proxy]
+/// [proxy]
 /// global = { url = "socks5h://localhost:9050" }
 /// ```
 /// - Proxy some domains
 /// ```toml
-/// [global.proxy]
-/// [[global.proxy.by_domain]]
+/// [[proxy.by_domain]]
 /// url = "socks5h://localhost:9050"
 /// include = ["*.onion", "matrix.myspecial.onion"]
 /// exclude = ["*.myspecial.onion"]
