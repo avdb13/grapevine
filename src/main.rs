@@ -17,7 +17,7 @@ use axum_server::{
     bind, bind_rustls, tls_rustls::RustlsConfig, Handle as ServerHandle,
 };
 use figment::{
-    providers::{Env, Format, Toml},
+    providers::{Format, Toml},
     Figment,
 };
 use http::{
@@ -111,9 +111,7 @@ async fn try_main() -> Result<(), error::Main> {
     let args = args::parse();
 
     // Initialize config
-    let raw_config = Figment::new()
-        .merge(Toml::file(&args.config).nested())
-        .merge(Env::prefixed("GRAPEVINE_").global());
+    let raw_config = Figment::new().merge(Toml::file(&args.config).nested());
 
     let config = raw_config.extract::<Config>()?;
 

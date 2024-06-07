@@ -25,15 +25,6 @@ in
         pkgsText = "inputs.grapevine.packages.\${pkgs.system}";
       };
 
-    extraEnvironment = lib.mkOption {
-      type = types.attrsOf types.str;
-      description = ''
-        Extra environment variables to set for the process.
-      '';
-      default = {};
-      example = { RUST_BACKTRACE="yes"; };
-    };
-
     settings = lib.mkOption {
       type = types.submodule {
         freeformType = format.type;
@@ -85,7 +76,6 @@ in
     systemd.services.grapevine = {
       description = "Grapevine (Matrix homeserver)";
       wantedBy = [ "multi-user.target" ];
-      environment = cfg.extraEnvironment;
 
       # Keep sorted
       serviceConfig = {
