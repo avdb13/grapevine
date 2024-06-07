@@ -1,19 +1,21 @@
-pub(crate) mod data;
 use std::{
     collections::HashSet,
     mem::size_of,
     sync::{Arc, Mutex},
 };
 
-pub(crate) use data::Data;
 use lru_cache::LruCache;
 use ruma::{EventId, RoomId};
 
-use self::data::StateDiff;
 use crate::{
     observability::{FoundIn, Lookup, METRICS},
     services, utils, Result,
 };
+
+pub(crate) mod data;
+
+pub(crate) use data::Data;
+use data::StateDiff;
 
 #[derive(Clone)]
 pub(crate) struct CompressedStateLayer {

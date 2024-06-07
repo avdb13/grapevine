@@ -40,8 +40,8 @@ use tower_http::{
 };
 use tracing::{debug, info, info_span, warn, Instrument};
 
-pub(crate) mod api;
-pub(crate) mod clap;
+mod api;
+mod clap;
 mod config;
 mod database;
 mod error;

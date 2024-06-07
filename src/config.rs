@@ -11,7 +11,7 @@ use tracing::warn;
 
 mod proxy;
 
-use self::proxy::ProxyConfig;
+use proxy::ProxyConfig;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Deserialize)]
