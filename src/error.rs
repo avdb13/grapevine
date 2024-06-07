@@ -61,9 +61,6 @@ pub(crate) enum Observability {
     #[error("opentelemetry error")]
     Otel(#[from] opentelemetry::trace::TraceError),
 
-    #[error("invalid log filter syntax")]
-    EnvFilter(#[from] tracing_subscriber::filter::ParseError),
-
     #[error("failed to install global default tracing subscriber")]
     SetSubscriber(#[from] tracing::subscriber::SetGlobalDefaultError),
 

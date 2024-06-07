@@ -82,8 +82,6 @@ pub(crate) enum FoundIn {
 
 /// Initialize observability
 pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
-    let config_filter_layer = || EnvFilter::try_new(&config.log);
-
     let jaeger_layer = config
         .allow_jaeger
         .then(|| {
@@ -101,7 +99,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
             let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
             Ok::<_, error::Observability>(
-                telemetry.with_filter(config_filter_layer()?),
+                telemetry.with_filter(EnvFilter::from(&config.log)),
             )
         })
         .transpose()?;
@@ -114,7 +112,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
             let flame_layer = flame_layer.with_empty_samples(false);
 
             Ok::<_, error::Observability>((
-                flame_layer.with_filter(config_filter_layer()?),
+                flame_layer.with_filter(EnvFilter::from(&config.log)),
                 guard,
             ))
         })
@@ -122,7 +120,7 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         .unzip();
 
     let fmt_layer = tracing_subscriber::fmt::Layer::new()
-        .with_filter(config_filter_layer()?);
+        .with_filter(EnvFilter::from(&config.log));
 
     let subscriber = Registry::default()
         .with(jaeger_layer)

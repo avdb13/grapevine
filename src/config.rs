@@ -8,8 +8,10 @@ use serde::Deserialize;
 
 use crate::error;
 
+mod env_filter_clone;
 mod proxy;
 
+use env_filter_clone::EnvFilterClone;
 use proxy::ProxyConfig;
 
 #[allow(clippy::struct_excessive_bools)]
@@ -69,7 +71,7 @@ pub(crate) struct Config {
     #[serde(default = "default_trusted_servers")]
     pub(crate) trusted_servers: Vec<OwnedServerName>,
     #[serde(default = "default_log")]
-    pub(crate) log: String,
+    pub(crate) log: EnvFilterClone,
     #[serde(default)]
     pub(crate) turn_username: String,
     #[serde(default)]
@@ -146,8 +148,10 @@ fn default_trusted_servers() -> Vec<OwnedServerName> {
     vec![OwnedServerName::try_from("matrix.org").unwrap()]
 }
 
-fn default_log() -> String {
-    "warn,state_res=warn,_=off".to_owned()
+fn default_log() -> EnvFilterClone {
+    "warn,state_res=warn,_=off"
+        .parse()
+        .expect("hardcoded env filter should be valid")
 }
 
 fn default_turn_ttl() -> u64 {
