@@ -14,7 +14,7 @@ mod proxy;
 use proxy::ProxyConfig;
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct Config {
     #[serde(default = "false_fn")]
     pub(crate) conduit_compat: bool,
@@ -89,7 +89,7 @@ pub(crate) struct Config {
     pub(crate) catchall: BTreeMap<String, IgnoredAny>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct TlsConfig {
     pub(crate) certs: String,
     pub(crate) key: String,
