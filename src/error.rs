@@ -104,6 +104,15 @@ pub(crate) enum ConfigSearch {
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub(crate) enum Serve {
+    #[error("no listeners were specified in the configuration file")]
+    NoListeners,
+
+    #[error(
+        "listener requested TLS, but no TLS cert was specified in the \
+         configuration file. Please set 'tls.certs' and 'tls.key'"
+    )]
+    NoTlsCerts,
+
     #[error("failed to read TLS cert and key files at {certs:?} and {key:?}")]
     LoadCerts {
         certs: String,

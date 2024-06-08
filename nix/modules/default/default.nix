@@ -29,13 +29,6 @@ in
       type = types.submodule {
         freeformType = format.type;
         options = {
-          address = lib.mkOption {
-            type = types.nonEmptyStr;
-            description = ''
-              The local IP address to bind to.
-            '';
-            default = "::1";
-          };
           conduit_compat = lib.mkOption {
             type = types.bool;
             description = ''
@@ -56,12 +49,18 @@ in
               then "/var/lib/matrix-conduit"
               else "/var/lib/grapevine";
           };
-          port = lib.mkOption {
-            type = types.port;
+          listen = lib.mkOption {
+            type = types.listOf format.type;
             description = ''
-              The local port to bind to.
+              List of places to listen for incoming connections.
             '';
-            default = 6167;
+            default = [
+              {
+                type = "tcp";
+                address = "::1";
+                port = 6167;
+              }
+            ];
           };
         };
       };

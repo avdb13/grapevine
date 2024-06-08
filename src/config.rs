@@ -25,10 +25,8 @@ pub(crate) static DEFAULT_PATH: Lazy<PathBuf> =
 pub(crate) struct Config {
     #[serde(default = "false_fn")]
     pub(crate) conduit_compat: bool,
-    #[serde(default = "default_address")]
-    pub(crate) address: IpAddr,
-    #[serde(default = "default_port")]
-    pub(crate) port: u16,
+    #[serde(default = "default_listen")]
+    pub(crate) listen: Vec<ListenConfig>,
     pub(crate) tls: Option<TlsConfig>,
 
     pub(crate) server_name: OwnedServerName,
@@ -98,12 +96,33 @@ pub(crate) struct TlsConfig {
     pub(crate) key: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub(crate) enum ListenConfig {
+    Tcp {
+        #[serde(default = "default_address")]
+        address: IpAddr,
+        #[serde(default = "default_port")]
+        port: u16,
+        #[serde(default = "false_fn")]
+        tls: bool,
+    },
+}
+
 fn false_fn() -> bool {
     false
 }
 
 fn true_fn() -> bool {
     true
+}
+
+fn default_listen() -> Vec<ListenConfig> {
+    vec![ListenConfig::Tcp {
+        address: default_address(),
+        port: default_port(),
+        tls: false,
+    }]
 }
 
 fn default_address() -> IpAddr {
