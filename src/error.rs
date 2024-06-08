@@ -48,7 +48,7 @@ pub(crate) enum Main {
     DatabaseError(#[source] crate::utils::error::Error),
 
     #[error("failed to serve requests")]
-    Serve(#[source] std::io::Error),
+    Serve(#[from] Serve),
 }
 
 /// Observability initialization errors
@@ -96,4 +96,22 @@ pub(crate) enum ConfigSearch {
 
     #[error("no relevant configuration files found in XDG Base Directories")]
     NotFound,
+}
+
+/// Errors serving traffic
+// Missing docs are allowed here since that kind of information should be
+// encoded in the error messages themselves anyway.
+#[allow(missing_docs)]
+#[derive(Error, Debug)]
+pub(crate) enum Serve {
+    #[error("failed to read TLS cert and key files at {certs:?} and {key:?}")]
+    LoadCerts {
+        certs: String,
+        key: String,
+        #[source]
+        err: std::io::Error,
+    },
+
+    #[error("failed to run request listener")]
+    Listen(#[source] std::io::Error),
 }

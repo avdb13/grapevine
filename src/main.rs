@@ -1,6 +1,5 @@
 use std::{
     future::Future,
-    io,
     net::SocketAddr,
     process::ExitCode,
     sync::{atomic, RwLock},
@@ -127,12 +126,14 @@ async fn try_main() -> Result<(), error::Main> {
         .map_err(Error::DatabaseError)?;
 
     info!("Starting server");
-    run_server().await.map_err(Error::Serve)?;
+    run_server().await?;
 
     Ok(())
 }
 
-async fn run_server() -> io::Result<()> {
+async fn run_server() -> Result<(), error::Serve> {
+    use error::Serve as Error;
+
     let config = &services().globals.config;
     let addr = SocketAddr::from((config.address, config.port));
 
@@ -189,15 +190,20 @@ async fn run_server() -> io::Result<()> {
 
     match &config.tls {
         Some(tls) => {
-            let conf =
-                RustlsConfig::from_pem_file(&tls.certs, &tls.key).await?;
+            let conf = RustlsConfig::from_pem_file(&tls.certs, &tls.key)
+                .await
+                .map_err(|err| Error::LoadCerts {
+                    certs: tls.certs.clone(),
+                    key: tls.key.clone(),
+                    err,
+                })?;
             let server = bind_rustls(addr, conf).handle(handle).serve(app);
 
             #[cfg(feature = "systemd")]
             sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
                 .expect("should be able to notify systemd");
 
-            server.await?;
+            server.await.map_err(Error::Listen)?;
         }
         None => {
             let server = bind(addr).handle(handle).serve(app);
@@ -206,7 +212,7 @@ async fn run_server() -> io::Result<()> {
             sd_notify::notify(true, &[sd_notify::NotifyState::Ready])
                 .expect("should be able to notify systemd");
 
-            server.await?;
+            server.await.map_err(Error::Listen)?;
         }
     }
 
