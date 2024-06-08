@@ -4,6 +4,8 @@ use std::{fmt, iter, path::PathBuf};
 
 use thiserror::Error;
 
+use crate::config::ListenConfig;
+
 /// Formats an [`Error`][0] and its [`source`][1]s with a separator
 ///
 /// [0]: std::error::Error
@@ -108,10 +110,10 @@ pub(crate) enum Serve {
     NoListeners,
 
     #[error(
-        "listener requested TLS, but no TLS cert was specified in the \
+        "listener {0} requested TLS, but no TLS cert was specified in the \
          configuration file. Please set 'tls.certs' and 'tls.key'"
     )]
-    NoTlsCerts,
+    NoTlsCerts(ListenConfig),
 
     #[error("failed to read TLS cert and key files at {certs:?} and {key:?}")]
     LoadCerts {
@@ -121,6 +123,6 @@ pub(crate) enum Serve {
         err: std::io::Error,
     },
 
-    #[error("failed to run request listener")]
-    Listen(#[source] std::io::Error),
+    #[error("failed to run request listener on {1}")]
+    Listen(#[source] std::io::Error, ListenConfig),
 }

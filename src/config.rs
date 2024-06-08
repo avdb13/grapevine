@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    fmt::{self, Display},
     net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
 };
@@ -96,7 +97,7 @@ pub(crate) struct TlsConfig {
     pub(crate) key: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum ListenConfig {
     Tcp {
@@ -107,6 +108,23 @@ pub(crate) enum ListenConfig {
         #[serde(default = "false_fn")]
         tls: bool,
     },
+}
+
+impl Display for ListenConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ListenConfig::Tcp {
+                address,
+                port,
+                tls: false,
+            } => write!(f, "http://{address}:{port}"),
+            ListenConfig::Tcp {
+                address,
+                port,
+                tls: true,
+            } => write!(f, "https://{address}:{port}"),
+        }
+    }
 }
 
 fn false_fn() -> bool {

@@ -132,6 +132,7 @@ async fn try_main() -> Result<(), error::Main> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 async fn run_server() -> Result<(), error::Serve> {
     use error::Serve as Error;
 
@@ -204,6 +205,7 @@ async fn run_server() -> Result<(), error::Serve> {
     }
 
     for listen in &config.listen {
+        info!("Listening for incoming traffic on {listen}");
         match listen {
             ListenConfig::Tcp {
                 address,
@@ -214,8 +216,9 @@ async fn run_server() -> Result<(), error::Serve> {
                 let handle = ServerHandle::new();
                 handles.push(handle.clone());
                 let server = if *tls {
-                    let tls_config =
-                        tls_config.clone().ok_or(Error::NoTlsCerts)?;
+                    let tls_config = tls_config
+                        .clone()
+                        .ok_or_else(|| Error::NoTlsCerts(listen.clone()))?;
                     bind_rustls(addr, tls_config)
                         .handle(handle)
                         .serve(app.clone())
@@ -223,7 +226,9 @@ async fn run_server() -> Result<(), error::Serve> {
                 } else {
                     bind(addr).handle(handle).serve(app.clone()).right_future()
                 };
-                servers.spawn(server);
+                servers.spawn(
+                    server.then(|result| async { (listen.clone(), result) }),
+                );
             }
         }
     }
@@ -235,9 +240,9 @@ async fn run_server() -> Result<(), error::Serve> {
     tokio::spawn(shutdown_signal(handles));
 
     while let Some(result) = servers.join_next().await {
-        result
-            .expect("should be able to join server task")
-            .map_err(Error::Listen)?;
+        let (listen, result) =
+            result.expect("should be able to join server task");
+        result.map_err(|err| Error::Listen(err, listen))?;
     }
 
     Ok(())
