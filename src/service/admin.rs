@@ -28,8 +28,9 @@ use ruma::{
         },
         TimelineEventType,
     },
-    EventId, OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId, RoomVersionId,
-    ServerName, UserId,
+    signatures::verify_json,
+    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomAliasId, OwnedRoomId,
+    RoomAliasId, RoomId, RoomVersionId, ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -1060,25 +1061,55 @@ impl Service {
                             services()
                                 .rooms
                                 .event_handler
+                                // Generally we shouldn't be checking against
+                                // expired keys unless required, so in the admin
+                                // room it might be best to not allow expired
+                                // keys
                                 .fetch_required_signing_keys(
                                     &value,
-                                    &pub_key_map,
+                                    &pub_key_map
                                 )
                                 .await?;
 
-                            let pub_key_map = pub_key_map.read().await;
-                            match ruma::signatures::verify_json(
-                                &pub_key_map,
-                                &value,
-                            ) {
-                                Ok(()) => RoomMessageEventContent::text_plain(
+                            let mut expired_key_map = BTreeMap::new();
+                            let mut valid_key_map = BTreeMap::new();
+
+                            for (server, keys) in pub_key_map.into_inner() {
+                                if keys.valid_until_ts
+                                    > MilliSecondsSinceUnixEpoch::now()
+                                {
+                                    valid_key_map.insert(
+                                        server,
+                                        keys.verify_keys
+                                            .into_iter()
+                                            .map(|(id, key)| (id, key.key))
+                                            .collect(),
+                                    );
+                                } else {
+                                    expired_key_map.insert(
+                                        server,
+                                        keys.verify_keys
+                                            .into_iter()
+                                            .map(|(id, key)| (id, key.key))
+                                            .collect(),
+                                    );
+                                }
+                            }
+
+                            if verify_json(&valid_key_map, &value).is_ok() {
+                                RoomMessageEventContent::text_plain(
                                     "Signature correct",
-                                ),
-                                Err(e) => RoomMessageEventContent::text_plain(
-                                    format!(
-                                        "Signature verification failed: {e}"
-                                    ),
-                                ),
+                                )
+                            } else if let Err(e) =
+                                verify_json(&expired_key_map, &value)
+                            {
+                                RoomMessageEventContent::text_plain(format!(
+                                    "Signature verification failed: {e}"
+                                ))
+                            } else {
+                                RoomMessageEventContent::text_plain(
+                                    "Signature correct (with expired keys)",
+                                )
                             }
                         }
                         Err(e) => RoomMessageEventContent::text_plain(format!(

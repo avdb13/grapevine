@@ -21,7 +21,8 @@ use ruma::{
         OutgoingResponse,
     },
     server_util::authorization::XMatrix,
-    CanonicalJsonValue, OwnedDeviceId, OwnedServerName, OwnedUserId, UserId,
+    CanonicalJsonValue, MilliSecondsSinceUnixEpoch, OwnedDeviceId,
+    OwnedServerName, OwnedUserId, UserId,
 };
 use serde::Deserialize;
 use tracing::{debug, error, warn};
@@ -260,6 +261,7 @@ async fn ar_from_request_inner(
                     .fetch_signing_keys(
                         &x_matrix.origin,
                         vec![x_matrix.key.to_string()],
+                        false,
                     )
                     .await;
 
@@ -274,9 +276,18 @@ async fn ar_from_request_inner(
                     }
                 };
 
+                // Only verify_keys that are currently valid should be used for
+                // validating requests as per MSC4029
                 let pub_key_map = BTreeMap::from_iter([(
                     x_matrix.origin.as_str().to_owned(),
-                    keys,
+                    if keys.valid_until_ts > MilliSecondsSinceUnixEpoch::now() {
+                        keys.verify_keys
+                            .into_iter()
+                            .map(|(id, key)| (id, key.key))
+                            .collect()
+                    } else {
+                        BTreeMap::new()
+                    },
                 )]);
 
                 match ruma::signatures::verify_json(&pub_key_map, &request_map)
