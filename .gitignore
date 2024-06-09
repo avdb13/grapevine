@@ -12,3 +12,6 @@ result*
 
 # GitLab CI cache
 /.gitlab-ci.d
+
+# mdbook artifacts
+/public

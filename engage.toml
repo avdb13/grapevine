@@ -31,6 +31,26 @@ group = "versions"
 script = "cargo clippy -- --version"
 
 [[task]]
+name = "lychee"
+group = "versions"
+script = "lychee --version"
+
+[[task]]
+name = "markdownlint"
+group = "versions"
+script = "markdownlint --version"
+
+[[task]]
+name = "lychee"
+group = "lints"
+script = "lychee --offline ."
+
+[[task]]
+name = "markdownlint"
+group = "lints"
+script = "markdownlint ."
+
+[[task]]
 name = "cargo-fmt"
 group = "lints"
 script = "cargo fmt --check -- --color=always"

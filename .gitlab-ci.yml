@@ -1,6 +1,7 @@
 stages:
   - ci
   - artifacts
+  - deploy
 
 variables:
   # Makes some things print in color
@@ -48,3 +49,14 @@ artifacts:
   image: nixos/nix:2.18.2
   script:
     - ./bin/nix-build-and-cache packages
+
+pages:
+  stage: deploy
+  image: nixos/nix:2.18.2
+  script:
+    - direnv exec . mdbook build
+  artifacts:
+    paths:
+      - public
+  only:
+    - main

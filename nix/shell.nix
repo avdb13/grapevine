@@ -3,6 +3,9 @@
 , engage
 , inputs
 , jq
+, lychee
+, markdownlint-cli
+, mdbook
 , mkShell
 , system
 , toolchain
@@ -27,6 +30,9 @@ mkShell {
     # Keep sorted
     engage
     jq
+    lychee
+    markdownlint-cli
+    mdbook
     toolchain
   ]
   ++

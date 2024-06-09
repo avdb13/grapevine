@@ -1,0 +1,12 @@
+[book]
+title = "Grapevine"
+language = "en"
+multilingual = false
+src = "book"
+
+[build]
+build-dir = "public"
+
+[output.html]
+git-repository-icon = "fa-git-square"
+git-repository-url = "https://gitlab.computer.surgery/matrix/grapevine-fork"
