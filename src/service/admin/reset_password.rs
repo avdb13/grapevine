@@ -1,7 +1,9 @@
 use clap::Parser;
 
-use crate::{api::client_server::AUTO_GEN_PASSWORD_LENGTH, services, utils};
-use crate::service::admin::common::validate_username;
+use crate::{
+    api::client_server::AUTO_GEN_PASSWORD_LENGTH,
+    service::admin::common::validate_username, services, utils,
+};
 
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]

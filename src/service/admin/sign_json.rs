@@ -1,8 +1,7 @@
-use crate::service::admin::common::extract_code_block;
-use crate::services;
+use crate::{service::admin::common::extract_code_block, services};
 
 pub(crate) fn try_process(body: Vec<&str>) -> Result<String, String> {
-    let string = extract_code_block(body)?.join("\n");
+    let string = extract_code_block(&body)?.join("\n");
     match serde_json::from_str(&string) {
         Ok(mut value) => {
             ruma::signatures::sign_json(

@@ -2,7 +2,7 @@ use ruma::{EventId, RoomVersionId};
 
 use crate::PduEvent;
 
-pub(crate) fn try_process(body: &Vec<&str>) -> Result<String, String> {
+pub(crate) fn try_process(body: &[&str]) -> Result<String, String> {
     if body.len() > 2
         && body[0].trim() == "```"
         && body.last().unwrap().trim() == "```"

@@ -26,9 +26,10 @@ use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
 use super::pdu::PduBuilder;
-use crate::{services, Result, utils::truncate_str_for_debug};
+use crate::{services, utils::truncate_str_for_debug, Result};
 
 mod clear_service_caches;
+mod common;
 mod create_user;
 mod deactivate_all;
 mod deactivate_user;
@@ -48,7 +49,6 @@ mod show_config;
 mod sign_json;
 mod unregister_appservice;
 mod verify_json;
-mod common;
 
 #[derive(Debug)]
 pub(crate) enum AdminRoomEvent {

@@ -2,10 +2,11 @@ use std::fmt::Write;
 
 use clap::Parser;
 use ruma::UserId;
-use crate::service::admin::common::extract_code_block;
 
 use super::deactivate_user::Errors;
-use crate::service::admin::deactivate_user::deactivate_user;
+use crate::service::admin::{
+    common::extract_code_block, deactivate_user::deactivate_user,
+};
 
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
@@ -23,7 +24,7 @@ pub(crate) async fn try_process(
         return Err("Incorrect Arguments".to_owned());
     };
 
-    let users = extract_code_block(body)?;
+    let users = extract_code_block(&body)?;
 
     let mut buffer: String = "Deactivation Results:\n".to_owned();
     for user in users {
@@ -35,7 +36,7 @@ pub(crate) async fn try_process(
                 }
                 Err(Errors::NotFound) => {
                     writeln!(buffer, "{user}: Not found on this server")
-                        .expect("Write to String should always succeed")
+                        .expect("Write to String should always succeed");
                 }
                 Err(Errors::NotFrom) => {
                     writeln!(buffer, "{user}: Not from this server")

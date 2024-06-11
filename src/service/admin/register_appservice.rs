@@ -1,10 +1,9 @@
 use ruma::api::appservice::Registration;
-use crate::service::admin::common::extract_code_block;
 
-use crate::services;
+use crate::{service::admin::common::extract_code_block, services};
 
 pub(crate) async fn try_process(body: Vec<&str>) -> Result<String, String> {
-    let appservice_config = extract_code_block(body)?.join("\n");
+    let appservice_config = extract_code_block(&body)?.join("\n");
     let parsed_config =
         serde_yaml::from_str::<Registration>(&appservice_config);
     match parsed_config {

@@ -1,12 +1,11 @@
 use std::collections::BTreeMap;
 
 use tokio::sync::RwLock;
-use crate::service::admin::common::extract_code_block;
 
-use crate::services;
+use crate::{service::admin::common::extract_code_block, services};
 
 pub(crate) async fn try_process(body: Vec<&str>) -> Result<String, String> {
-    let string = extract_code_block(body)?.join("\n");
+    let string = extract_code_block(&body)?.join("\n");
     match serde_json::from_str(&string) {
         Ok(value) => {
             let pub_key_map = RwLock::new(BTreeMap::new());
