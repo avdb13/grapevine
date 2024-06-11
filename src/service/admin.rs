@@ -3,9 +3,7 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 use clap::{Parser, ValueEnum};
 use regex::Regex;
 use ruma::{
-    api::appservice::Registration,
     events::{
-        push_rules::{PushRulesEvent, PushRulesEventContent},
         room::{
             canonical_alias::RoomCanonicalAliasEventContent,
             create::RoomCreateEventContent,
@@ -13,12 +11,6 @@ use ruma::{
             history_visibility::{
                 HistoryVisibility, RoomHistoryVisibilityEventContent,
             },
-            join_rules::{JoinRule, RoomJoinRulesEventContent},
-            member::{MembershipState, RoomMemberEventContent},
-            message::RoomMessageEventContent,
-            name::RoomNameEventContent,
-            power_levels::RoomPowerLevelsEventContent,
-            topic::RoomTopicEventContent,
         },
         TimelineEventType,
     },
@@ -26,8 +18,7 @@ use ruma::{
     RoomVersionId, ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
-use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::warn;
+use tokio::sync::{mpsc, Mutex};
 
 use super::pdu::PduBuilder;
 use crate::{
@@ -343,7 +334,6 @@ impl Service {
         self.sender.send(AdminRoomEvent::SendMessage(message_content)).unwrap();
     }
 
-    // Parse and process a message from the admin room
     // Parse and process a message from the admin room
     #[tracing::instrument(
         skip(self, room_message),
@@ -1253,10 +1243,12 @@ impl Service {
         } else {
             // Wrap the usage line in a code block, and add a yaml block example
             // This makes the usage of e.g. `register-appservice` more accurate
-            let re = Regex::new("(?m)^USAGE: {4}(.*?)
+            let re = Regex::new(
+                "(?m)^USAGE: {4}(.*?)
 
-")
-                .expect("Regex compilation should not fail");
+",
+            )
+            .expect("Regex compilation should not fail");
             re.replace_all(
                 &text,
                 "USAGE:\n<pre>$1[nobr]\n[commandbodyblock]</pre>",
