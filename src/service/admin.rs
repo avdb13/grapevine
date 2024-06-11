@@ -828,7 +828,7 @@ impl Service {
                     .expect("to json value always works"),
                 )?;
 
-                // we dont add a device since we're not the user, just the
+                // we don't add a device since we're not the user, just the
                 // creator
 
                 // Inhibit login does not work for guests
