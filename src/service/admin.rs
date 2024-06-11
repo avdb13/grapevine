@@ -2,26 +2,32 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 
 use clap::{Parser, ValueEnum};
 use regex::Regex;
-
-use ruma::{events::{
-    room::{
-        canonical_alias::RoomCanonicalAliasEventContent,
-        create::RoomCreateEventContent,
-        guest_access::{GuestAccess, RoomGuestAccessEventContent},
-        history_visibility::{
-            HistoryVisibility, RoomHistoryVisibilityEventContent,
+use ruma::{
+    api::appservice::Registration,
+    events::{
+        push_rules::{PushRulesEvent, PushRulesEventContent},
+        room::{
+            canonical_alias::RoomCanonicalAliasEventContent,
+            create::RoomCreateEventContent,
+            guest_access::{GuestAccess, RoomGuestAccessEventContent},
+            history_visibility::{
+                HistoryVisibility, RoomHistoryVisibilityEventContent,
+            },
+            join_rules::{JoinRule, RoomJoinRulesEventContent},
+            member::{MembershipState, RoomMemberEventContent},
+            message::RoomMessageEventContent,
+            name::RoomNameEventContent,
+            power_levels::RoomPowerLevelsEventContent,
+            topic::RoomTopicEventContent,
         },
-        join_rules::{JoinRule, RoomJoinRulesEventContent},
-        member::{MembershipState, RoomMemberEventContent},
-        message::RoomMessageEventContent,
-        name::RoomNameEventContent,
-        power_levels::RoomPowerLevelsEventContent,
-        topic::RoomTopicEventContent,
+        TimelineEventType,
     },
-    TimelineEventType,
-}, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId, RoomVersionId, UserId};
+    EventId, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId,
+    RoomVersionId, ServerName, UserId,
+};
 use serde_json::value::to_raw_value;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, RwLock};
+use tracing::warn;
 
 use super::pdu::PduBuilder;
 use crate::{
@@ -29,9 +35,7 @@ use crate::{
     services,
     utils::{self, dbg_truncate_str},
     Error, PduEvent, Result,
-    services, Result,
 };
-use crate::{services, Result};
 
 mod clear_service_caches;
 mod create_user;
@@ -237,9 +241,19 @@ enum TracingBackend {
     Log,
     Flame,
     Traces,
+}
 
 fn get_grapevine_user() -> OwnedUserId {
-    UserId::parse(format!("@{}:{}", if services().globals.config.conduit_compat { "conduit" } else { "grapevine" }, services().globals.server_name())).expect("Admin bot username should always be valid")
+    UserId::parse(format!(
+        "@{}:{}",
+        if services().globals.config.conduit_compat {
+            "conduit"
+        } else {
+            "grapevine"
+        },
+        services().globals.server_name()
+    ))
+    .expect("Admin bot username should always be valid")
 }
 
 impl Service {
@@ -330,6 +344,7 @@ impl Service {
     }
 
     // Parse and process a message from the admin room
+    // Parse and process a message from the admin room
     #[tracing::instrument(
         skip(self, room_message),
         fields(
@@ -345,41 +360,6 @@ impl Service {
             lines.next().expect("each string has at least one line");
         let body: Vec<_> = lines.collect();
 
-        // let admin_command = match Self::parse_admin_command(command_line) {
-        //     Ok(command) => command,
-        //     Err(error) => {
-        //         let server_name = services().globals.server_name();
-        //         let message =
-        //             error.replace("server.name", server_name.as_str());
-        //         let html_message = Self::usage_to_html(&message, server_name);
-
-        //         return RoomMessageEventContent::text_html(
-        //             message,
-        //             html_message,
-        //         );
-        //     }
-        // };
-
-                RoomMessageEventContent::text_html(
-                    markdown_message,
-                    html_message,
-                )
-            }
-        }
-    }
-
-    // Parse chat messages from the admin room into an AdminCommand object
-    #[tracing::instrument(
-        skip(command_line),
-        fields(
-            command_line = dbg_truncate_str(command_line, 50).as_ref(),
-        ),
-    )]
-    fn parse_admin_command(
-        command_line: &str,
-    ) -> std::result::Result<AdminCommand, String> {
-        // Note: argv[0] is `@grapevine:servername:`, which is treated as the
-        // main command
         let mut argv: Vec<_> = command_line.split_whitespace().collect();
 
         // Replace `help command` with `command --help`
@@ -447,6 +427,37 @@ impl Service {
         }
     }
 
+    // Parse chat messages from the admin room into an AdminCommand object
+    #[tracing::instrument(
+        skip(command_line),
+        fields(
+            command_line = truncate_str_for_debug(command_line, 50).as_ref(),
+        ),
+    )]
+    fn parse_admin_command(
+        command_line: &str,
+    ) -> std::result::Result<AdminCommand, String> {
+        // Note: argv[0] is `@grapevine:servername:`, which is treated as the
+        // main command
+        let mut argv: Vec<_> = command_line.split_whitespace().collect();
+
+        // Replace `help command` with `command --help`
+        // Clap has a help subcommand, but it omits the long help description.
+        if argv.len() > 1 && argv[1] == "help" {
+            argv.remove(1);
+            argv.push("--help");
+        }
+
+        // Backwards compatibility with `register_appservice`-style commands
+        let command_with_dashes;
+        if argv.len() > 1 && argv[1].contains('_') {
+            command_with_dashes = argv[1].replace('_', "-");
+            argv[1] = &command_with_dashes;
+        }
+
+        AdminCommand::try_parse_from(argv).map_err(|error| error.to_string())
+    }
+
     #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip(self, body))]
     async fn process_admin_command(
@@ -460,7 +471,7 @@ impl Service {
                     && body[0].trim() == "```"
                     && body.last().unwrap().trim() == "```"
                 {
-                        let appservice_config = body[1..body.len() - 1].join("\n");
+                    let appservice_config = body[1..body.len() - 1].join("\n");
                     let parsed_config = serde_yaml::from_str::<Registration>(
                         &appservice_config,
                     );
@@ -1625,6 +1636,4 @@ impl Service {
 }
 
 #[cfg(test)]
-mod test {
-
-}
+mod test {}
