@@ -28,7 +28,7 @@ pub(crate) async fn try_process(
 
     let mut buffer: String = "Deactivation Results:\n".to_owned();
     for user in users {
-        if let Ok(user_id) = <&UserId>::try_from(user) {
+        if let Ok(user_id) = <&UserId>::try_from(user.as_str()) {
             match deactivate_user(user_id, input.leave_rooms).await {
                 Ok(()) => {
                     writeln!(buffer, "{user}: Deactivated")
