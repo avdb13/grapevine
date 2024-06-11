@@ -112,53 +112,17 @@ impl Service {
         });
     }
 
-    async fn handler(&self) {
-        let mut receiver = self.receiver.lock().await;
-        // TODO: Use futures when we have long admin commands
-
-        let grapevine_user = get_grapevine_user();
-
-        if let Ok(Some(grapevine_room)) = services().admin.get_admin_room() {
-            loop {
-                tokio::select! {
-                    Some(event) = receiver.recv() => {
-                        let message_content = match event {
-                            AdminRoomEvent::SendMessage(content) => content,
-                            AdminRoomEvent::ProcessMessage(room_message) => {
-                                self.process_admin_message(room_message).await
-                            }
-                        };
-
-                        let mutex_state = Arc::clone(
-                            services().globals
-                                .roomid_mutex_state
-                                .write()
-                                .await
-                                .entry(grapevine_room.clone())
-                                .or_default(),
-                        );
-
-                        let state_lock = mutex_state.lock().await;
-
-                        services()
-                            .rooms
-                            .timeline
-                            .build_and_append_pdu(
-                                PduBuilder {
-                                    event_type: TimelineEventType::RoomMessage,
-                                    content: to_raw_value(&message_content)
-                                        .expect("event is valid, we just created it"),
-                                    unsigned: None,
-                                    state_key: None,
-                                    redacts: None,
-                                },
-                                &grapevine_user,
-                                &grapevine_room,
-                                &state_lock,
-                            )
-                            .await.unwrap();
-                    }
-                }
+    #[tracing::instrument(skip(self, grapevine_room, grapevine_user))]
+    async fn handle_event(
+        &self,
+        event: AdminRoomEvent,
+        grapevine_room: &OwnedRoomId,
+        grapevine_user: &OwnedUserId,
+    ) {
+        let message_content = match event {
+            AdminRoomEvent::SendMessage(content) => content,
+            AdminRoomEvent::ProcessMessage(room_message) => {
+                self.process_admin_message(room_message).await
             }
         };
 
