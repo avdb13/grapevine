@@ -1,22 +1,28 @@
 use std::{collections::BTreeMap, convert::TryInto, sync::Arc};
 
-use ruma::{events::{
-    room::{
-        canonical_alias::RoomCanonicalAliasEventContent,
-        create::RoomCreateEventContent,
-        guest_access::{GuestAccess, RoomGuestAccessEventContent},
-        history_visibility::{
-            HistoryVisibility, RoomHistoryVisibilityEventContent,
+use clap::Parser;
+use regex::Regex;
+use ruma::{
+    events::{
+        room::{
+            canonical_alias::RoomCanonicalAliasEventContent,
+            create::RoomCreateEventContent,
+            guest_access::{GuestAccess, RoomGuestAccessEventContent},
+            history_visibility::{
+                HistoryVisibility, RoomHistoryVisibilityEventContent,
+            },
+            join_rules::{JoinRule, RoomJoinRulesEventContent},
+            member::{MembershipState, RoomMemberEventContent},
+            message::RoomMessageEventContent,
+            name::RoomNameEventContent,
+            power_levels::RoomPowerLevelsEventContent,
+            topic::RoomTopicEventContent,
         },
-        join_rules::{JoinRule, RoomJoinRulesEventContent},
-        member::{MembershipState, RoomMemberEventContent},
-        message::RoomMessageEventContent,
-        name::RoomNameEventContent,
-        power_levels::RoomPowerLevelsEventContent,
-        topic::RoomTopicEventContent,
+        TimelineEventType,
     },
-    TimelineEventType,
-}, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId, RoomVersionId, UserId};
+    OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId,
+    RoomVersionId, UserId,
+};
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
@@ -55,7 +61,6 @@ pub(crate) struct Service {
     receiver: Mutex<mpsc::UnboundedReceiver<AdminRoomEvent>>,
 }
 
-<<<<<<< HEAD
 #[derive(Debug, Clone, ValueEnum)]
 enum TracingBackend {
     Log,
@@ -154,7 +159,6 @@ impl Service {
                             .await.unwrap();
                     }
                 }
->>>>>>> 438237b0 (Deduplicated code)
             }
         };
 
@@ -282,6 +286,90 @@ impl Service {
                 )
             }
         }
+    }
+
+    // Utility to turn clap's `--help` text to HTML.
+    #[tracing::instrument(skip_all)]
+    fn usage_to_html(text: &str, server_name: &ServerName) -> String {
+        // Replace `@grapevine:servername:-subcmdname` with
+        // `@grapevine:servername: subcmdname`
+        let localpart = if services().globals.config.conduit_compat {
+            "conduit"
+        } else {
+            "grapevine"
+        };
+
+        let text = text.replace(
+            &format!("@{localpart}:{server_name}:-"),
+            &format!("@{localpart}:{server_name}: "),
+        );
+
+        // For the grapevine admin room, subcommands become main commands
+        let text = text.replace("SUBCOMMAND", "COMMAND");
+        let text = text.replace("subcommand", "command");
+
+        // Escape option names (e.g. `<element-id>`) since they look like HTML
+        // tags
+        let text = text.replace('<', "&lt;").replace('>', "&gt;");
+
+        // Italicize the first line (command name and version text)
+        let re =
+            Regex::new("^(.*?)\n").expect("Regex compilation should not fail");
+        let text = re.replace_all(&text, "<em>$1</em>\n");
+
+        // Unmerge wrapped lines
+        let text = text.replace("\n            ", "  ");
+
+        // Wrap option names in backticks. The lines look like:
+        //     -V, --version  Prints version information
+        // And are converted to:
+        // <code>-V, --version</code>: Prints version information
+        // (?m) enables multi-line mode for ^ and $
+        let re = Regex::new("(?m)^ {4}(([a-zA-Z_&;-]+(, )?)+)  +(.*)$")
+            .expect("Regex compilation should not fail");
+        let text = re.replace_all(&text, "<code>$1</code>: $4");
+
+        // Look for a `[commandbody]()` tag. If it exists, use all lines below
+        // it that start with a `#` in the USAGE section.
+        let mut text_lines: Vec<&str> = text.lines().collect();
+        let command_body = text_lines
+            .iter()
+            .skip_while(|x| x != &&"[commandbody]()")
+            .skip(1)
+            .map_while(|&x| x.strip_prefix('#'))
+            .map(|x| x.strip_prefix(' ').unwrap_or(x))
+            .collect::<String>();
+
+        text_lines.retain(|x| x != &"[commandbody]()");
+        let text = text_lines.join("\n");
+
+        // Improve the usage section
+        let text = if command_body.is_empty() {
+            // Wrap the usage line in code tags
+            let re = Regex::new("(?m)^USAGE:\n {4}(@grapevine:.*)$")
+                .expect("Regex compilation should not fail");
+            re.replace_all(&text, "USAGE:\n<code>$1</code>").to_string()
+        } else {
+            // Wrap the usage line in a code block, and add a yaml block example
+            // This makes the usage of e.g. `register-appservice` more accurate
+            let re = Regex::new(
+                "(?m)^USAGE: {4}(.*?)
+
+",
+            )
+            .expect("Regex compilation should not fail");
+            re.replace_all(
+                &text,
+                "USAGE:\n<pre>$1[nobr]\n[commandbodyblock]</pre>",
+            )
+            .replace("[commandbodyblock]", &command_body)
+        };
+
+        // Add HTML line-breaks
+
+        text.replace("\n\n\n", "\n\n")
+            .replace('\n', "<br>\n")
+            .replace("[nobr]<br>", "")
     }
 
     /// Create the admin room.
