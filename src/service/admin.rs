@@ -1226,7 +1226,7 @@ impl Service {
         // And are converted to:
         // <code>-V, --version</code>: Prints version information
         // (?m) enables multi-line mode for ^ and $
-        let re = Regex::new("(?m)^    (([a-zA-Z_&;-]+(, )?)+)  +(.*)$")
+        let re = Regex::new("(?m)^ {4}(([a-zA-Z_&;-]+(, )?)+)  +(.*)$")
             .expect("Regex compilation should not fail");
         let text = re.replace_all(&text, "<code>$1</code>: $4");
 
@@ -1247,13 +1247,15 @@ impl Service {
         // Improve the usage section
         let text = if command_body.is_empty() {
             // Wrap the usage line in code tags
-            let re = Regex::new("(?m)^USAGE:\n    (@grapevine:.*)$")
+            let re = Regex::new("(?m)^USAGE:\n {4}(@grapevine:.*)$")
                 .expect("Regex compilation should not fail");
             re.replace_all(&text, "USAGE:\n<code>$1</code>").to_string()
         } else {
             // Wrap the usage line in a code block, and add a yaml block example
             // This makes the usage of e.g. `register-appservice` more accurate
-            let re = Regex::new("(?m)^USAGE:\n    (.*?)\n\n")
+            let re = Regex::new("(?m)^USAGE: {4}(.*?)
+
+")
                 .expect("Regex compilation should not fail");
             re.replace_all(
                 &text,
