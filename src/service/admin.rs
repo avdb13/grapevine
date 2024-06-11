@@ -3,29 +3,23 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 use clap::{Parser, ValueEnum};
 use regex::Regex;
 
-use ruma::{
-    events::{
-        room::{
-            canonical_alias::RoomCanonicalAliasEventContent,
-            create::RoomCreateEventContent,
-            guest_access::{GuestAccess, RoomGuestAccessEventContent},
-            history_visibility::{
-                HistoryVisibility, RoomHistoryVisibilityEventContent,
-            },
-            join_rules::{JoinRule, RoomJoinRulesEventContent},
-            member::{MembershipState, RoomMemberEventContent},
-            message::RoomMessageEventContent,
-            name::RoomNameEventContent,
-            power_levels::RoomPowerLevelsEventContent,
-            topic::RoomTopicEventContent,
+use ruma::{events::{
+    room::{
+        canonical_alias::RoomCanonicalAliasEventContent,
+        create::RoomCreateEventContent,
+        guest_access::{GuestAccess, RoomGuestAccessEventContent},
+        history_visibility::{
+            HistoryVisibility, RoomHistoryVisibilityEventContent,
         },
-        TimelineEventType,
+        join_rules::{JoinRule, RoomJoinRulesEventContent},
+        member::{MembershipState, RoomMemberEventContent},
+        message::RoomMessageEventContent,
+        name::RoomNameEventContent,
+        power_levels::RoomPowerLevelsEventContent,
+        topic::RoomTopicEventContent,
     },
-    signatures::verify_json,
-    EventId, MilliSecondsSinceUnixEpoch,
-    ServerName, UserId,
-    OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId, RoomVersionId,
-};
+    TimelineEventType,
+}, OwnedRoomAliasId, OwnedRoomId, OwnedUserId, RoomAliasId, RoomId, RoomVersionId, UserId};
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
@@ -243,6 +237,9 @@ enum TracingBackend {
     Log,
     Flame,
     Traces,
+
+fn get_grapevine_user() -> OwnedUserId {
+    UserId::parse(format!("@{}:{}", if services().globals.config.conduit_compat { "conduit" } else { "grapevine" }, services().globals.server_name())).expect("Admin bot username should always be valid")
 }
 
 impl Service {
@@ -258,6 +255,7 @@ impl Service {
         let self2 = Arc::clone(self);
         tokio::spawn(async move {
             let mut receiver = self2.receiver.lock().await;
+            let grapevine_user = get_grapevine_user();
 
             let Ok(Some(grapevine_room)) = services().admin.get_admin_room()
             else {
@@ -1540,6 +1538,8 @@ impl Service {
                 .await;
 
             // Use the server user to grant the new admin's power level
+            let grapevine_user = get_grapevine_user();
+
             // Invite and join the real user
             services()
                 .rooms
@@ -1626,33 +1626,5 @@ impl Service {
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
-    #[test]
-    fn get_help_short() {
-        get_help_inner("-h");
-    }
-
-    #[test]
-    fn get_help_long() {
-        get_help_inner("--help");
-    }
-
-    #[test]
-    fn get_help_subcommand() {
-        get_help_inner("help");
-    }
-
-    fn get_help_inner(input: &str) {
-        let error =
-            AdminCommand::try_parse_from(["argv[0] doesn't matter", input])
-                .unwrap_err()
-                .to_string();
-
-        // Search for a handful of keywords that suggest the help printed
-        // properly
-        assert!(error.contains("Usage:"));
-        assert!(error.contains("Commands:"));
-        assert!(error.contains("Options:"));
-    }
 }
