@@ -1,7 +1,7 @@
 use clap::Parser;
-use ruma::UserId;
 
 use crate::{api::client_server::AUTO_GEN_PASSWORD_LENGTH, services, utils};
+use crate::service::admin::common::validate_username;
 
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
@@ -13,17 +13,7 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
     let Ok(input) = Args::try_parse_from(argv) else {
         return Err("Incorrect Arguments".to_owned());
     };
-    let user_id = match UserId::parse_with_server_name(
-        input.username.as_str().to_lowercase(),
-        services().globals.server_name(),
-    ) {
-        Ok(id) => id,
-        Err(e) => {
-            return Err(format!(
-                "The supplied username is not a valid username: {e}"
-            ))
-        }
-    };
+    let user_id = validate_username(input.username)?;
 
     // Checks if user is local
     if user_id.server_name() != services().globals.server_name() {
@@ -46,7 +36,7 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
         Ok(false) => return Err("The specified user does not exist".to_owned()),
         Err(e) => {
             return Err(format!(
-                "An error occured while checking if the account already \
+                "An error occurred while checking if the account already \
                  exists: {e:?}"
             ))
         }

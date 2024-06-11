@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use clap::Parser;
 use ruma::UserId;
+use crate::service::admin::common::extract_code_block;
 
 use super::deactivate_user::Errors;
 use crate::service::admin::deactivate_user::deactivate_user;
@@ -21,16 +22,8 @@ pub(crate) async fn try_process(
     let Ok(input) = Args::try_parse_from(argv) else {
         return Err("Incorrect Arguments".to_owned());
     };
-    if body.len() < 3
-        || body[0].trim() != "```"
-        || body.last().unwrap().trim() == "```"
-    {
-        return Err("Expected code block in command body. Add --help for \
-                    details."
-            .to_owned());
-    }
 
-    let users = body.clone().drain(1..body.len() - 1).collect::<Vec<_>>();
+    let users = extract_code_block(body)?;
 
     let mut buffer: String = "Deactivation Results:\n".to_owned();
     for user in users {
@@ -49,7 +42,7 @@ pub(crate) async fn try_process(
                         .expect("Write to String should always succeed");
                 }
                 Err(Errors::Error(e)) => {
-                    writeln!(buffer, "{user}: Error occured: {e:?}")
+                    writeln!(buffer, "{user}: Error occurred: {e:?}")
                         .expect("Write to String should always succeed");
                 }
             }

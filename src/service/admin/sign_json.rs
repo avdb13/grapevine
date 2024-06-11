@@ -1,15 +1,8 @@
+use crate::service::admin::common::extract_code_block;
 use crate::services;
 
-pub(crate) fn try_process(body: &Vec<&str>) -> Result<String, String> {
-    if body.len() < 3
-        || body[0].trim() != "```"
-        || body.last().unwrap().trim() == "```"
-    {
-        return Err("Expected code block in command body. Add --help for \
-                    details."
-            .to_owned());
-    }
-    let string = body[1..body.len() - 1].join("\n");
+pub(crate) fn try_process(body: Vec<&str>) -> Result<String, String> {
+    let string = extract_code_block(body)?.join("\n");
     match serde_json::from_str(&string) {
         Ok(mut value) => {
             ruma::signatures::sign_json(

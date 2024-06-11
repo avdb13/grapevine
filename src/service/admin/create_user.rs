@@ -1,10 +1,8 @@
 use clap::Parser;
-use ruma::{
-    events::push_rules::{PushRulesEvent, PushRulesEventContent},
-    UserId,
-};
+use ruma::events::push_rules::{PushRulesEvent, PushRulesEventContent};
 
 use crate::{api::client_server::AUTO_GEN_PASSWORD_LENGTH, services, utils};
+use crate::service::admin::common::validate_username;
 
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
@@ -21,17 +19,7 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
         .password
         .unwrap_or_else(|| utils::random_string(AUTO_GEN_PASSWORD_LENGTH));
     // Validate user id
-    let user_id = match UserId::parse_with_server_name(
-        input.username.as_str().to_lowercase(),
-        services().globals.server_name(),
-    ) {
-        Ok(id) => id,
-        Err(e) => {
-            return Err(format!(
-                "The supplied username is not a valid username: {e}"
-            ))
-        }
-    };
+    let user_id = validate_username(input.username)?;
     // Test if the proposed user id is allowed historically
     if user_id.is_historical() {
         return Err(format!(
@@ -46,7 +34,7 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
         }
         Err(e) => {
             return Err(format!(
-                "An error occured while checking if the account already \
+                "An error occurred while checking if the account already \
                  exists: {e:?}"
             ))
         }
@@ -56,11 +44,11 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
         return Err(format!("Failed to create user {e:?}"));
     }
 
-    // Default to pretty displayname
-    let displayname = user_id.localpart().to_owned();
+    // Default to pretty display name
+    let display_name = user_id.localpart().to_owned();
 
     if let Err(e) =
-        services().users.set_displayname(&user_id, Some(displayname))
+        services().users.set_displayname(&user_id, Some(display_name))
     {
         return Err(format!("Failed to set display name of new user: {e:?}"));
     }
@@ -80,7 +68,7 @@ pub(crate) fn try_process(argv: Vec<&str>) -> Result<String, String> {
         return Err(format!("Failed to set initial account data: {e:?}"));
     }
 
-    // we dont add a device since we're not the user, just the
+    // we don't add a device since we're not the user, just the
     // creator
 
     // Inhibit login does not work for guests

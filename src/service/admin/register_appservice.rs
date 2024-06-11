@@ -1,17 +1,10 @@
 use ruma::api::appservice::Registration;
+use crate::service::admin::common::extract_code_block;
 
 use crate::services;
 
 pub(crate) async fn try_process(body: Vec<&str>) -> Result<String, String> {
-    if body.len() < 3
-        || body[0].trim() != "```"
-        || body.last().unwrap().trim() == "```"
-    {
-        return Err("Expected code block in command body. Add --help for \
-                    details."
-            .to_owned());
-    }
-    let appservice_config = body[1..body.len() - 1].join("\n");
+    let appservice_config = extract_code_block(body)?.join("\n");
     let parsed_config =
         serde_yaml::from_str::<Registration>(&appservice_config);
     match parsed_config {

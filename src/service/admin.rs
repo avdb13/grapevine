@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, convert::TryInto, sync::Arc};
 
-use clap::Parser;
 use regex::Regex;
 use ruma::{
     events::{
@@ -27,7 +26,7 @@ use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex};
 
 use super::pdu::PduBuilder;
-use crate::{services, Result};
+use crate::{services, Result, utils::truncate_str_for_debug};
 
 mod clear_service_caches;
 mod create_user;
@@ -49,6 +48,7 @@ mod show_config;
 mod sign_json;
 mod unregister_appservice;
 mod verify_json;
+mod common;
 
 #[derive(Debug)]
 pub(crate) enum AdminRoomEvent {
@@ -222,7 +222,7 @@ impl Service {
             }
             Some(&"reset-password") => reset_password::try_process(argv),
             Some(&"show-config") => show_config::try_process(),
-            Some(&"sign-json") => sign_json::try_process(&body),
+            Some(&"sign-json") => sign_json::try_process(body),
             Some(&"unregister-appservice") => {
                 unregister_appservice::try_process(argv).await
             }
@@ -341,7 +341,6 @@ impl Service {
     /// Users in this room are considered admins by grapevine, and the room can
     /// be used to issue admin commands by talking to the server user inside
     /// it.
-    #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip(self))]
     pub(crate) async fn create_admin_room(&self) -> Result<()> {
         let room_id = RoomId::new(services().globals.server_name());
@@ -354,7 +353,10 @@ impl Service {
             .lock_key(room_id.clone())
             .await;
 
-        services().users.create(&services().globals.admin_bot_user_id, None)?;
+        // Create a user for the server
+        let grapevine_user = get_grapevine_user();
+
+        services().users.create(&grapevine_user, None)?;
 
         let room_version = services().globals.default_room_version();
         let mut content = match room_version {
