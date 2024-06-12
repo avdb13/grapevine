@@ -1,10 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    convert::{TryFrom, TryInto},
-    fmt::Write,
-    sync::Arc,
-    time::Instant,
-};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
 
 use clap::Parser;
 use regex::Regex;
@@ -29,8 +23,8 @@ use ruma::{
         TimelineEventType,
     },
     signatures::verify_json,
-    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomAliasId, OwnedRoomId,
-    RoomAliasId, RoomId, RoomVersionId, ServerName, UserId,
+    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomId, RoomId, RoomVersionId,
+    ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -1410,10 +1404,7 @@ impl Service {
             .await?;
 
         // 6. Room alias
-        let alias: OwnedRoomAliasId =
-            format!("#admins:{}", services().globals.server_name())
-                .try_into()
-                .expect("#admins:server_name is a valid alias name");
+        let alias = &services().globals.admin_bot_room_alias_id;
 
         services()
             .rooms
@@ -1436,7 +1427,7 @@ impl Service {
             )
             .await?;
 
-        services().rooms.alias.set_alias(&alias, &room_id)?;
+        services().rooms.alias.set_alias(alias, &room_id)?;
 
         Ok(())
     }
@@ -1448,12 +1439,10 @@ impl Service {
     // Allowed because this function uses `services()`
     #[allow(clippy::unused_self)]
     pub(crate) fn get_admin_room(&self) -> Result<Option<OwnedRoomId>> {
-        let admin_room_alias: Box<RoomAliasId> =
-            format!("#admins:{}", services().globals.server_name())
-                .try_into()
-                .expect("#admins:server_name is a valid alias name");
-
-        services().rooms.alias.resolve_local_alias(&admin_room_alias)
+        services()
+            .rooms
+            .alias
+            .resolve_local_alias(&services().globals.admin_bot_room_alias_id)
     }
 
     /// Invite the user to the grapevine admin room.

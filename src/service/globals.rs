@@ -24,8 +24,9 @@ use hyper_util::{
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use ruma::{
     api::federation::discovery::ServerSigningKeys, serde::Base64, DeviceId,
-    MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedUserId, RoomVersionId, ServerName, UserId,
+    MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomAliasId, OwnedRoomId,
+    OwnedServerName, OwnedUserId, RoomAliasId, RoomVersionId, ServerName,
+    UserId,
 };
 use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
 use tracing::{error, info, Instrument};
@@ -53,6 +54,7 @@ pub(crate) struct Service {
     pub(crate) stable_room_versions: Vec<RoomVersionId>,
     pub(crate) unstable_room_versions: Vec<RoomVersionId>,
     pub(crate) admin_bot_user_id: OwnedUserId,
+    pub(crate) admin_bot_room_alias_id: OwnedRoomAliasId,
     pub(crate) bad_event_ratelimiter:
         Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
     pub(crate) bad_signature_ratelimiter:
@@ -218,6 +220,10 @@ impl Service {
         ))
         .expect("admin bot user ID should be valid");
 
+        let admin_bot_room_alias_id =
+            RoomAliasId::parse(format!("#admins:{}", config.server_name))
+                .expect("admin bot room alias ID should be valid");
+
         let mut s = Self {
             db,
             config,
@@ -244,6 +250,7 @@ impl Service {
             stable_room_versions,
             unstable_room_versions,
             admin_bot_user_id,
+            admin_bot_room_alias_id,
             bad_event_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_signature_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_query_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
