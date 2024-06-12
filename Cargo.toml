@@ -141,6 +141,7 @@ tracing-flame = "0.2.0"
 tracing-opentelemetry = "0.24.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 trust-dns-resolver = "0.23.2"
+xdg = "2.5.2"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.29", features = ["resource"] }

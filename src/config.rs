@@ -1,8 +1,10 @@
 use std::{
+    borrow::Cow,
     net::{IpAddr, Ipv4Addr},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use once_cell::sync::Lazy;
 use ruma::{OwnedServerName, RoomVersionId};
 use serde::Deserialize;
 
@@ -13,6 +15,10 @@ mod proxy;
 
 use env_filter_clone::EnvFilterClone;
 use proxy::ProxyConfig;
+
+/// The default configuration file path
+pub(crate) static DEFAULT_PATH: Lazy<PathBuf> =
+    Lazy::new(|| [env!("CARGO_PKG_NAME"), "config.toml"].iter().collect());
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Deserialize)]
@@ -163,12 +169,28 @@ pub(crate) fn default_default_room_version() -> RoomVersionId {
     RoomVersionId::V10
 }
 
-/// Load the configuration from the given path
-pub(crate) async fn load<P>(path: P) -> Result<Config, error::Config>
+/// Search default locations for a configuration file
+///
+/// If one isn't found, the list of tried paths is returned.
+fn search() -> Result<PathBuf, error::ConfigSearch> {
+    use error::ConfigSearch as Error;
+
+    xdg::BaseDirectories::new()?
+        .find_config_file(&*DEFAULT_PATH)
+        .ok_or(Error::NotFound)
+}
+
+/// Load the configuration from the given path or XDG Base Directories
+pub(crate) async fn load<P>(path: Option<P>) -> Result<Config, error::Config>
 where
     P: AsRef<Path>,
 {
     use error::Config as Error;
+
+    let path = match path.as_ref().map(AsRef::as_ref) {
+        Some(x) => Cow::Borrowed(x),
+        None => Cow::Owned(search()?),
+    };
 
     let path = path.as_ref();
 

@@ -75,9 +75,25 @@ pub(crate) enum Observability {
 #[allow(missing_docs)]
 #[derive(Error, Debug)]
 pub(crate) enum Config {
+    #[error("failed to find configuration file")]
+    Search(#[from] ConfigSearch),
+
     #[error("failed to read configuration file {1:?}")]
     Read(#[source] std::io::Error, PathBuf),
 
     #[error("failed to parse configuration file {1:?}")]
     Parse(#[source] toml::de::Error, PathBuf),
+}
+
+/// Errors that can occur while searching for a config file
+// Missing docs are allowed here since that kind of information should be
+// encoded in the error messages themselves anyway.
+#[allow(missing_docs)]
+#[derive(Error, Debug)]
+pub(crate) enum ConfigSearch {
+    #[error("XDG Base Directory error")]
+    Xdg(#[from] xdg::BaseDirectoriesError),
+
+    #[error("no relevant configuration files found in XDG Base Directories")]
+    NotFound,
 }

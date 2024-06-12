@@ -106,7 +106,7 @@ async fn try_main() -> Result<(), error::Main> {
 
     let args = args::parse();
 
-    let config = config::load(&args.config).await?;
+    let config = config::load(args.config.as_ref()).await?;
 
     let _guard = observability::init(&config);
 
