@@ -812,6 +812,15 @@ pub(crate) async fn send_transaction_message_route(
             Edu::Receipt(receipt) => {
                 for (room_id, room_updates) in receipt.receipts {
                     for (user_id, user_updates) in room_updates.read {
+                        if user_id.server_name() != sender_servername {
+                            warn!(
+                                %user_id,
+                                %sender_servername,
+                                "Got receipt EDU from incorrect homeserver, \
+                                ignoring",
+                            );
+                            continue;
+                        }
                         if let Some((event_id, _)) = user_updates
                             .event_ids
                             .iter()
@@ -859,6 +868,14 @@ pub(crate) async fn send_transaction_message_route(
                 }
             }
             Edu::Typing(typing) => {
+                if typing.user_id.server_name() != sender_servername {
+                    warn!(
+                        user_id = %typing.user_id,
+                        %sender_servername,
+                        "Got typing EDU from incorrect homeserver, ignoring",
+                    );
+                    continue;
+                }
                 if services()
                     .rooms
                     .state_cache
@@ -889,6 +906,15 @@ pub(crate) async fn send_transaction_message_route(
                 user_id,
                 ..
             }) => {
+                if user_id.server_name() != sender_servername {
+                    warn!(
+                        %user_id,
+                        %sender_servername,
+                        "Got device list update EDU from incorrect homeserver, \
+                        ignoring",
+                    );
+                    continue;
+                }
                 services().users.mark_device_key_update(&user_id)?;
             }
             Edu::DirectToDevice(DirectDeviceContent {
@@ -897,22 +923,27 @@ pub(crate) async fn send_transaction_message_route(
                 message_id,
                 messages,
             }) => {
+                if sender.server_name() != sender_servername {
+                    warn!(
+                        user_id = %sender,
+                        %sender_servername,
+                        "Got direct-to-device EDU from incorrect homeserver, \
+                        ignoring",
+                    );
+                    continue;
+                }
                 // Check if this is a new transaction id
                 if services()
                     .transaction_ids
                     .existing_txnid(&sender, None, &message_id)?
-                    .is_some()
+                    .is_none()
                 {
-                    continue;
-                }
-
-                for (target_user_id, map) in &messages {
-                    for (target_device_id_maybe, event) in map {
-                        match target_device_id_maybe {
-                            DeviceIdOrAllDevices::DeviceId(
-                                target_device_id,
-                            ) => {
-                                services().users.add_to_device_event(
+                    for (target_user_id, map) in &messages {
+                        for (target_device_id_maybe, event) in map {
+                            match target_device_id_maybe {
+                                DeviceIdOrAllDevices::DeviceId(
+                                    target_device_id,
+                                ) => services().users.add_to_device_event(
                                     &sender,
                                     target_user_id,
                                     target_device_id,
@@ -927,41 +958,41 @@ pub(crate) async fn send_transaction_message_route(
                                             "Event is invalid",
                                         )
                                     })?,
-                                )?;
-                            }
+                                )?,
 
-                            DeviceIdOrAllDevices::AllDevices => {
-                                for target_device_id in services()
-                                    .users
-                                    .all_device_ids(target_user_id)
-                                {
-                                    services().users.add_to_device_event(
-                                        &sender,
-                                        target_user_id,
-                                        &target_device_id?,
-                                        &ev_type.to_string(),
-                                        event.deserialize_as().map_err(
-                                            |_| {
-                                                Error::BadRequest(
-                                                    ErrorKind::InvalidParam,
-                                                    "Event is invalid",
-                                                )
-                                            },
-                                        )?,
-                                    )?;
+                                DeviceIdOrAllDevices::AllDevices => {
+                                    for target_device_id in services()
+                                        .users
+                                        .all_device_ids(target_user_id)
+                                    {
+                                        services().users.add_to_device_event(
+                                            &sender,
+                                            target_user_id,
+                                            &target_device_id?,
+                                            &ev_type.to_string(),
+                                            event.deserialize_as().map_err(
+                                                |_| {
+                                                    Error::BadRequest(
+                                                        ErrorKind::InvalidParam,
+                                                        "Event is invalid",
+                                                    )
+                                                },
+                                            )?,
+                                        )?;
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // Save transaction id with empty data
-                services().transaction_ids.add_txnid(
-                    &sender,
-                    None,
-                    &message_id,
-                    &[],
-                )?;
+                    // Save transaction id with empty data
+                    services().transaction_ids.add_txnid(
+                        &sender,
+                        None,
+                        &message_id,
+                        &[],
+                    )?;
+                }
             }
             Edu::SigningKeyUpdate(SigningKeyUpdateContent {
                 user_id,
