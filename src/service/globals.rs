@@ -25,7 +25,7 @@ use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use ruma::{
     api::federation::discovery::ServerSigningKeys, serde::Base64, DeviceId,
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    RoomVersionId, ServerName, UserId,
+    OwnedUserId, RoomVersionId, ServerName, UserId,
 };
 use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
 use tracing::{error, info, Instrument};
@@ -52,6 +52,7 @@ pub(crate) struct Service {
     default_client: reqwest::Client,
     pub(crate) stable_room_versions: Vec<RoomVersionId>,
     pub(crate) unstable_room_versions: Vec<RoomVersionId>,
+    pub(crate) admin_bot_user_id: OwnedUserId,
     pub(crate) bad_event_ratelimiter:
         Arc<RwLock<HashMap<OwnedEventId, RateLimitState>>>,
     pub(crate) bad_signature_ratelimiter:
@@ -206,6 +207,17 @@ impl Service {
         let unstable_room_versions =
             vec![RoomVersionId::V3, RoomVersionId::V4, RoomVersionId::V5];
 
+        let admin_bot_user_id = UserId::parse(format!(
+            "@{}:{}",
+            if config.conduit_compat {
+                "conduit"
+            } else {
+                "grapevine"
+            },
+            config.server_name,
+        ))
+        .expect("admin bot user ID should be valid");
+
         let mut s = Self {
             db,
             config,
@@ -231,6 +243,7 @@ impl Service {
             jwt_decoding_key,
             stable_room_versions,
             unstable_room_versions,
+            admin_bot_user_id,
             bad_event_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_signature_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
             bad_query_ratelimiter: Arc::new(RwLock::new(HashMap::new())),

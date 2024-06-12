@@ -231,16 +231,6 @@ impl Service {
         let self2 = Arc::clone(self);
         tokio::spawn(async move {
             let mut receiver = self2.receiver.lock().await;
-            let grapevine_user = UserId::parse(format!(
-                "@{}:{}",
-                if services().globals.config.conduit_compat {
-                    "conduit"
-                } else {
-                    "grapevine"
-                },
-                services().globals.server_name()
-            ))
-            .expect("admin bot username should be valid");
 
             let Ok(Some(grapevine_room)) = services().admin.get_admin_room()
             else {
@@ -253,23 +243,16 @@ impl Service {
                     .await
                     .expect("admin command channel has been closed");
 
-                Self::handle_event(
-                    &self2,
-                    event,
-                    &grapevine_room,
-                    &grapevine_user,
-                )
-                .await;
+                Self::handle_event(&self2, event, &grapevine_room).await;
             }
         });
     }
 
-    #[tracing::instrument(skip(self, grapevine_room, grapevine_user))]
+    #[tracing::instrument(skip(self, grapevine_room))]
     async fn handle_event(
         &self,
         event: AdminRoomEvent,
         grapevine_room: &OwnedRoomId,
-        grapevine_user: &ruma::OwnedUserId,
     ) {
         let message_content = match event {
             AdminRoomEvent::SendMessage(content) => content,
@@ -302,7 +285,7 @@ impl Service {
                     state_key: None,
                     redacts: None,
                 },
-                grapevine_user,
+                &services().globals.admin_bot_user_id,
                 grapevine_room,
                 &state_lock,
             )
@@ -716,16 +699,7 @@ impl Service {
 
                 // Check if the specified user is valid
                 if !services().users.exists(&user_id)?
-                    || user_id
-                        == UserId::parse_with_server_name(
-                            if services().globals.config.conduit_compat {
-                                "conduit"
-                            } else {
-                                "grapevine"
-                            },
-                            services().globals.server_name(),
-                        )
-                        .expect("grapevine user exists")
+                    || user_id == services().globals.admin_bot_user_id
                 {
                     return Ok(RoomMessageEventContent::text_plain(
                         "The specified user does not exist!",
@@ -1133,11 +1107,7 @@ impl Service {
     fn usage_to_html(text: &str, server_name: &ServerName) -> String {
         // Replace `@grapevine:servername:-subcmdname` with
         // `@grapevine:servername: subcmdname`
-        let localpart = if services().globals.config.conduit_compat {
-            "conduit"
-        } else {
-            "grapevine"
-        };
+        let localpart = services().globals.admin_bot_user_id.localpart();
 
         let text = text.replace(
             &format!("@{localpart}:{server_name}:-"),
@@ -1231,19 +1201,7 @@ impl Service {
         );
         let state_lock = mutex_state.lock().await;
 
-        // Create a user for the server
-        let grapevine_user = UserId::parse(format!(
-            "@{}:{}",
-            if services().globals.config.conduit_compat {
-                "conduit"
-            } else {
-                "grapevine"
-            },
-            services().globals.server_name()
-        ))
-        .expect("admin bot username should be valid");
-
-        services().users.create(&grapevine_user, None)?;
+        services().users.create(&services().globals.admin_bot_user_id, None)?;
 
         let room_version = services().globals.default_room_version();
         let mut content = match room_version {
@@ -1256,9 +1214,9 @@ impl Service {
             | RoomVersionId::V7
             | RoomVersionId::V8
             | RoomVersionId::V9
-            | RoomVersionId::V10 => {
-                RoomCreateEventContent::new_v1(grapevine_user.clone())
-            }
+            | RoomVersionId::V10 => RoomCreateEventContent::new_v1(
+                services().globals.admin_bot_user_id.clone(),
+            ),
             RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
             _ => unreachable!("Validity of room version already checked"),
         };
@@ -1279,7 +1237,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1304,10 +1262,12 @@ impl Service {
                     })
                     .expect("event is valid, we just created it"),
                     unsigned: None,
-                    state_key: Some(grapevine_user.to_string()),
+                    state_key: Some(
+                        services().globals.admin_bot_user_id.to_string(),
+                    ),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1315,7 +1275,7 @@ impl Service {
 
         // 3. Power levels
         let mut users = BTreeMap::new();
-        users.insert(grapevine_user.clone(), 100.into());
+        users.insert(services().globals.admin_bot_user_id.clone(), 100.into());
 
         services()
             .rooms
@@ -1332,7 +1292,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1353,7 +1313,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1376,7 +1336,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1397,7 +1357,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1420,7 +1380,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1443,7 +1403,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1470,7 +1430,7 @@ impl Service {
                     state_key: Some(String::new()),
                     redacts: None,
                 },
-                &grapevine_user,
+                &services().globals.admin_bot_user_id,
                 &room_id,
                 &state_lock,
             )
@@ -1518,16 +1478,6 @@ impl Service {
             let state_lock = mutex_state.lock().await;
 
             // Use the server user to grant the new admin's power level
-            let grapevine_user = UserId::parse_with_server_name(
-                if services().globals.config.conduit_compat {
-                    "conduit"
-                } else {
-                    "grapevine"
-                },
-                services().globals.server_name(),
-            )
-            .expect("admin bot username should be valid");
-
             // Invite and join the real user
             services()
                 .rooms
@@ -1550,7 +1500,7 @@ impl Service {
                         state_key: Some(user_id.to_string()),
                         redacts: None,
                     },
-                    &grapevine_user,
+                    &services().globals.admin_bot_user_id,
                     &room_id,
                     &state_lock,
                 )
@@ -1584,7 +1534,10 @@ impl Service {
 
             // Set power level
             let mut users = BTreeMap::new();
-            users.insert(grapevine_user.clone(), 100.into());
+            users.insert(
+                services().globals.admin_bot_user_id.clone(),
+                100.into(),
+            );
             users.insert(user_id.to_owned(), 100.into());
 
             services()
@@ -1602,7 +1555,7 @@ impl Service {
                         state_key: Some(String::new()),
                         redacts: None,
                     },
-                    &grapevine_user,
+                    &services().globals.admin_bot_user_id,
                     &room_id,
                     &state_lock,
                 )
