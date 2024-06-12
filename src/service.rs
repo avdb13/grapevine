@@ -61,7 +61,7 @@ impl Services {
                 db,
             },
             rooms: rooms::Service {
-                alias: db,
+                alias: rooms::alias::Service::new(db),
                 auth_chain: rooms::auth_chain::Service {
                     db,
                 },
