@@ -536,6 +536,11 @@ impl Service {
                         if to_admin_bot
                             && !from_admin_bot
                             && admin_room == pdu.room_id
+                            && services()
+                                .rooms
+                                .state_cache
+                                .is_joined(admin_bot, &admin_room)
+                                .unwrap_or(false)
                         {
                             services().admin.process_message(body);
                         }
