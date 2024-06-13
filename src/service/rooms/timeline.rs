@@ -522,7 +522,9 @@ impl Service {
                         .starts_with(&format!("{admin_bot}: "))
                         || body.starts_with(&format!("{admin_bot} "))
                         || body == format!("{admin_bot}:")
-                        || body == admin_bot.as_str();
+                        || body == admin_bot.as_str()
+                        || body.starts_with("!admin ")
+                        || body == "!admin";
 
                     // This will evaluate to false if the emergency password
                     // is set up so that the administrator can execute commands
