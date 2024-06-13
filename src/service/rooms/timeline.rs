@@ -516,33 +516,25 @@ impl Service {
                         &body,
                     )?;
 
-                    let server_user = format!(
-                        "@{}:{}",
-                        if services().globals.config.conduit_compat {
-                            "conduit"
-                        } else {
-                            "grapevine"
-                        },
-                        services().globals.server_name()
-                    );
+                    let admin_bot = &services().globals.admin_bot_user_id;
 
-                    let to_grapevine = body
-                        .starts_with(&format!("{server_user}: "))
-                        || body.starts_with(&format!("{server_user} "))
-                        || body == format!("{server_user}:")
-                        || body == server_user;
+                    let to_admin_bot = body
+                        .starts_with(&format!("{admin_bot}: "))
+                        || body.starts_with(&format!("{admin_bot} "))
+                        || body == format!("{admin_bot}:")
+                        || body == admin_bot.as_str();
 
-                    // This will evaluate to false if the emergency password is
-                    // set up so that the administrator can
-                    // execute commands as grapevine
-                    let from_grapevine = pdu.sender == server_user
+                    // This will evaluate to false if the emergency password
+                    // is set up so that the administrator can execute commands
+                    // as the admin bot
+                    let from_admin_bot = &pdu.sender == admin_bot
                         && services().globals.emergency_password().is_none();
 
                     if let Some(admin_room) =
                         services().admin.get_admin_room()?
                     {
-                        if to_grapevine
-                            && !from_grapevine
+                        if to_admin_bot
+                            && !from_admin_bot
                             && admin_room == pdu.room_id
                         {
                             services().admin.process_message(body);

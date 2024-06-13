@@ -529,21 +529,12 @@ impl KeyValueDatabase {
         // Matrix resource ownership is based on the server name; changing it
         // requires recreating the database from scratch.
         if services().users.count()? > 0 {
-            let grapevine_user = UserId::parse_with_server_name(
-                if services().globals.config.conduit_compat {
-                    "conduit"
-                } else {
-                    "grapevine"
-                },
-                services().globals.server_name(),
-            )
-            .expect("admin bot username should be valid");
-
-            if !services().users.exists(&grapevine_user)? {
+            let admin_bot = services().globals.admin_bot_user_id.as_ref();
+            if !services().users.exists(admin_bot)? {
                 error!(
-                    "The {} server user does not exist, and the database is \
-                     not new.",
-                    grapevine_user
+                    "The {} admin bot does not exist, and the database is not \
+                     new.",
+                    admin_bot
                 );
                 return Err(Error::bad_database(
                     "Cannot reuse an existing database after changing the \
@@ -1221,25 +1212,21 @@ impl KeyValueDatabase {
 /// Sets the emergency password and push rules for the @grapevine account in
 /// case emergency password is set
 fn set_emergency_access() -> Result<bool> {
-    let grapevine_user = UserId::parse_with_server_name(
-        "grapevine",
-        services().globals.server_name(),
-    )
-    .expect("@grapevine:server_name is a valid UserId");
+    let admin_bot = services().globals.admin_bot_user_id.as_ref();
 
     services().users.set_password(
-        &grapevine_user,
+        admin_bot,
         services().globals.emergency_password().as_deref(),
     )?;
 
     let (ruleset, res) = match services().globals.emergency_password() {
-        Some(_) => (Ruleset::server_default(&grapevine_user), Ok(true)),
+        Some(_) => (Ruleset::server_default(admin_bot), Ok(true)),
         None => (Ruleset::new(), Ok(false)),
     };
 
     services().account_data.update(
         None,
-        &grapevine_user,
+        admin_bot,
         GlobalAccountDataEventType::PushRules.to_string().into(),
         &serde_json::to_value(&GlobalAccountDataEvent {
             content: PushRulesEventContent {
