@@ -56,7 +56,8 @@ pub(crate) async fn create_room_route(
 ) -> Result<Ra<create_room::v3::Response>> {
     use create_room::v3::RoomPreset;
 
-    let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+    let sender_user =
+        body.sender_user.as_deref().expect("user is authenticated");
 
     let room_id = RoomId::new(services().globals.server_name());
 
@@ -194,7 +195,7 @@ pub(crate) async fn create_room_route(
                 | RoomVersionId::V8
                 | RoomVersionId::V9
                 | RoomVersionId::V10 => {
-                    RoomCreateEventContent::new_v1(sender_user.clone())
+                    RoomCreateEventContent::new_v1(sender_user.to_owned())
                 }
                 RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
                 _ => unreachable!("Validity of room version already checked"),
@@ -292,7 +293,7 @@ pub(crate) async fn create_room_route(
     });
 
     let mut users = BTreeMap::new();
-    users.insert(sender_user.clone(), int!(100));
+    users.insert(sender_user.to_owned(), int!(100));
 
     if preset == RoomPreset::TrustedPrivateChat {
         for invite_ in &body.invite {
@@ -529,7 +530,7 @@ pub(crate) async fn create_room_route(
 
     // Homeserver specific stuff
     if let Some(alias) = alias {
-        services().rooms.alias.set_alias(&alias, &room_id)?;
+        services().rooms.alias.set_alias(&alias, &room_id, sender_user)?;
     }
 
     if body.visibility == room::Visibility::Public {
@@ -860,7 +861,11 @@ pub(crate) async fn upgrade_room_route(
         .local_aliases_for_room(&body.room_id)
         .filter_map(Result::ok)
     {
-        services().rooms.alias.set_alias(&alias, &replacement_room)?;
+        services().rooms.alias.set_alias(
+            &alias,
+            &replacement_room,
+            sender_user,
+        )?;
     }
 
     // Get the old room power levels

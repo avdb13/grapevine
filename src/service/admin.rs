@@ -1427,7 +1427,11 @@ impl Service {
             )
             .await?;
 
-        services().rooms.alias.set_alias(alias, &room_id)?;
+        services().rooms.alias.set_alias(
+            alias,
+            &room_id,
+            &services().globals.admin_bot_user_id,
+        )?;
 
         Ok(())
     }

@@ -1,6 +1,9 @@
-use ruma::{OwnedRoomAliasId, OwnedRoomId, RoomAliasId, RoomId};
+use ruma::{
+    api::client::error::ErrorKind, OwnedRoomAliasId, OwnedRoomId, RoomAliasId,
+    RoomId, UserId,
+};
 
-use crate::Result;
+use crate::{services, Error, Result};
 
 mod data;
 
@@ -25,12 +28,35 @@ impl Service {
         &self,
         alias: &RoomAliasId,
         room_id: &RoomId,
+        user_id: &UserId,
     ) -> Result<()> {
+        if alias == services().globals.admin_bot_room_alias_id
+            && user_id != services().globals.admin_bot_user_id
+        {
+            return Err(Error::BadRequest(
+                ErrorKind::forbidden(),
+                "Only the admin bot can modify this alias",
+            ));
+        }
+
         self.db.set_alias(alias, room_id)
     }
 
     /// Forgets about an alias. Returns an error if the alias did not exist.
-    pub(crate) fn remove_alias(&self, alias: &RoomAliasId) -> Result<()> {
+    pub(crate) fn remove_alias(
+        &self,
+        alias: &RoomAliasId,
+        user_id: &UserId,
+    ) -> Result<()> {
+        if alias == services().globals.admin_bot_room_alias_id
+            && user_id != services().globals.admin_bot_user_id
+        {
+            return Err(Error::BadRequest(
+                ErrorKind::forbidden(),
+                "Only the admin bot can modify this alias",
+            ));
+        }
+
         self.db.remove_alias(alias)
     }
 

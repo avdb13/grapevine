@@ -19,6 +19,9 @@ use crate::{services, Ar, Error, Ra, Result};
 pub(crate) async fn create_alias_route(
     body: Ar<create_alias::v3::Request>,
 ) -> Result<Ra<create_alias::v3::Response>> {
+    let sender_user =
+        body.sender_user.as_deref().expect("user is authenticated");
+
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -44,7 +47,11 @@ pub(crate) async fn create_alias_route(
         return Err(Error::Conflict("Alias already exists."));
     }
 
-    services().rooms.alias.set_alias(&body.room_alias, &body.room_id)?;
+    services().rooms.alias.set_alias(
+        &body.room_alias,
+        &body.room_id,
+        sender_user,
+    )?;
 
     Ok(Ra(create_alias::v3::Response::new()))
 }
@@ -58,6 +65,9 @@ pub(crate) async fn create_alias_route(
 pub(crate) async fn delete_alias_route(
     body: Ar<delete_alias::v3::Request>,
 ) -> Result<Ra<delete_alias::v3::Response>> {
+    let sender_user =
+        body.sender_user.as_deref().expect("user is authenticated");
+
     if body.room_alias.server_name() != services().globals.server_name() {
         return Err(Error::BadRequest(
             ErrorKind::InvalidParam,
@@ -79,7 +89,7 @@ pub(crate) async fn delete_alias_route(
         ));
     }
 
-    services().rooms.alias.remove_alias(&body.room_alias)?;
+    services().rooms.alias.remove_alias(&body.room_alias, sender_user)?;
 
     // TODO: update alt_aliases?
 
