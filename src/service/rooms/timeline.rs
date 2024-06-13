@@ -545,7 +545,7 @@ impl Service {
                             && !from_grapevine
                             && admin_room == pdu.room_id
                         {
-                            services().admin.process_message(body);
+                            services().admin.process_message(pdu.clone(), body);
                         }
                     }
                 }

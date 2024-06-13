@@ -23,8 +23,8 @@ use ruma::{
         TimelineEventType,
     },
     signatures::verify_json,
-    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomId, RoomId, RoomVersionId,
-    ServerName, UserId,
+    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomAliasId, OwnedRoomId,
+    RoomAliasId, RoomId, RoomVersionId, ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -179,6 +179,11 @@ enum AdminCommand {
         room_id: Box<RoomId>,
     },
 
+    /// Remove a room alias.
+    UnsetAlias {
+        room_alias_id: OwnedRoomAliasId,
+    },
+
     /// Verify json signatures
     /// [commandbody]()
     /// # ```
@@ -200,7 +205,7 @@ enum AdminCommand {
 
 #[derive(Debug)]
 pub(crate) enum AdminRoomEvent {
-    ProcessMessage(String),
+    ProcessMessage(Box<PduEvent>, String),
     SendMessage(RoomMessageEventContent),
 }
 
@@ -247,8 +252,8 @@ impl Service {
     ) {
         let message_content = match event {
             AdminRoomEvent::SendMessage(content) => content,
-            AdminRoomEvent::ProcessMessage(room_message) => {
-                self.process_admin_message(room_message).await
+            AdminRoomEvent::ProcessMessage(pdu, room_message) => {
+                self.process_admin_message(*pdu, room_message).await
             }
         };
 
@@ -290,8 +295,10 @@ impl Service {
             room_message = truncate_str_for_debug(&room_message, 50).as_ref(),
         ),
     )]
-    pub(crate) fn process_message(&self, room_message: String) {
-        self.sender.send(AdminRoomEvent::ProcessMessage(room_message)).unwrap();
+    pub(crate) fn process_message(&self, pdu: PduEvent, room_message: String) {
+        self.sender
+            .send(AdminRoomEvent::ProcessMessage(Box::new(pdu), room_message))
+            .unwrap();
     }
 
     #[tracing::instrument(skip(self, message_content))]
@@ -311,6 +318,7 @@ impl Service {
     )]
     async fn process_admin_message(
         &self,
+        pdu: PduEvent,
         room_message: String,
     ) -> RoomMessageEventContent {
         let mut lines = room_message.lines().filter(|l| !l.trim().is_empty());
@@ -333,7 +341,7 @@ impl Service {
             }
         };
 
-        match self.process_admin_command(admin_command, body).await {
+        match self.process_admin_command(pdu, admin_command, body).await {
             Ok(reply_message) => reply_message,
             Err(error) => {
                 let markdown_message = format!(
@@ -388,6 +396,7 @@ impl Service {
     #[tracing::instrument(skip(self, body))]
     async fn process_admin_command(
         &self,
+        pdu: PduEvent,
         command: AdminCommand,
         body: Vec<&str>,
     ) -> Result<RoomMessageEventContent> {
@@ -1081,6 +1090,9 @@ impl Service {
                     )
                 }
             }
+            AdminCommand::UnsetAlias {
+                room_alias_id,
+            } => cmd_unset_alias(&room_alias_id, &pdu.sender),
         };
 
         Ok(reply_message_content)
@@ -1546,6 +1558,23 @@ impl Service {
         }
         Ok(())
     }
+}
+
+/// Remove an alias from a room
+///
+/// This authenticates the command against the command's sender.
+fn cmd_unset_alias(
+    room_alias_id: &RoomAliasId,
+    user_id: &UserId,
+) -> RoomMessageEventContent {
+    let res = services().rooms.alias.remove_alias(room_alias_id, user_id);
+
+    let res = match res {
+        Ok(()) => "Successfully removed room alias.".to_owned(),
+        Err(e) => format!("Failed to remove room alias: {e}"),
+    };
+
+    RoomMessageEventContent::text_plain(res)
 }
 
 #[cfg(test)]
