@@ -9,7 +9,6 @@ pub(crate) use data::Data;
 use ruma::{
     api::client::{
         device::Device,
-        error::ErrorKind,
         filter::FilterDefinition,
         sync::sync_events::{
             self,
@@ -20,7 +19,7 @@ use ruma::{
     events::AnyToDeviceEvent,
     serde::Raw,
     DeviceId, DeviceKeyAlgorithm, DeviceKeyId, OwnedDeviceId, OwnedDeviceKeyId,
-    OwnedMxcUri, OwnedRoomId, OwnedUserId, RoomAliasId, UInt, UserId,
+    OwnedMxcUri, OwnedRoomId, OwnedUserId, UInt, UserId,
 };
 
 use crate::{services, Error, Result};
@@ -259,20 +258,9 @@ impl Service {
     // Allowed because this function uses `services()`
     #[allow(clippy::unused_self)]
     pub(crate) fn is_admin(&self, user_id: &UserId) -> Result<bool> {
-        let admin_room_alias_id = RoomAliasId::parse(format!(
-            "#admins:{}",
-            services().globals.server_name()
-        ))
-        .map_err(|_| {
-            Error::BadRequest(ErrorKind::InvalidParam, "Invalid alias.")
-        })?;
-        let admin_room_id = services()
-            .rooms
-            .alias
-            .resolve_local_alias(&admin_room_alias_id)?
-            .unwrap();
-
-        services().rooms.state_cache.is_joined(user_id, &admin_room_id)
+        services().admin.get_admin_room()?.map_or(Ok(false), |admin_room_id| {
+            services().rooms.state_cache.is_joined(user_id, &admin_room_id)
+        })
     }
 
     /// Create a new user account on this homeserver.
