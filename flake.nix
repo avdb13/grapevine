@@ -16,6 +16,9 @@
       mkScope = pkgs: pkgs.lib.makeScope pkgs.newScope (self: {
         complement = self.callPackage ./nix/pkgs/complement {};
 
+        complement-grapevine-oci-image =
+          self.callPackage ./nix/pkgs/complement-grapevine-oci-image { };
+
         craneLib =
           (inputs.crane.mkLib pkgs).overrideToolchain self.toolchain;
 
@@ -51,6 +54,8 @@
         packages = {
           default = (mkScope pkgs).default;
           complement = (mkScope pkgs).complement;
+          complement-grapevine-oci-image =
+            (mkScope pkgs).complement-grapevine-oci-image;
         }
         //
         builtins.listToAttrs

@@ -1,0 +1,27 @@
+# this config file is processed with envsubst before being loaded
+
+log = "debug,h2=warn,hyper=warn"
+# ansi escapes can make it hard to read the log files in an editor
+log_colors = false
+
+server_name = "$SERVER_NAME"
+
+database_backend = "rocksdb"
+database_path = "/app/db"
+
+allow_registration = true
+
+[tls]
+certs = "/app/grapevine.crt"
+key = "/app/grapevine.key"
+
+[[listen]]
+type = "tcp"
+address = "0.0.0.0"
+port = 8008
+
+[[listen]]
+type = "tcp"
+address = "0.0.0.0"
+port = 8448
+tls = true
