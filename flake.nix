@@ -21,8 +21,6 @@
 
         inherit inputs;
 
-        oci-image = self.callPackage ./nix/pkgs/oci-image {};
-
         # Return a new scope with overrides applied to the 'default' package
         overrideDefaultPackage = args: self.overrideScope (final: prev: {
           default = prev.default.override args;
@@ -50,7 +48,6 @@
       {
         packages = {
           default = (mkScope pkgs).default;
-          oci-image = (mkScope pkgs).oci-image;
         }
         //
         builtins.listToAttrs
@@ -72,12 +69,6 @@
                   {
                     name = binaryName;
                     value = (mkScope pkgsCrossStatic).default;
-                  }
-
-                  # An output for an OCI image based on that binary
-                  {
-                    name = "oci-image-${crossSystem}";
-                    value = (mkScope pkgsCrossStatic).oci-image;
                   }
                 ]
               )
