@@ -23,7 +23,11 @@ use tokio::time::Instant;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Layer, Registry};
 
-use crate::{config::Config, error, utils::error::Result};
+use crate::{
+    config::{Config, LogFormat},
+    error,
+    utils::error::Result,
+};
 
 /// Globally accessible metrics state
 pub(crate) static METRICS: Lazy<Metrics> = Lazy::new(Metrics::new);
@@ -119,8 +123,15 @@ pub(crate) fn init(config: &Config) -> Result<Guard, error::Observability> {
         .transpose()?
         .unzip();
 
-    let fmt_layer = tracing_subscriber::fmt::Layer::new()
-        .with_filter(EnvFilter::from(&config.log));
+    let fmt_layer =
+        tracing_subscriber::fmt::Layer::new().with_ansi(config.log_colors);
+    let fmt_layer = match config.log_format {
+        LogFormat::Pretty => fmt_layer.pretty().boxed(),
+        LogFormat::Full => fmt_layer.boxed(),
+        LogFormat::Compact => fmt_layer.compact().boxed(),
+        LogFormat::Json => fmt_layer.json().boxed(),
+    };
+    let fmt_layer = fmt_layer.with_filter(EnvFilter::from(&config.log));
 
     let subscriber = Registry::default()
         .with(jaeger_layer)

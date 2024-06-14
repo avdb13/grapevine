@@ -139,7 +139,7 @@ tower-http = { version = "0.5.2", features = ["add-extension", "cors", "sensitiv
 tracing = { version = "0.1.40", features = [] }
 tracing-flame = "0.2.0"
 tracing-opentelemetry = "0.24.0"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 trust-dns-resolver = "0.23.2"
 xdg = "2.5.2"
 

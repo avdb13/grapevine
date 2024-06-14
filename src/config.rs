@@ -77,6 +77,10 @@ pub(crate) struct Config {
     pub(crate) trusted_servers: Vec<OwnedServerName>,
     #[serde(default = "default_log")]
     pub(crate) log: EnvFilterClone,
+    #[serde(default = "true_fn")]
+    pub(crate) log_colors: bool,
+    #[serde(default)]
+    pub(crate) log_format: LogFormat,
     #[serde(default)]
     pub(crate) turn_username: String,
     #[serde(default)]
@@ -108,6 +112,20 @@ pub(crate) enum ListenConfig {
         #[serde(default = "false_fn")]
         tls: bool,
     },
+}
+
+#[derive(Copy, Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum LogFormat {
+    /// Use the [`tracing_subscriber::fmt::format::Pretty`] formatter
+    Pretty,
+    /// Use the [`tracing_subscriber::fmt::format::Full`] formatter
+    #[default]
+    Full,
+    /// Use the [`tracing_subscriber::fmt::format::Compact`] formatter
+    Compact,
+    /// Use the [`tracing_subscriber::fmt::format::Json`] formatter
+    Json,
 }
 
 impl Display for ListenConfig {
