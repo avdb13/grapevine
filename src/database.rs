@@ -1,6 +1,3 @@
-pub(crate) mod abstraction;
-pub(crate) mod key_value;
-
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
@@ -10,7 +7,6 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
-use abstraction::{KeyValueDatabaseEngine, KvTree};
 use lru_cache::LruCache;
 use ruma::{
     events::{
@@ -29,6 +25,11 @@ use crate::{
     service::rooms::timeline::PduCount, services, utils, Config, Error,
     PduEvent, Result, Services, SERVICES,
 };
+
+pub(crate) mod abstraction;
+pub(crate) mod key_value;
+
+use abstraction::{KeyValueDatabaseEngine, KvTree};
 
 pub(crate) struct KeyValueDatabase {
     db: Arc<dyn KeyValueDatabaseEngine>,
