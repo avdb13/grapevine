@@ -28,6 +28,7 @@ use crate::{
 
 pub(crate) mod abstraction;
 pub(crate) mod key_value;
+mod map;
 
 use abstraction::{KeyValueDatabaseEngine, KvTree};
 
