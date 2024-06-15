@@ -112,7 +112,7 @@ async fn try_main() -> Result<(), error::Main> {
 
     let config = config::load(args.config.as_ref()).await?;
 
-    let _guard = observability::init(&config);
+    let _guard = observability::init(&config)?;
 
     // This is needed for opening lots of file descriptors, which tends to
     // happen more often when using RocksDB and making lots of federation
