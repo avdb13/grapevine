@@ -25,8 +25,8 @@ use ruma::{
 use tracing::{debug, error, info, info_span, warn, Instrument};
 
 use crate::{
-    service::rooms::timeline::PduCount, services, utils, Config, Error,
-    PduEvent, Result, Services, SERVICES,
+    config::DatabaseBackend, service::rooms::timeline::PduCount, services,
+    utils, Config, Error, PduEvent, Result, Services, SERVICES,
 };
 
 pub(crate) struct KeyValueDatabase {
@@ -279,14 +279,22 @@ impl KeyValueDatabase {
             return Ok(());
         }
 
-        if sqlite_exists && config.database.backend != "sqlite" {
+        let (backend_is_rocksdb, backend_is_sqlite): (bool, bool) =
+            match config.database.backend {
+                #[cfg(feature = "rocksdb")]
+                DatabaseBackend::Rocksdb => (true, false),
+                #[cfg(feature = "sqlite")]
+                DatabaseBackend::Sqlite => (false, true),
+            };
+
+        if sqlite_exists && !backend_is_sqlite {
             return Err(Error::bad_config(
                 "Found sqlite at database_path, but is not specified in \
                  config.",
             ));
         }
 
-        if rocksdb_exists && config.database.backend != "rocksdb" {
+        if rocksdb_exists && !backend_is_rocksdb {
             return Err(Error::bad_config(
                 "Found rocksdb at database_path, but is not specified in \
                  config.",
@@ -319,20 +327,17 @@ impl KeyValueDatabase {
             not(any(feature = "rocksdb", feature = "sqlite")),
             allow(unused_variables)
         )]
-        let builder: Arc<dyn KeyValueDatabaseEngine> = match &*config
+        let builder: Arc<dyn KeyValueDatabaseEngine> = match config
             .database
             .backend
         {
             #[cfg(feature = "sqlite")]
-            "sqlite" => {
+            DatabaseBackend::Sqlite => {
                 Arc::new(Arc::<abstraction::sqlite::Engine>::open(&config)?)
             }
             #[cfg(feature = "rocksdb")]
-            "rocksdb" => {
+            DatabaseBackend::Rocksdb => {
                 Arc::new(Arc::<abstraction::rocksdb::Engine>::open(&config)?)
-            }
-            _ => {
-                return Err(Error::BadConfig("Database backend not found."));
             }
         };
 

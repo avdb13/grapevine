@@ -153,9 +153,29 @@ impl Default for TurnConfig {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum DatabaseBackend {
+    #[cfg(feature = "rocksdb")]
+    Rocksdb,
+    #[cfg(feature = "sqlite")]
+    Sqlite,
+}
+
+impl Display for DatabaseBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            #[cfg(feature = "rocksdb")]
+            DatabaseBackend::Rocksdb => write!(f, "RocksDB"),
+            #[cfg(feature = "sqlite")]
+            DatabaseBackend::Sqlite => write!(f, "SQLite"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct DatabaseConfig {
-    pub(crate) backend: String,
+    pub(crate) backend: DatabaseBackend,
     pub(crate) path: String,
     #[serde(default = "default_db_cache_capacity_mb")]
     pub(crate) cache_capacity_mb: f64,

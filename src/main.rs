@@ -1,3 +1,7 @@
+// Avoid spurious warnings with --no-default-features, which isn't expected to
+// work anyway
+#![cfg_attr(not(any(feature = "sqlite", feature = "rocksdb")), allow(unused))]
+
 use std::{
     future::Future,
     net::SocketAddr,
