@@ -9,6 +9,7 @@ use std::{
 };
 
 use frunk::{HCons, HNil};
+use futures_util::Stream;
 
 #[cfg(test)]
 mod tests;
@@ -62,6 +63,24 @@ pub(crate) trait Map {
     where
         Self::Key: Borrow<K>,
         K: ToBytes + ?Sized;
+
+    /// Get a stream of all key-value pairs whose key matches a key prefix
+    ///
+    /// While it's possible to provide an entire key as the prefix, it's likely
+    /// more ergonomic and more performant to use [`Map::get`] in that case
+    /// instead.
+    #[rustfmt::skip]
+    async fn scan_prefix<P>(
+        &self,
+        key: &P,
+    ) -> Result<
+        impl Stream<
+            Item = (Result<Self::Key, MapError>, Result<Self::Value, MapError>)
+        >,
+        MapError,
+    >
+    where
+        P: ToBytes + IsPrefixOf<Self::Key>;
 }
 
 /// Convert `Self` into bytes for storage in a key-value store
@@ -179,4 +198,16 @@ impl FromBytes for String {
     fn from_bytes(bytes: Vec<u8>) -> Result<Self, Box<dyn Error>> {
         String::from_utf8(bytes).map_err(Into::into)
     }
+}
+
+/// Ensures, at compile time, that one `HList` is a prefix of another
+pub(crate) trait IsPrefixOf<HList> {}
+
+impl<HList> IsPrefixOf<HList> for HNil {}
+
+impl<Head, PrefixTail, Tail> IsPrefixOf<HCons<Head, Tail>>
+    for HCons<Head, PrefixTail>
+where
+    PrefixTail: IsPrefixOf<Tail>,
+{
 }
