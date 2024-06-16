@@ -494,14 +494,14 @@ impl Service {
 
     pub(crate) fn get_media_folder(&self) -> PathBuf {
         let mut r = PathBuf::new();
-        r.push(self.config.database_path.clone());
+        r.push(self.config.database.path.clone());
         r.push("media");
         r
     }
 
     pub(crate) fn get_media_file(&self, key: &[u8]) -> PathBuf {
         let mut r = PathBuf::new();
-        r.push(self.config.database_path.clone());
+        r.push(self.config.database.path.clone());
         r.push("media");
         r.push(general_purpose::URL_SAFE_NO_PAD.encode(key));
         r

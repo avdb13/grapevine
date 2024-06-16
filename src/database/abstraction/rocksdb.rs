@@ -78,32 +78,36 @@ impl KeyValueDatabaseEngine for Arc<Engine> {
             clippy::cast_possible_truncation
         )]
         let cache_capacity_bytes =
-            (config.db_cache_capacity_mb * 1024.0 * 1024.0) as usize;
+            (config.database.cache_capacity_mb * 1024.0 * 1024.0) as usize;
         let rocksdb_cache = Cache::new_lru_cache(cache_capacity_bytes);
 
-        let db_opts = db_options(config.rocksdb_max_open_files, &rocksdb_cache);
+        let db_opts =
+            db_options(config.database.rocksdb_max_open_files, &rocksdb_cache);
 
         let cfs = DBWithThreadMode::<MultiThreaded>::list_cf(
             &db_opts,
-            &config.database_path,
+            &config.database.path,
         )
         .map(|x| x.into_iter().collect::<HashSet<_>>())
         .unwrap_or_default();
 
         let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
             &db_opts,
-            &config.database_path,
+            &config.database.path,
             cfs.iter().map(|name| {
                 ColumnFamilyDescriptor::new(
                     name,
-                    db_options(config.rocksdb_max_open_files, &rocksdb_cache),
+                    db_options(
+                        config.database.rocksdb_max_open_files,
+                        &rocksdb_cache,
+                    ),
                 )
             }),
         )?;
 
         Ok(Arc::new(Engine {
             rocks: db,
-            max_open_files: config.rocksdb_max_open_files,
+            max_open_files: config.database.rocksdb_max_open_files,
             cache: rocksdb_cache,
             old_cfs: cfs,
             new_cfs: Mutex::default(),

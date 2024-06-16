@@ -31,15 +31,10 @@ pub(crate) struct Config {
     pub(crate) tls: Option<TlsConfig>,
 
     pub(crate) server_name: OwnedServerName,
-    pub(crate) database_backend: String,
-    pub(crate) database_path: String,
-    #[serde(default = "default_db_cache_capacity_mb")]
-    pub(crate) db_cache_capacity_mb: f64,
+    pub(crate) database: DatabaseConfig,
+
     #[serde(default = "default_cache_capacity_modifier")]
     pub(crate) cache_capacity_modifier: f64,
-    #[cfg(feature = "rocksdb")]
-    #[serde(default = "default_rocksdb_max_open_files")]
-    pub(crate) rocksdb_max_open_files: i32,
     #[serde(default = "default_pdu_cache_capacity")]
     pub(crate) pdu_cache_capacity: u32,
     #[serde(default = "default_cleanup_second_interval")]
@@ -156,6 +151,17 @@ impl Default for TurnConfig {
             ttl: 60 * 60 * 24,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct DatabaseConfig {
+    pub(crate) backend: String,
+    pub(crate) path: String,
+    #[serde(default = "default_db_cache_capacity_mb")]
+    pub(crate) cache_capacity_mb: f64,
+    #[cfg(feature = "rocksdb")]
+    #[serde(default = "default_rocksdb_max_open_files")]
+    pub(crate) rocksdb_max_open_files: i32,
 }
 
 fn false_fn() -> bool {

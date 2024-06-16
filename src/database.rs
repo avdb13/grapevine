@@ -250,7 +250,7 @@ pub(crate) struct KeyValueDatabase {
 
 impl KeyValueDatabase {
     fn check_db_setup(config: &Config) -> Result<()> {
-        let path = Path::new(&config.database_path);
+        let path = Path::new(&config.database.path);
 
         let sqlite_exists = path
             .join(format!(
@@ -279,14 +279,14 @@ impl KeyValueDatabase {
             return Ok(());
         }
 
-        if sqlite_exists && config.database_backend != "sqlite" {
+        if sqlite_exists && config.database.backend != "sqlite" {
             return Err(Error::bad_config(
                 "Found sqlite at database_path, but is not specified in \
                  config.",
             ));
         }
 
-        if rocksdb_exists && config.database_backend != "rocksdb" {
+        if rocksdb_exists && config.database.backend != "rocksdb" {
             return Err(Error::bad_config(
                 "Found rocksdb at database_path, but is not specified in \
                  config.",
@@ -305,8 +305,8 @@ impl KeyValueDatabase {
     pub(crate) async fn load_or_create(config: Config) -> Result<()> {
         Self::check_db_setup(&config)?;
 
-        if !Path::new(&config.database_path).exists() {
-            fs::create_dir_all(&config.database_path).map_err(|_| {
+        if !Path::new(&config.database.path).exists() {
+            fs::create_dir_all(&config.database.path).map_err(|_| {
                 Error::BadConfig(
                     "Database folder doesn't exists and couldn't be created \
                      (e.g. due to missing permissions). Please create the \
@@ -320,7 +320,8 @@ impl KeyValueDatabase {
             allow(unused_variables)
         )]
         let builder: Arc<dyn KeyValueDatabaseEngine> = match &*config
-            .database_backend
+            .database
+            .backend
         {
             #[cfg(feature = "sqlite")]
             "sqlite" => {
@@ -1106,7 +1107,7 @@ impl KeyValueDatabase {
 
             info!(
                 "Loaded {} database with version {}",
-                services().globals.config.database_backend,
+                services().globals.config.database.backend,
                 latest_database_version
             );
         } else {
@@ -1119,7 +1120,7 @@ impl KeyValueDatabase {
 
             warn!(
                 "Created new {} database with version {}",
-                services().globals.config.database_backend,
+                services().globals.config.database.backend,
                 latest_database_version
             );
         }

@@ -36,7 +36,7 @@ in
             '';
             default = false;
           };
-          database_path = lib.mkOption {
+          database.path = lib.mkOption {
             type = types.nonEmptyStr;
             readOnly = true;
             description = ''
