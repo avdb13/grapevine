@@ -33,7 +33,6 @@ pub(crate) struct Config {
     pub(crate) server_name: OwnedServerName,
     pub(crate) database_backend: String,
     pub(crate) database_path: String,
-    #[cfg(feature = "rocksdb")]
     #[serde(default = "default_db_cache_capacity_mb")]
     pub(crate) db_cache_capacity_mb: f64,
     #[serde(default = "default_cache_capacity_modifier")]
@@ -169,7 +168,6 @@ fn default_port() -> u16 {
     6167
 }
 
-#[cfg(feature = "rocksdb")]
 fn default_db_cache_capacity_mb() -> f64 {
     300.0
 }
