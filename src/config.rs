@@ -114,20 +114,6 @@ pub(crate) enum ListenConfig {
     },
 }
 
-#[derive(Copy, Clone, Default, Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum LogFormat {
-    /// Use the [`tracing_subscriber::fmt::format::Pretty`] formatter
-    Pretty,
-    /// Use the [`tracing_subscriber::fmt::format::Full`] formatter
-    #[default]
-    Full,
-    /// Use the [`tracing_subscriber::fmt::format::Compact`] formatter
-    Compact,
-    /// Use the [`tracing_subscriber::fmt::format::Json`] formatter
-    Json,
-}
-
 impl Display for ListenConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -143,6 +129,20 @@ impl Display for ListenConfig {
             } => write!(f, "https://{address}:{port}"),
         }
     }
+}
+
+#[derive(Copy, Clone, Default, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum LogFormat {
+    /// Use the [`tracing_subscriber::fmt::format::Pretty`] formatter
+    Pretty,
+    /// Use the [`tracing_subscriber::fmt::format::Full`] formatter
+    #[default]
+    Full,
+    /// Use the [`tracing_subscriber::fmt::format::Compact`] formatter
+    Compact,
+    /// Use the [`tracing_subscriber::fmt::format::Json`] formatter
+    Json,
 }
 
 fn false_fn() -> bool {
