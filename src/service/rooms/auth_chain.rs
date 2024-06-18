@@ -31,10 +31,7 @@ impl Service {
         self.db.cache_auth_chain(key, auth_chain)
     }
 
-    #[tracing::instrument(
-        skip(self, starting_events),
-        fields(starting_events = debug_slice_truncated(&starting_events, 5)),
-    )]
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn get_auth_chain<'a>(
         &self,
         room_id: &RoomId,
