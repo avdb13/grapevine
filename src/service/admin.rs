@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Write,
+    sync::Arc,
+    time::Instant,
+};
 
 use clap::Parser;
 use regex::Regex;
@@ -119,6 +124,23 @@ enum AdminCommand {
     GetAuthChain {
         /// An event ID (the $ character followed by the base64 reference hash)
         event_id: Box<EventId>,
+    },
+
+    /// Dump auth chain events stored in the db in graphviz DOT format
+    ///
+    /// Does not validate anything. Events that are missing or generate an
+    /// error when we try to load them from the db are marked in red.
+    GetAuthChainGraph {
+        /// An event ID (the $ character followed by the base64 reference hash)
+        event_ids: Vec<Box<EventId>>,
+    },
+
+    /// Dump all events in a given events auth chain in jsonl format
+    ///
+    /// Does not validate anything.
+    GetAuthChainEvents {
+        /// An event ID (the $ character followed by the base64 reference hash)
+        event_ids: Vec<Box<EventId>>,
     },
 
     #[command(verbatim_doc_comment)]
@@ -535,6 +557,92 @@ impl Service {
                 } else {
                     RoomMessageEventContent::text_plain("Event not found.")
                 }
+            }
+            AdminCommand::GetAuthChainGraph {
+                event_ids,
+            } => {
+                let mut dot = String::new();
+                writeln!(&mut dot, "digraph G {{").unwrap();
+                let mut todo = event_ids
+                    .into_iter()
+                    .map(Arc::<EventId>::from)
+                    .collect::<Vec<_>>();
+                let mut done = HashSet::new();
+                let mut edges = HashSet::new();
+                while let Some(event_id) = todo.pop() {
+                    done.insert(event_id.clone());
+                    if let Ok(Some(pdu)) =
+                        services().rooms.timeline.get_pdu(&event_id)
+                    {
+                        writeln!(&mut dot, "    {event_id:?};").unwrap();
+                        for auth_event in &pdu.auth_events {
+                            let edge = (
+                                Arc::clone(auth_event),
+                                Arc::clone(&event_id),
+                            );
+                            if !edges.contains(&edge) {
+                                writeln!(
+                                    &mut dot,
+                                    "    {auth_event:?} -> {event_id:?};"
+                                )
+                                .unwrap();
+                                edges.insert(edge);
+                            }
+                            if !done.contains(&**auth_event) {
+                                todo.push(Arc::clone(auth_event));
+                            }
+                        }
+                    } else {
+                        writeln!(&mut dot, "    {event_id:?}[color=\"red\"];")
+                            .unwrap();
+                    }
+                }
+                write!(&mut dot, "}}").unwrap();
+                RoomMessageEventContent::text_html(
+                    format!("\n```dot\n{dot}\n```"),
+                    format!(
+                        "<pre><code class=\"language-dot\">{}\n</code></pre>\n",
+                        html_escape::encode_safe(&dot)
+                    ),
+                )
+            }
+            AdminCommand::GetAuthChainEvents {
+                event_ids,
+            } => {
+                let mut jsonl = String::new();
+                let mut todo = event_ids
+                    .into_iter()
+                    .map(Arc::<EventId>::from)
+                    .collect::<Vec<_>>();
+                let mut done = HashSet::new();
+                while let Some(event_id) = todo.pop() {
+                    done.insert(event_id.clone());
+                    if let Ok(Some(pdu_json)) =
+                        services().rooms.timeline.get_pdu_json(&event_id)
+                    {
+                        jsonl.push_str(
+                            &serde_json::to_string(&pdu_json).unwrap(),
+                        );
+                        jsonl.push('\n');
+                    }
+                    if let Ok(Some(pdu)) =
+                        services().rooms.timeline.get_pdu(&event_id)
+                    {
+                        for auth_event in &pdu.auth_events {
+                            if !done.contains(&**auth_event) {
+                                todo.push(Arc::clone(auth_event));
+                            }
+                        }
+                    }
+                }
+                RoomMessageEventContent::text_html(
+                    format!("\n```json\n{jsonl}\n```"),
+                    format!(
+                        "<pre><code \
+                         class=\"language-json\">{}\n</code></pre>\n",
+                        html_escape::encode_safe(&jsonl)
+                    ),
+                )
             }
             AdminCommand::ParsePdu => {
                 if body.len() > 2
