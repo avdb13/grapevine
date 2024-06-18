@@ -154,9 +154,10 @@ impl Service {
             match services().rooms.timeline.get_pdu(&event_id) {
                 Ok(Some(pdu)) => {
                     if pdu.room_id != room_id {
+                        warn!(bad_room_id = %pdu.room_id, "Event referenced in auth chain has incorrect room id");
                         return Err(Error::BadRequest(
                             ErrorKind::forbidden(),
-                            "Evil event in db",
+                            "Event has incorrect room id",
                         ));
                     }
                     for auth_event in &pdu.auth_events {
