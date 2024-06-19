@@ -508,7 +508,7 @@ async fn shutdown_signal(handles: Vec<ServerHandle>) {
         () = terminate => { sig = "SIGTERM"; },
     }
 
-    warn!("Received {}, shutting down...", sig);
+    warn!(signal = %sig, "shutting down due to signal");
 
     services().globals.shutdown();
 

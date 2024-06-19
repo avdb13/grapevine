@@ -29,7 +29,7 @@ use ruma::{
     UserId,
 };
 use tokio::sync::{broadcast, Mutex, RwLock, Semaphore};
-use tracing::{error, info, Instrument};
+use tracing::{error, Instrument};
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{api::server_server::FedDest, services, Config, Error, Result};
@@ -509,8 +509,6 @@ impl Service {
 
     pub(crate) fn shutdown(&self) {
         self.shutdown.store(true, atomic::Ordering::Relaxed);
-        // On shutdown
-        info!(target: "shutdown-sync", "Received shutdown notification, notifying sync helpers...");
         services().globals.rotate.fire();
     }
 }
