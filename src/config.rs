@@ -210,7 +210,7 @@ fn default_trusted_servers() -> Vec<OwnedServerName> {
 }
 
 fn default_log() -> EnvFilterClone {
-    "warn,state_res=warn,_=off"
+    "info,ruma_state_res=warn"
         .parse()
         .expect("hardcoded env filter should be valid")
 }
