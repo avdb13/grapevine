@@ -19,6 +19,7 @@ particular version so that attention can be drawn to the important parts:
 4. Changed
 5. Fixed
 6. Added
+7. Internal
 
 Entries within each section should be sorted by merge order. If multiple changes
 result in a single entry, choose the merge order of the first or last change.
@@ -171,3 +172,10 @@ This will be the first release of Grapevine since it was forked from Conduit
    ([!46](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/46))
 10. Recognize the `!admin` prefix to invoke admin commands.
     ([!45](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/45))
+
+### Internal
+
+1. Support for running black-box integration tests tests with [complement][complement].
+    ([!47](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/47))
+
+[complement]: https://github.com/matrix-org/complement
