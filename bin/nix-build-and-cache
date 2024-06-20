@@ -5,11 +5,33 @@ set -euo pipefail
 toplevel="$(git rev-parse --show-toplevel)"
 
 # Build and cache the specified arguments
+#
+# Usage: nix-build-and-cache just [args...] -- [build-only-args...]
+#
+# Arguments after the '--' (build-only-args) will only be passed to the
+# 'nix build' command, while arguments before '--' will also be passed to any
+# other nix command using the installable list. This is useful for things like
+# '--no-link', which are only relevant to 'nix build'.
 just() {
+    build_args=()
+    args=()
+    build_only_mode=0
+    for arg in "$@"; do
+        if [ "$build_only_mode" = 1 ]; then
+            build_args+=( "$arg" )
+        elif [ "$arg" = "--" ]; then
+            # Everything after the -- is passed only to 'nix build'
+            build_only_mode=1
+        else
+            args+=( "$arg" )
+            build_args+=( "$arg" )
+        fi
+    done
+
     if command -v nom &> /dev/null; then
-        nom build "$@"
+        nom build "${build_args[@]}"
     else
-        nix build "$@"
+        nix build "${build_args[@]}"
     fi
 
     if [ -z ${ATTIC_TOKEN+x} ]; then
@@ -24,7 +46,7 @@ just() {
         "$ATTIC_TOKEN"
 
     # Find all output paths of the installables and their build dependencies
-    readarray -t derivations < <(nix path-info --derivation "$@")
+    readarray -t derivations < <(nix path-info --derivation "${args[@]}")
     cache=()
     for derivation in "${derivations[@]}"; do
         cache+=(
