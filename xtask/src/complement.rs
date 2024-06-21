@@ -6,7 +6,10 @@ use xshell::{cmd, Shell};
 mod docker;
 mod test2json;
 
-use self::{docker::load_docker_image, test2json::run_complement};
+use self::{
+    docker::load_docker_image,
+    test2json::{count_complement_tests, run_complement},
+};
 
 #[derive(clap::Args)]
 pub(crate) struct Args;
@@ -19,7 +22,9 @@ pub(crate) fn main(_args: Args) -> Result<()> {
     let docker_image = load_docker_image(&sh, &toplevel).wrap_err(
         "failed to build and load complement-grapevine docker image",
     )?;
-    run_complement(&sh, &docker_image)
+    let test_count = count_complement_tests(&sh, &docker_image)
+        .wrap_err("failed to determine total complement test count")?;
+    run_complement(&sh, &docker_image, test_count)
         .wrap_err("failed to run complement tests")?;
     Ok(())
 }

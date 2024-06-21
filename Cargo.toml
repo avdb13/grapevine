@@ -98,6 +98,7 @@ http-body-util = "0.1.1"
 hyper = "1.3.1"
 hyper-util = { version = "0.1.4", features = ["client", "client-legacy", "service"] }
 image = { version = "0.25.1", default-features = false, features = ["jpeg", "png", "gif"] }
+indicatif = "0.17.8"
 jsonwebtoken = "9.3.0"
 lru-cache = "0.1.2"
 miette = { version = "7.2.0", features = ["fancy"] }
@@ -120,7 +121,7 @@ rocksdb = { package = "rust-rocksdb", version = "0.26.0", features = ["lz4", "mu
 ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "server-util", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 sd-notify = { version = "0.4.1" }
-serde = { version = "1.0.202", features = ["rc"] }
+serde = { version = "1.0.202", features = ["rc", "derive"] }
 serde_html_form = "0.2.6"
 serde_json = { version = "1.0.117", features = ["raw_value"] }
 serde_yaml = "0.9.34"
