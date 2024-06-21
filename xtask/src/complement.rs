@@ -16,6 +16,31 @@ use self::{
     test2json::{count_complement_tests, run_complement},
 };
 
+/// Runs complement tests, writes results to an output directory, and compares
+/// results with a baseline.
+///
+/// The output directory structure is
+///
+///  - `$out/summary.tsv`: a TSV file with the pass/fail/skip result for each
+///    test
+///
+///  - `$out/raw-log.jsonl`: raw output of the go test2json tool
+///
+///  - `$out/logs/...`: a text file named `$test.txt` for each test, containing
+///    the test logs.
+///
+/// These files will be updated incrementally during the test run. When the run
+/// the complete, the wrapper compares the results in `$out/summary.tsv`
+/// against the baseline result. If there are any differences, it exits with an
+/// error.
+///
+/// The expected workflow is to run this after making changes to Grapevine, to
+/// look for regressions in tests that were previously passing. If you make
+/// change that fix an existing failing test, you need to make sure that they
+/// did not introduce any regressions, and then copy the `summary.tsv` file from
+/// your test run over the existing `complement-baseline.tsv` file in the
+/// repository root. The intent is that `complement-baseline.tsv` should always
+/// be in sync with the expected results from a test run.
 #[derive(clap::Args)]
 pub(crate) struct Args {
     /// Directory to write test results
