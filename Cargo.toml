@@ -1,3 +1,5 @@
+[workspace]
+members = ["xtask"]
 [workspace.package]
 license = "Apache-2.0"
 
@@ -98,6 +100,7 @@ hyper-util = { version = "0.1.4", features = ["client", "client-legacy", "servic
 image = { version = "0.25.1", default-features = false, features = ["jpeg", "png", "gif"] }
 jsonwebtoken = "9.3.0"
 lru-cache = "0.1.2"
+miette = { version = "7.2.0", features = ["fancy"] }
 nix = { version = "0.29", features = ["resource"] }
 num_cpus = "1.16.0"
 once_cell = "1.19.0"
@@ -136,6 +139,7 @@ tracing-opentelemetry = "0.24.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 trust-dns-resolver = "0.23.2"
 xdg = "2.5.2"
+xshell = "0.2.6"
 
 [package]
 name = "grapevine"

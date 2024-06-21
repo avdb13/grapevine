@@ -86,6 +86,7 @@ let
         "Cargo.lock"
         "Cargo.toml"
         "src"
+        "xtask"
       ];
     };
 

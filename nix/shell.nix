@@ -1,6 +1,8 @@
 # Keep sorted
 { default
 , engage
+, complement
+, go
 , inputs
 , jq
 , lychee
@@ -34,6 +36,10 @@ mkShell {
     markdownlint-cli
     mdbook
     toolchain
+
+    # TODO: don't pollute the devshell with these
+    go
+    complement
   ]
   ++
   default.nativeBuildInputs

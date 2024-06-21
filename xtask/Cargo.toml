@@ -1,0 +1,14 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+miette.workspace = true
+xshell.workspace = true
+
+[lints]
+workspace = true
