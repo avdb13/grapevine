@@ -14,7 +14,7 @@ use std::{
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{miette, IntoDiagnostic, LabeledSpan, Result, WrapErr};
 use serde::Deserialize;
-use strum::Display;
+use strum::{Display, EnumString};
 use xshell::{cmd, Shell};
 
 use super::summary::{write_summary, TestResults};
@@ -43,7 +43,7 @@ pub(crate) fn run_complement(
     out: &Path,
     docker_image: &str,
     test_count: u64,
-) -> Result<()> {
+) -> Result<TestResults> {
     // TODO: handle SIG{INT,TERM}
     // TODO: XTASK_PATH variable, so that we don't need to pollute devshell with
     // go
@@ -70,7 +70,7 @@ pub(crate) fn run_complement(
         ctx.handle_line(&line)?;
     }
 
-    Ok(())
+    Ok(ctx.results)
 }
 
 /// Schema from <https://pkg.go.dev/cmd/test2json#hdr-Output_Format>
@@ -103,7 +103,7 @@ enum GoTestEvent {
     OtherAction,
 }
 
-#[derive(Copy, Clone, Display, Debug)]
+#[derive(Copy, Clone, Display, EnumString, Eq, PartialEq, Debug)]
 #[strum(serialize_all = "UPPERCASE")]
 pub(crate) enum TestResult {
     Pass,
