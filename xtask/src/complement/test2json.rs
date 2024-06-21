@@ -3,7 +3,10 @@
 //! [test2json]: https://pkg.go.dev/cmd/test2json@go1.22.4
 
 use std::{
-    io::{BufRead, BufReader},
+    collections::BTreeMap,
+    fs::File,
+    io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write},
+    path::Path,
     process::{Command, Stdio},
     time::Duration,
 };
@@ -13,6 +16,8 @@ use miette::{miette, IntoDiagnostic, LabeledSpan, Result, WrapErr};
 use serde::Deserialize;
 use strum::Display;
 use xshell::{cmd, Shell};
+
+use super::summary::{write_summary, TestResults};
 
 /// Returns the total number of complement tests that will be run
 ///
@@ -35,6 +40,7 @@ pub(crate) fn count_complement_tests(
 /// Runs complement test suite
 pub(crate) fn run_complement(
     sh: &Shell,
+    out: &Path,
     docker_image: &str,
     test_count: u64,
 ) -> Result<()> {
@@ -56,12 +62,12 @@ pub(crate) fn run_complement(
         .expect("child process spawned with piped stdout should have stdout");
     let lines = BufReader::new(stdout).lines();
 
-    let mut ctx = TestContext::new(test_count);
+    let mut ctx = TestContext::new(out, test_count)?;
     for line in lines {
         let line = line
             .into_diagnostic()
             .wrap_err("error reading output from complement process")?;
-        ctx.handle_line(&line);
+        ctx.handle_line(&line)?;
     }
 
     Ok(())
@@ -95,7 +101,7 @@ enum GoTestEvent {
 
 #[derive(Copy, Clone, Display, Debug)]
 #[strum(serialize_all = "UPPERCASE")]
-enum TestResult {
+pub(crate) enum TestResult {
     Pass,
     Fail,
     Skip,
@@ -106,6 +112,13 @@ struct TestContext {
     pass_count: u64,
     fail_count: u64,
     skip_count: u64,
+    // We do not need a specific method to flush this before dropping
+    // `TestContext`, because the file is only written from the
+    // `update_summary_file` method. This method always calls flush on
+    // a non-error path, and the file is left in an inconsistent state on an
+    // error anyway.
+    summary_file: BufWriter<File>,
+    results: TestResults,
 }
 
 /// Returns a string to use for displaying a test name
@@ -132,7 +145,7 @@ fn test_is_toplevel(test: &str) -> bool {
 }
 
 impl TestContext {
-    fn new(test_count: u64) -> TestContext {
+    fn new(out: &Path, test_count: u64) -> Result<TestContext> {
         // TODO: figure out how to display ETA without it fluctuating wildly.
         let style = ProgressStyle::with_template(
             "({msg})  {pos}/{len}  [{elapsed}] {wide_bar}",
@@ -141,14 +154,23 @@ impl TestContext {
         .progress_chars("##-");
         let pb = ProgressBar::new(test_count).with_style(style);
         pb.enable_steady_tick(Duration::from_secs(1));
+
+        let summary_file = File::create(out.join("summary.tsv"))
+            .into_diagnostic()
+            .wrap_err("failed to create summary file in output dir")?;
+        let summary_file = BufWriter::new(summary_file);
+
         let ctx = TestContext {
             pb,
             pass_count: 0,
             fail_count: 0,
             skip_count: 0,
+            summary_file,
+            results: BTreeMap::new(),
         };
+
         ctx.update_progress();
-        ctx
+        Ok(ctx)
     }
 
     fn update_progress(&self) {
@@ -160,8 +182,25 @@ impl TestContext {
         ));
     }
 
-    fn handle_test_result(&mut self, test: &str, result: TestResult) {
+    fn update_summary_file(&mut self) -> Result<()> {
+        // Truncate the file to clear existing contents
+        self.summary_file
+            .get_mut()
+            .seek(SeekFrom::Start(0))
+            .into_diagnostic()?;
+        self.summary_file.get_mut().set_len(0).into_diagnostic()?;
+        write_summary(&mut self.summary_file, &self.results)?;
+        self.summary_file.flush().into_diagnostic()?;
+        Ok(())
+    }
+
+    fn handle_test_result(
+        &mut self,
+        test: &str,
+        result: TestResult,
+    ) -> Result<()> {
         self.pb.println(format!("=== {result}\t{test}"));
+        self.results.insert(test.to_owned(), result);
         // 'complement.test -test.list' is only able to count toplevel tests
         // ahead-of-time, so we don't include subtests in the pass/fail/skip
         // counts.
@@ -173,9 +212,11 @@ impl TestContext {
             }
             self.update_progress();
         }
+        self.update_summary_file().wrap_err("error writing summary file")?;
+        Ok(())
     }
 
-    fn handle_event(&mut self, event: GoTestEvent) {
+    fn handle_event(&mut self, event: GoTestEvent) -> Result<()> {
         match event {
             GoTestEvent::OtherAction => (),
             GoTestEvent::Run {
@@ -186,25 +227,26 @@ impl TestContext {
             GoTestEvent::Pass {
                 test,
             } => {
-                self.handle_test_result(test_str(&test), TestResult::Pass);
+                self.handle_test_result(test_str(&test), TestResult::Pass)?;
             }
             GoTestEvent::Fail {
                 test,
             } => {
-                self.handle_test_result(test_str(&test), TestResult::Fail);
+                self.handle_test_result(test_str(&test), TestResult::Fail)?;
             }
             GoTestEvent::Skip {
                 test,
             } => {
-                self.handle_test_result(test_str(&test), TestResult::Skip);
+                self.handle_test_result(test_str(&test), TestResult::Skip)?;
             }
         }
+        Ok(())
     }
 
     /// Processes a line of output from `test2json`
-    fn handle_line(&mut self, line: &str) {
+    fn handle_line(&mut self, line: &str) -> Result<()> {
         match serde_json::from_str(line) {
-            Ok(event) => self.handle_event(event),
+            Ok(event) => self.handle_event(event)?,
             Err(e) => {
                 let label =
                     LabeledSpan::at_offset(e.column() - 1, "error here");
@@ -217,5 +259,6 @@ impl TestContext {
                 eprintln!("{report:?}");
             }
         };
+        Ok(())
     }
 }
