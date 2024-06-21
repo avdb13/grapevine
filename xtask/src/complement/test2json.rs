@@ -4,9 +4,9 @@
 
 use std::{
     collections::BTreeMap,
-    fs::File,
+    fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Duration,
 };
@@ -95,6 +95,10 @@ enum GoTestEvent {
     Skip {
         test: Option<String>,
     },
+    Output {
+        test: Option<String>,
+        output: String,
+    },
     #[serde(other)]
     OtherAction,
 }
@@ -118,6 +122,7 @@ struct TestContext {
     // a non-error path, and the file is left in an inconsistent state on an
     // error anyway.
     summary_file: BufWriter<File>,
+    log_dir: PathBuf,
     results: TestResults,
 }
 
@@ -160,11 +165,14 @@ impl TestContext {
             .wrap_err("failed to create summary file in output dir")?;
         let summary_file = BufWriter::new(summary_file);
 
+        let log_dir = out.join("logs");
+
         let ctx = TestContext {
             pb,
             pass_count: 0,
             fail_count: 0,
             skip_count: 0,
+            log_dir,
             summary_file,
             results: BTreeMap::new(),
         };
@@ -216,6 +224,36 @@ impl TestContext {
         Ok(())
     }
 
+    fn handle_test_output(&mut self, test: &str, output: &str) -> Result<()> {
+        let path = self.log_dir.join(test).with_extension("txt");
+
+        // Some tests have a '/' in their name, so create the extra dirs if they
+        // don't already exist.
+        let parent_dir = path.parent().expect(
+            "log file path should have parent. At worst, the toplevel dir is \
+             $out/logs/.",
+        );
+        fs::create_dir_all(parent_dir).into_diagnostic().wrap_err_with(
+            || {
+                format!(
+                    "error creating directory at {parent_dir:?} for log file \
+                     {path:?}"
+                )
+            },
+        )?;
+
+        let mut log_file = File::options()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .into_diagnostic()
+            .wrap_err_with(|| format!("error creating log file at {path:?}"))?;
+        log_file.write_all(output.as_bytes()).into_diagnostic().wrap_err_with(
+            || format!("error writing to log file at {path:?}"),
+        )?;
+        Ok(())
+    }
+
     fn handle_event(&mut self, event: GoTestEvent) -> Result<()> {
         match event {
             GoTestEvent::OtherAction => (),
@@ -238,6 +276,18 @@ impl TestContext {
                 test,
             } => {
                 self.handle_test_result(test_str(&test), TestResult::Skip)?;
+            }
+            GoTestEvent::Output {
+                test,
+                output,
+            } => {
+                let test = test_str(&test);
+                self.handle_test_output(test, &output).wrap_err_with(|| {
+                    format!(
+                        "failed to write test output to a log file for test \
+                         {test:?}"
+                    )
+                })?;
             }
         }
         Ok(())
