@@ -58,9 +58,8 @@ pub(crate) struct Args {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub(crate) fn main(args: Args) -> Result<()> {
-    let sh = Shell::new().unwrap();
-    let toplevel = get_toplevel_path(&sh)
+pub(crate) fn main(args: Args, sh: &Shell) -> Result<()> {
+    let toplevel = get_toplevel_path(sh)
         .wrap_err("failed to determine repository root directory")?;
     let baseline_path = args
         .baseline
@@ -74,12 +73,12 @@ pub(crate) fn main(args: Args) -> Result<()> {
     create_out_dir(&args.out).wrap_err_with(|| {
         format!("error initializing output directory {:?}", args.out)
     })?;
-    let docker_image = load_docker_image(&sh, &toplevel).wrap_err(
+    let docker_image = load_docker_image(sh, &toplevel).wrap_err(
         "failed to build and load complement-grapevine docker image",
     )?;
-    let test_count = count_complement_tests(&sh, &docker_image)
+    let test_count = count_complement_tests(sh, &docker_image)
         .wrap_err("failed to determine total complement test count")?;
-    let results = run_complement(&sh, &args.out, &docker_image, test_count)
+    let results = run_complement(sh, &args.out, &docker_image, test_count)
         .wrap_err("failed to run complement tests")?;
     let summary_path = args.out.join("summary.tsv");
     compare_summary(&baseline, &results, &baseline_path, &summary_path)?;

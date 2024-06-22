@@ -5,6 +5,7 @@
 , go
 , inputs
 , jq
+, lib
 , lychee
 , markdownlint-cli
 , mdbook
@@ -19,6 +20,13 @@ mkShell {
     # sources, and it can read this environment variable to do so. The
     # `rust-src` component is required in order for this to work.
     RUST_SRC_PATH = "${toolchain}/lib/rustlib/src/rust/library";
+
+    # See the doc comment on `use_xtask_path` in `xtask/src/main.rs`.
+    GRAPEVINE_XTASK_PATH = lib.makeBinPath [
+      # Keep sorted
+      complement
+      go
+    ];
   };
 
   # Development tools
@@ -36,10 +44,6 @@ mkShell {
     markdownlint-cli
     mdbook
     toolchain
-
-    # TODO: don't pollute the devshell with these
-    go
-    complement
   ]
   ++
   default.nativeBuildInputs

@@ -45,8 +45,6 @@ pub(crate) fn run_complement(
     test_count: u64,
 ) -> Result<TestResults> {
     // TODO: handle SIG{INT,TERM}
-    // TODO: XTASK_PATH variable, so that we don't need to pollute devshell with
-    // go
     let cmd = cmd!(sh, "go tool test2json complement.test -test.v=test2json")
         .env("COMPLEMENT_BASE_IMAGE", docker_image)
         .env("COMPLEMENT_SPAWN_HS_TIMEOUT", "5")
