@@ -3,7 +3,10 @@ use std::{
     fmt,
     hash::Hash,
     ops::Deref,
-    sync::{Arc, Weak},
+    sync::{
+        atomic::{self, AtomicUsize},
+        Arc, Weak,
+    },
 };
 
 use tokio::sync::{mpsc, RwLock};
@@ -19,8 +22,11 @@ use crate::observability::METRICS;
 /// be dropped, we don't want to rely on that.
 struct SharedData<K, V> {
     name: Arc<str>,
-    /// Values are owned by their [entries][Entry]
-    entries: RwLock<HashMap<K, Weak<V>>>,
+    /// The inner backing storage.
+    ///
+    /// Each entry consists of a clone count and the value itself, which is
+    /// owned by its [entries][Entry].
+    entries: RwLock<HashMap<K, (AtomicUsize, Weak<V>)>>,
 }
 
 impl<K, V> SharedData<K, V>
@@ -35,7 +41,7 @@ where
     async fn try_cleanup_entry(&self, key: K) {
         let mut map = self.entries.write().await;
 
-        let Some(weak) = map.get(&key) else {
+        let Some((clone_count, weak)) = map.get(&key) else {
             trace!("entry has already been cleaned up");
             return;
         };
@@ -46,20 +52,25 @@ where
         }
 
         trace!("cleaning up unused entry");
+        let clone_count = clone_count.load(atomic::Ordering::Relaxed);
         map.remove(&key);
         METRICS.record_on_demand_hashmap_size(self.name.clone(), map.len());
+        METRICS.record_on_demand_hashmap_clone_count(
+            self.name.clone(),
+            clone_count,
+        );
     }
 
     #[tracing::instrument(level = Level::TRACE, skip(map))]
     fn try_get_live_value(
         pass: usize,
-        map: &HashMap<K, Weak<V>>,
+        map: &HashMap<K, (AtomicUsize, Weak<V>)>,
         key: &K,
     ) -> Option<Arc<V>> {
-        if let Some(value) = map.get(key) {
+        if let Some((clone_count, value)) = map.get(key) {
             if let Some(value) = value.upgrade() {
-                // TODO: increment value's clone counter
                 trace!(pass, "using existing value");
+                clone_count.fetch_add(1, atomic::Ordering::Relaxed);
                 return Some(value);
             }
 
@@ -107,7 +118,7 @@ where
             return v;
         }
 
-        map.insert(key.clone(), weak);
+        map.insert(key.clone(), (AtomicUsize::new(0), weak));
         METRICS.record_on_demand_hashmap_size(self.name.clone(), map.len());
 
         value
