@@ -274,8 +274,6 @@ pub(crate) struct Metrics {
 
     /// Actions performed when looking up entries in [`OnDemandHashMap`]
     on_demand_hashmap_get: opentelemetry::metrics::Counter<u64>,
-    /// Verdict of cleanup performed for [`OnDemandHashMap`]
-    on_demand_hashmap_drop: opentelemetry::metrics::Counter<u64>,
     /// Number of entries in an [`OnDemandHashMap`]
     on_demand_hashmap_size: opentelemetry::metrics::Gauge<u64>,
 }
@@ -334,12 +332,6 @@ impl Metrics {
                 "Actions performed when looking up entries in OnDemandHashMap",
             )
             .init();
-        let on_demand_hashmap_drop = meter
-            .u64_counter("on_demand_hashmap_drop")
-            .with_description(
-                "Verdict of cleanup performed for OnDemandHashMap",
-            )
-            .init();
         let on_demand_hashmap_size = meter
             .u64_gauge("on_demand_hashmap_size")
             .with_description("Number of entries in OnDemandHashMap")
@@ -350,7 +342,6 @@ impl Metrics {
             http_requests_histogram,
             lookup,
             on_demand_hashmap_get,
-            on_demand_hashmap_drop,
             on_demand_hashmap_size,
         }
     }
@@ -384,21 +375,6 @@ impl Metrics {
             &[
                 KeyValue::new("name", name),
                 KeyValue::new("action", <&str>::from(action)),
-            ],
-        );
-    }
-
-    /// Record verdict of cleanup performed for [`OnDemandHashMap`]
-    pub(crate) fn record_on_demand_hashmap_drop(
-        &self,
-        name: Arc<str>,
-        verdict: on_demand_hashmap::DropVerdict,
-    ) {
-        self.on_demand_hashmap_drop.add(
-            1,
-            &[
-                KeyValue::new("name", name),
-                KeyValue::new("verdict", <&str>::from(verdict)),
             ],
         );
     }

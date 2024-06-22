@@ -33,24 +33,22 @@ where
         skip(self),
         fields(name = self.name.as_ref()),
     )]
-    async fn try_cleanup_entry(&self, key: K) -> DropVerdict {
+    async fn try_cleanup_entry(&self, key: K) {
         let mut map = self.entries.write().await;
 
         let Some(weak) = map.get(&key) else {
             trace!("entry has already been cleaned up");
-            return DropVerdict::PreviouslyCleanedUp;
+            return;
         };
 
         if weak.strong_count() != 0 {
             trace!("entry is in use");
-            return DropVerdict::InUse;
+            return;
         }
 
         trace!("cleaning up unused entry");
         map.remove(&key);
         METRICS.record_on_demand_hashmap_size(self.name.clone(), map.len());
-
-        DropVerdict::Cleanup
     }
 
     #[tracing::instrument(level = Level::TRACE, skip(map))]
@@ -161,11 +159,7 @@ where
                         return;
                     };
 
-                    let verdict = shared.try_cleanup_entry(key).await;
-                    METRICS.record_on_demand_hashmap_drop(
-                        shared.name.clone(),
-                        verdict,
-                    );
+                    shared.try_cleanup_entry(key).await;
                 }
             });
         }
@@ -243,17 +237,4 @@ pub(crate) enum GetAction {
     CloneExistingAfterCreation,
     /// A new entry was created and inserted into the map.
     InsertNew,
-}
-
-/// Status of cleanup task triggered by <code>impl Drop for
-/// [OnDemandHashMap]</code>, for metrics.
-#[derive(Clone, Copy, AsRefStr, IntoStaticStr)]
-pub(crate) enum DropVerdict {
-    /// The unused entry was cleaned up.
-    Cleanup,
-    /// The entry had already been cleaned up previously, no action was
-    /// performed.
-    PreviouslyCleanedUp,
-    /// The entry is still in use, no action was performed.
-    InUse,
 }
