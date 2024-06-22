@@ -153,7 +153,12 @@ async fn run_server() -> Result<(), error::Serve> {
                     request.uri().path()
                 };
 
-                tracing::info_span!("http_request", otel.name = path, %path, method = %request.method())
+                tracing::info_span!(
+                    "http_request",
+                    otel.name = path,
+                    %path,
+                    method = %request.method(),
+                )
             },
         ))
         .layer(axum::middleware::from_fn(unrecognized_method))
