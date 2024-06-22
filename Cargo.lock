@@ -3936,6 +3936,7 @@ dependencies = [
  "indicatif",
  "miette",
  "process-wrap",
+ "rand",
  "serde",
  "serde_json",
  "signal-hook",

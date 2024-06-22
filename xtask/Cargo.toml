@@ -10,6 +10,7 @@ clap.workspace = true
 miette.workspace = true
 process-wrap.workspace = true
 indicatif.workspace = true
+rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 signal-hook.workspace = true

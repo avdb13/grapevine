@@ -18,7 +18,7 @@ use std::{
 };
 
 use indicatif::{ProgressBar, ProgressStyle};
-use miette::{miette, IntoDiagnostic, LabeledSpan, Result, WrapErr};
+use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use process_wrap::std::{ProcessGroup, StdChildWrapper, StdCommandWrap};
 use serde::Deserialize;
 use signal_hook::{
@@ -29,7 +29,11 @@ use signal_hook::{
 use strum::{Display, EnumString};
 use xshell::{cmd, Shell};
 
-use super::summary::{write_summary, TestResults};
+use super::{
+    docker::kill_docker_containers,
+    from_json_line,
+    summary::{write_summary, TestResults},
+};
 
 /// Returns the total number of complement tests that will be run
 ///
@@ -142,12 +146,9 @@ pub(crate) fn run_complement(
                 }
             }
 
-            // TODO: kill dangling docker containers
-            eprintln!(
-                "WARNING: complement may have left dangling docker \
-                 containers. Cleanup for these is planned, but has not been \
-                 implemented yet. You need to identify and kill them manually"
-            );
+            kill_docker_containers(sh, docker_image).wrap_err(
+                "failed to kill dangling complement docker containers",
+            )?;
 
             true
         } else {
@@ -500,20 +501,14 @@ impl TestContext {
     /// Processes a line of output from `test2json`
     fn handle_line(&mut self, line: &str) -> Result<()> {
         self.write_raw_log_line(line)?;
-        match serde_json::from_str(line) {
+        let result = from_json_line(line).wrap_err(
+            "failed to parse go test2json event from complement tests. \
+             Ignoring this event",
+        );
+        match result {
             Ok(event) => self.handle_event(event)?,
-            Err(e) => {
-                let label =
-                    LabeledSpan::at_offset(e.column() - 1, "error here");
-                let report = miette!(labels = vec![label], "{e}",)
-                    .with_source_code(line.to_owned())
-                    .wrap_err(
-                        "failed to parse go test2json event from complement \
-                         tests. Ignoring this event.",
-                    );
-                eprintln!("{report:?}");
-            }
-        };
+            Err(e) => eprintln!("{e:?}"),
+        }
         Ok(())
     }
 }
