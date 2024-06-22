@@ -588,7 +588,10 @@ impl Service {
             ));
         }
 
-        info!("Upgrading {} to timeline pdu", incoming_pdu.event_id);
+        debug!(
+            event_id = %incoming_pdu.event_id,
+            "Upgrading event to timeline pdu",
+        );
 
         let create_event_content: RoomCreateEventContent =
             serde_json::from_str(create_event.content.get()).map_err(|e| {
