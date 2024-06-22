@@ -9,7 +9,7 @@ use ruma::{
     OwnedServerName,
 };
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::{error, warn};
 
 use crate::Ra;
 
@@ -149,7 +149,7 @@ impl Error {
             _ => (Unknown, StatusCode::INTERNAL_SERVER_ERROR),
         };
 
-        info!("Returning an error: {}: {}", status_code, message);
+        warn!(%status_code, error = %message, "Responding with an error");
 
         Ra(UiaaResponse::MatrixError(RumaError {
             body: ErrorBody::Standard {
