@@ -247,8 +247,7 @@ fn run_complement_inner(
             .wrap_err("error reading output from complement process")?;
         ctx.handle_line(&line)?;
     }
-
-    Ok(ctx.results)
+    ctx.finish()
 }
 
 /// Schema from <https://pkg.go.dev/cmd/test2json#hdr-Output_Format>
@@ -300,6 +299,7 @@ struct TestContext {
     // a non-error path, and the file is left in an inconsistent state on an
     // error anyway.
     summary_file: BufWriter<File>,
+    raw_log_file: BufWriter<File>,
     log_dir: PathBuf,
     results: TestResults,
 }
@@ -343,6 +343,11 @@ impl TestContext {
             .wrap_err("failed to create summary file in output dir")?;
         let summary_file = BufWriter::new(summary_file);
 
+        let raw_log_file = File::create(out.join("raw-log.jsonl"))
+            .into_diagnostic()
+            .wrap_err("failed to create raw log file in output dir")?;
+        let raw_log_file = BufWriter::new(raw_log_file);
+
         let log_dir = out.join("logs");
 
         let ctx = TestContext {
@@ -352,11 +357,32 @@ impl TestContext {
             skip_count: 0,
             log_dir,
             summary_file,
+            raw_log_file,
             results: BTreeMap::new(),
         };
 
         ctx.update_progress();
         Ok(ctx)
+    }
+
+    fn finish(mut self) -> Result<TestResults> {
+        self.raw_log_file
+            .flush()
+            .into_diagnostic()
+            .wrap_err("error flushing writes to raw log file")?;
+        Ok(self.results)
+    }
+
+    fn write_raw_log_line(&mut self, line: &str) -> Result<()> {
+        self.raw_log_file
+            .write_all(line.as_bytes())
+            .into_diagnostic()
+            .wrap_err("error writing line to raw log file")?;
+        self.raw_log_file
+            .write_all(&[b'\n'])
+            .into_diagnostic()
+            .wrap_err("error writing line to raw log file")?;
+        Ok(())
     }
 
     fn update_progress(&self) {
@@ -473,6 +499,7 @@ impl TestContext {
 
     /// Processes a line of output from `test2json`
     fn handle_line(&mut self, line: &str) -> Result<()> {
+        self.write_raw_log_line(line)?;
         match serde_json::from_str(line) {
             Ok(event) => self.handle_event(event)?,
             Err(e) => {
