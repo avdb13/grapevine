@@ -145,19 +145,21 @@ async fn run_server() -> Result<(), error::Serve> {
         .layer(axum::middleware::from_fn(spawn_task))
         .layer(TraceLayer::new_for_http().make_span_with(
             |request: &http::Request<_>| {
-                let path = if let Some(path) =
+                let endpoint = if let Some(endpoint) =
                     request.extensions().get::<MatchedPath>()
                 {
-                    path.as_str()
+                    endpoint.as_str()
                 } else {
                     request.uri().path()
                 };
 
+                let method = request.method();
+
                 tracing::info_span!(
                     "http_request",
-                    otel.name = path,
-                    %path,
-                    method = %request.method(),
+                    otel.name = format!("{method} {endpoint}"),
+                    %method,
+                    %endpoint,
                 )
             },
         ))
