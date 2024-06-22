@@ -6,14 +6,26 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write},
+    mem, panic,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread,
     time::Duration,
 };
 
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{miette, IntoDiagnostic, LabeledSpan, Result, WrapErr};
+use process_wrap::std::{ProcessGroup, StdChildWrapper, StdCommandWrap};
 use serde::Deserialize;
+use signal_hook::{
+    consts::signal::{SIGINT, SIGQUIT, SIGTERM},
+    flag,
+    iterator::Signals,
+};
 use strum::{Display, EnumString};
 use xshell::{cmd, Shell};
 
@@ -37,27 +49,195 @@ pub(crate) fn count_complement_tests(
     Ok(test_count)
 }
 
-/// Runs complement test suite
+/// Run complement tests.
+///
+/// This function mostly deals with handling shutdown signals, while the actual
+/// logic for running complement is in `run_complement_inner`, which is spawned
+/// as a separate thread. This is necessary because the go `test2json` tool
+/// ignores SIGTERM and SIGINT. Without signal handling on our end, terminating
+/// the complement wrapper process would leave a dangling complement child
+/// process running.
+///
+/// The reason that `test2json` does this is that it does not implement any kind
+/// of test cleanup, and so the developers decided that ignoring termination
+/// signals entirely was safer. Running go unit tests outside of `test2json`
+/// (and so without machine-readable output) does not have this limitation.
+/// Unfortunately neither of these are an option for us. We need
+/// machine-readable output to compare against the baseline result. Complement
+/// runs can take 40+ minutes, so being able to cancel them is a requirement.
+///
+/// Because we don't trigger any of the normal cleanup, we need to handle
+/// dangling docker containers ourselves.
 pub(crate) fn run_complement(
     sh: &Shell,
     out: &Path,
     docker_image: &str,
     test_count: u64,
 ) -> Result<TestResults> {
-    // TODO: handle SIG{INT,TERM}
+    let term_signals = [SIGTERM, SIGINT, SIGQUIT];
+
+    let term_now = Arc::new(AtomicBool::new(false));
+    for sig in &term_signals {
+        // Terminate immediately if `term_now` is true and we receive a
+        // terminating signal
+        flag::register_conditional_shutdown(*sig, 1, Arc::clone(&term_now))
+            .into_diagnostic()
+            .wrap_err("error registering signal handler")?;
+    }
+
+    let mut signals = Signals::new(term_signals).unwrap();
+
+    let state = Mutex::new(ComplementRunnerState::Startup);
+    let signals_handle = signals.handle();
+
+    let result = thread::scope(|s| {
+        let state_ref = &state;
+        let cloned_sh = sh.clone();
+        let thread_handle = s.spawn(move || {
+            let panic_result = panic::catch_unwind(|| {
+                run_complement_inner(
+                    &cloned_sh,
+                    out,
+                    docker_image,
+                    test_count,
+                    state_ref,
+                )
+            });
+            // Stop the signal-handling loop, even if we panicked
+            signals_handle.close();
+            match panic_result {
+                Ok(result) => result,
+                Err(panic) => panic::resume_unwind(panic),
+            }
+        });
+
+        let canceled = if let Some(signal) = signals.forever().next() {
+            let description = match signal {
+                SIGTERM => "SIGTERM",
+                SIGINT => "ctrl+c",
+                SIGQUIT => "SIGQUIT",
+                _ => unreachable!(),
+            };
+            eprintln!(
+                "Received {description}, stopping complement run. Send \
+                 {description} a second time to terminate without cleaning \
+                 up, which may leave dangling processes and docker containers"
+            );
+            term_now.store(true, Ordering::Relaxed);
+
+            {
+                let mut state = state.lock().unwrap();
+                let old_state =
+                    mem::replace(&mut *state, ComplementRunnerState::Shutdown);
+                match old_state {
+                    ComplementRunnerState::Startup => (),
+                    ComplementRunnerState::Shutdown => unreachable!(),
+                    ComplementRunnerState::Running(mut child) => {
+                        // Killing the child process should terminate the
+                        // complement runner thread in a
+                        // bounded amount of time, because it will cause the
+                        // stdout reader to return EOF.
+                        child.kill().unwrap();
+                    }
+                }
+            }
+
+            // TODO: kill dangling docker containers
+            eprintln!(
+                "WARNING: complement may have left dangling docker \
+                 containers. Cleanup for these is planned, but has not been \
+                 implemented yet. You need to identify and kill them manually"
+            );
+
+            true
+        } else {
+            // hit this branch if the signal handler is closed by the complement
+            // runner thread. This means the complement run finished
+            // without being canceled.
+            false
+        };
+
+        match thread_handle.join() {
+            Ok(result) => {
+                if canceled {
+                    Err(miette!("complement run was canceled"))
+                } else {
+                    result
+                }
+            }
+            Err(panic_value) => panic::resume_unwind(panic_value),
+        }
+    });
+
+    // From this point on, terminate immediately when signalled
+    term_now.store(true, Ordering::Relaxed);
+
+    result
+}
+
+/// Possible states for the complement runner thread.
+///
+/// The current state should be protected by a mutex, where state changes are
+/// only performed while the mutex is locked. This is to prevent a race
+/// condition where the main thread handles a shutdown signal at the same time
+/// that the complement runner thread is starting the child process, and so the
+/// main thread fails to kill the child process.
+///
+/// Valid state transitions:
+///
+///  - `Startup` -> `Running`
+///  - `Startup` -> `Shutdown`
+///  - `Running` -> `Shutdown`
+#[derive(Debug)]
+enum ComplementRunnerState {
+    /// The complement child process has not been started yet
+    Startup,
+    /// The complement child process is running, and we have not yet received
+    /// a shutdown signal.
+    Running(Box<dyn StdChildWrapper>),
+    /// We have received a shutdown signal.
+    Shutdown,
+}
+
+/// Spawn complement chind process and handle it's output
+///
+/// This is the "complement runner" thread, spawned by the [`run_complement`]
+/// function.
+fn run_complement_inner(
+    sh: &Shell,
+    out: &Path,
+    docker_image: &str,
+    test_count: u64,
+    state: &Mutex<ComplementRunnerState>,
+) -> Result<TestResults> {
     let cmd = cmd!(sh, "go tool test2json complement.test -test.v=test2json")
         .env("COMPLEMENT_BASE_IMAGE", docker_image)
         .env("COMPLEMENT_SPAWN_HS_TIMEOUT", "5")
         .env("COMPLEMENT_ALWAYS_PRINT_SERVER_LOGS", "1");
     eprintln!("$ {cmd}");
-    let child = Command::from(cmd)
-        .stdout(Stdio::piped())
-        .spawn()
-        .into_diagnostic()
-        .wrap_err("error spawning complement process")?;
-    let stdout = child
-        .stdout
-        .expect("child process spawned with piped stdout should have stdout");
+
+    let stdout = {
+        let mut state = state.lock().unwrap();
+        match &*state {
+            ComplementRunnerState::Startup => (),
+            ComplementRunnerState::Running(_) => unreachable!(),
+            ComplementRunnerState::Shutdown => {
+                return Err(miette!("complement run was canceled"))
+            }
+        }
+        let mut cmd = Command::from(cmd);
+        cmd.stdout(Stdio::piped());
+        let mut child = StdCommandWrap::from(cmd)
+            .wrap(ProcessGroup::leader())
+            .spawn()
+            .into_diagnostic()
+            .wrap_err("error spawning complement process")?;
+        let stdout = child.stdout().take().expect(
+            "child process spawned with piped stdout should have stdout",
+        );
+        *state = ComplementRunnerState::Running(child);
+        stdout
+    };
     let lines = BufReader::new(stdout).lines();
 
     let mut ctx = TestContext::new(out, test_count)?;

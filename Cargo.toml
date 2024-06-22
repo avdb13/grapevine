@@ -112,6 +112,7 @@ opentelemetry-prometheus = "0.16.0"
 opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio"] }
 parking_lot = "0.12.3"
 phf = { version = "0.11.2", features = ["macros"] }
+process-wrap = { version = "8.0.2", default-features = false, features = ["std", "process-group"] }
 prometheus = "0.13.4"
 rand = "0.8.5"
 regex = "1.10.4"
@@ -126,6 +127,7 @@ serde_html_form = "0.2.6"
 serde_json = { version = "1.0.117", features = ["raw_value"] }
 serde_yaml = "0.9.34"
 sha-1 = "0.10.1"
+signal-hook = "0.3.17"
 strum = { version = "0.26.2", features = ["derive"] }
 thiserror = "1.0.61"
 thread_local = "1.1.8"
