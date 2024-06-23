@@ -992,16 +992,11 @@ impl Service {
         // 13. Use state resolution to find new room state
 
         // We start looking at current room state now, so lets lock the room
-        let mutex_state = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_state
-                .write()
-                .await
-                .entry(room_id.to_owned())
-                .or_default(),
-        );
-        let state_lock = mutex_state.lock().await;
+        let room_token = services()
+            .globals
+            .roomid_mutex_state
+            .lock_key(room_id.to_owned())
+            .await;
 
         // Now we calculate the set of extremities this room has after the
         // incoming event has been applied. We start with the previous
@@ -1070,7 +1065,7 @@ impl Service {
             services()
                 .rooms
                 .state
-                .force_state(room_id, sstatehash, new, removed, &state_lock)
+                .force_state(&room_token, sstatehash, new, removed)
                 .await?;
         }
 
@@ -1088,7 +1083,7 @@ impl Service {
                     extremities.iter().map(|e| (**e).to_owned()).collect(),
                     state_ids_compressed,
                     soft_fail,
-                    &state_lock,
+                    &room_token,
                 )
                 .await?;
 
@@ -1121,14 +1116,14 @@ impl Service {
                 extremities.iter().map(|e| (**e).to_owned()).collect(),
                 state_ids_compressed,
                 soft_fail,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
         debug!("Appended incoming pdu");
 
         // Event has passed all auth/stateres checks
-        drop(state_lock);
+        drop(room_token);
         Ok(pdu_id)
     }
 

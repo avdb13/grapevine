@@ -20,17 +20,18 @@ use ruma::{
         StateEventType,
     },
     state_res::Event,
-    EventId, JsOption, OwnedServerName, OwnedUserId, RoomId, ServerName,
-    UserId,
+    EventId, JsOption, OwnedRoomId, OwnedServerName, OwnedUserId, RoomId,
+    ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
-use tokio::sync::MutexGuard;
 use tracing::{error, warn};
 
 use crate::{
     observability::{FoundIn, Lookup, METRICS},
-    service::pdu::PduBuilder,
-    services, Error, PduEvent, Result,
+    service::{globals::marker, pdu::PduBuilder},
+    services,
+    utils::on_demand_hashmap::KeyToken,
+    Error, PduEvent, Result,
 };
 
 pub(crate) struct Service {
@@ -390,10 +391,9 @@ impl Service {
     #[tracing::instrument(skip(self), ret(level = "trace"))]
     pub(crate) fn user_can_invite(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         sender: &UserId,
         target_user: &UserId,
-        state_lock: &MutexGuard<'_, ()>,
     ) -> bool {
         let content =
             to_raw_value(&RoomMemberEventContent::new(MembershipState::Invite))
@@ -410,7 +410,7 @@ impl Service {
         services()
             .rooms
             .timeline
-            .create_hash_and_sign_event(new_event, sender, room_id, state_lock)
+            .create_hash_and_sign_event(new_event, sender, room_id)
             .is_ok()
     }
 

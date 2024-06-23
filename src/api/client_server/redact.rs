@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ruma::{
     api::client::redact::redact_event,
     events::{room::redaction::RoomRedactionEventContent, TimelineEventType},
@@ -19,16 +17,11 @@ pub(crate) async fn redact_event_route(
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let body = body.body;
 
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(body.room_id.clone())
-            .or_default(),
-    );
-    let state_lock = mutex_state.lock().await;
+    let room_token = services()
+        .globals
+        .roomid_mutex_state
+        .lock_key(body.room_id.clone())
+        .await;
 
     let event_id = services()
         .rooms
@@ -46,12 +39,11 @@ pub(crate) async fn redact_event_route(
                 redacts: Some(body.event_id.into()),
             },
             sender_user,
-            &body.room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
-    drop(state_lock);
+    drop(room_token);
 
     let event_id = (*event_id).to_owned();
     Ok(Ra(redact_event::v3::Response {

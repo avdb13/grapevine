@@ -1,4 +1,4 @@
-use std::{cmp::max, collections::BTreeMap, sync::Arc};
+use std::{cmp::max, collections::BTreeMap};
 
 use ruma::{
     api::client::{
@@ -63,16 +63,8 @@ pub(crate) async fn create_room_route(
 
     services().rooms.short.get_or_create_shortroomid(&room_id)?;
 
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(room_id.clone())
-            .or_default(),
-    );
-    let state_lock = mutex_state.lock().await;
+    let room_token =
+        services().globals.roomid_mutex_state.lock_key(room_id.clone()).await;
 
     if !services().globals.allow_room_creation()
         && body.appservice_info.is_none()
@@ -250,8 +242,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -278,8 +269,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -338,8 +328,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -361,8 +350,7 @@ pub(crate) async fn create_room_route(
                     redacts: None,
                 },
                 sender_user,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
     }
@@ -389,8 +377,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -410,8 +397,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -434,8 +420,7 @@ pub(crate) async fn create_room_route(
                 redacts: None,
             },
             sender_user,
-            &room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -463,12 +448,7 @@ pub(crate) async fn create_room_route(
         services()
             .rooms
             .timeline
-            .build_and_append_pdu(
-                pdu_builder,
-                sender_user,
-                &room_id,
-                &state_lock,
-            )
+            .build_and_append_pdu(pdu_builder, sender_user, &room_token)
             .await?;
     }
 
@@ -489,8 +469,7 @@ pub(crate) async fn create_room_route(
                     redacts: None,
                 },
                 sender_user,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
     }
@@ -511,14 +490,13 @@ pub(crate) async fn create_room_route(
                     redacts: None,
                 },
                 sender_user,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
     }
 
     // 8. Events implied by invite (and TODO: invite_3pid)
-    drop(state_lock);
+    drop(room_token);
     for user_id in &body.invite {
         if let Err(error) =
             invite_helper(sender_user, user_id, &room_id, None, body.is_direct)
@@ -635,16 +613,11 @@ pub(crate) async fn upgrade_room_route(
     let replacement_room = RoomId::new(services().globals.server_name());
     services().rooms.short.get_or_create_shortroomid(&replacement_room)?;
 
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(body.room_id.clone())
-            .or_default(),
-    );
-    let original_state_lock = mutex_state.lock().await;
+    let original_room_token = services()
+        .globals
+        .roomid_mutex_state
+        .lock_key(body.room_id.clone())
+        .await;
 
     // Send a m.room.tombstone event to the old room to indicate that it is not
     // intended to be used any further Fail if the sender does not have the
@@ -665,22 +638,16 @@ pub(crate) async fn upgrade_room_route(
                 redacts: None,
             },
             sender_user,
-            &body.room_id,
-            &original_state_lock,
+            &original_room_token,
         )
         .await?;
 
     // Change lock to replacement room
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(replacement_room.clone())
-            .or_default(),
-    );
-    let replacement_state_lock = mutex_state.lock().await;
+    let replacement_room_token = services()
+        .globals
+        .roomid_mutex_state
+        .lock_key(replacement_room.clone())
+        .await;
 
     // Get the old room creation event
     let mut create_event_content = serde_json::from_str::<CanonicalJsonObject>(
@@ -777,8 +744,7 @@ pub(crate) async fn upgrade_room_route(
                 redacts: None,
             },
             sender_user,
-            &replacement_room,
-            &replacement_state_lock,
+            &replacement_room_token,
         )
         .await?;
 
@@ -805,8 +771,7 @@ pub(crate) async fn upgrade_room_route(
                 redacts: None,
             },
             sender_user,
-            &replacement_room,
-            &replacement_state_lock,
+            &replacement_room_token,
         )
         .await?;
 
@@ -847,8 +812,7 @@ pub(crate) async fn upgrade_room_route(
                     redacts: None,
                 },
                 sender_user,
-                &replacement_room,
-                &replacement_state_lock,
+                &replacement_room_token,
             )
             .await?;
     }
@@ -910,12 +874,9 @@ pub(crate) async fn upgrade_room_route(
                 redacts: None,
             },
             sender_user,
-            &body.room_id,
-            &original_state_lock,
+            &original_room_token,
         )
         .await?;
-
-    drop(replacement_state_lock);
 
     // Return the replacement room id
     Ok(Ra(upgrade_room::v3::Response {

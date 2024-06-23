@@ -22,11 +22,12 @@ use ruma::{
     push::{Action, Ruleset, Tweak},
     state_res::{self, Event, RoomVersion},
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
-    OwnedEventId, OwnedServerName, RoomId, RoomVersionId, ServerName, UserId,
+    OwnedEventId, OwnedRoomId, OwnedServerName, RoomId, RoomVersionId,
+    ServerName, UserId,
 };
 use serde::Deserialize;
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
-use tokio::sync::{MutexGuard, RwLock};
+use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use super::state_compressor::CompressedStateEvent;
@@ -34,10 +35,12 @@ use crate::{
     api::server_server,
     service::{
         appservice::NamespaceRegex,
-        globals::SigningKeys,
+        globals::{marker, SigningKeys},
         pdu::{EventHash, PduBuilder},
     },
-    services, utils, Error, PduEvent, Result,
+    services,
+    utils::{self, on_demand_hashmap::KeyToken},
+    Error, PduEvent, Result,
 };
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -197,9 +200,10 @@ impl Service {
         pdu: &PduEvent,
         mut pdu_json: CanonicalJsonObject,
         leaves: Vec<OwnedEventId>,
-        // Take mutex guard to make sure users get the room state mutex
-        state_lock: &MutexGuard<'_, ()>,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
     ) -> Result<Vec<u8>> {
+        assert_eq!(*pdu.room_id, **room_id, "Token for incorrect room passed");
+
         let shortroomid = services()
             .rooms
             .short
@@ -253,11 +257,7 @@ impl Service {
             .rooms
             .pdu_metadata
             .mark_as_referenced(&pdu.room_id, &pdu.prev_events)?;
-        services().rooms.state.set_forward_extremities(
-            &pdu.room_id,
-            leaves,
-            state_lock,
-        )?;
+        services().rooms.state.set_forward_extremities(room_id, leaves)?;
 
         let mutex_insert = Arc::clone(
             services()
@@ -669,9 +669,7 @@ impl Service {
         &self,
         pdu_builder: PduBuilder,
         sender: &UserId,
-        room_id: &RoomId,
-        // Take mutex guard to make sure users get the room state mutex
-        _mutex_lock: &MutexGuard<'_, ()>,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
     ) -> Result<(PduEvent, CanonicalJsonObject)> {
         let PduBuilder {
             event_type,
@@ -702,7 +700,7 @@ impl Service {
                 } else {
                     Err(Error::InconsistentRoomState(
                         "non-create event for room of unknown version",
-                        room_id.to_owned(),
+                        (**room_id).clone(),
                     ))
                 }
             })?;
@@ -751,7 +749,7 @@ impl Service {
 
         let mut pdu = PduEvent {
             event_id: ruma::event_id!("$thiswillbefilledinlater").into(),
-            room_id: room_id.to_owned(),
+            room_id: (**room_id).clone(),
             sender: sender.to_owned(),
             origin_server_ts: utils::millis_since_unix_epoch()
                 .try_into()
@@ -855,24 +853,18 @@ impl Service {
     /// Creates a new persisted data unit and adds it to a room. This function
     /// takes a roomid_mutex_state, meaning that only this function is able
     /// to mutate the room state.
-    #[tracing::instrument(skip(self, state_lock))]
+    #[tracing::instrument(skip(self))]
     pub(crate) async fn build_and_append_pdu(
         &self,
         pdu_builder: PduBuilder,
         sender: &UserId,
-        room_id: &RoomId,
-        // Take mutex guard to make sure users get the room state mutex
-        state_lock: &MutexGuard<'_, ()>,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
     ) -> Result<Arc<EventId>> {
-        let (pdu, pdu_json) = self.create_hash_and_sign_event(
-            pdu_builder,
-            sender,
-            room_id,
-            state_lock,
-        )?;
+        let (pdu, pdu_json) =
+            self.create_hash_and_sign_event(pdu_builder, sender, room_id)?;
 
         if let Some(admin_room) = services().admin.get_admin_room()? {
-            if admin_room == room_id {
+            if admin_room == **room_id {
                 match pdu.event_type() {
                     TimelineEventType::RoomEncryption => {
                         warn!("Encryption is not allowed in the admins room");
@@ -1052,18 +1044,14 @@ impl Service {
                 // Since this PDU references all pdu_leaves we can update the
                 // leaves of the room
                 vec![(*pdu.event_id).to_owned()],
-                state_lock,
+                room_id,
             )
             .await?;
 
         // We set the room state after inserting the pdu, so that we never have
         // a moment in time where events in the current room state do
         // not exist
-        services().rooms.state.set_room_state(
-            room_id,
-            statehashid,
-            state_lock,
-        )?;
+        services().rooms.state.set_room_state(room_id, statehashid)?;
 
         let mut servers: HashSet<OwnedServerName> = services()
             .rooms
@@ -1103,9 +1091,10 @@ impl Service {
         new_room_leaves: Vec<OwnedEventId>,
         state_ids_compressed: Arc<HashSet<CompressedStateEvent>>,
         soft_fail: bool,
-        // Take mutex guard to make sure users get the room state mutex
-        state_lock: &MutexGuard<'_, ()>,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
     ) -> Result<Option<Vec<u8>>> {
+        assert_eq!(*pdu.room_id, **room_id, "Token for incorrect room passed");
+
         // We append to state before appending the pdu, so we don't have a
         // moment in time with the pdu without it's state. This is okay
         // because append_pdu can't fail.
@@ -1119,19 +1108,18 @@ impl Service {
             services()
                 .rooms
                 .pdu_metadata
-                .mark_as_referenced(&pdu.room_id, &pdu.prev_events)?;
-            services().rooms.state.set_forward_extremities(
-                &pdu.room_id,
-                new_room_leaves,
-                state_lock,
-            )?;
+                .mark_as_referenced(room_id, &pdu.prev_events)?;
+            services()
+                .rooms
+                .state
+                .set_forward_extremities(room_id, new_room_leaves)?;
             return Ok(None);
         }
 
         let pdu_id = services()
             .rooms
             .timeline
-            .append_pdu(pdu, pdu_json, new_room_leaves, state_lock)
+            .append_pdu(pdu, pdu_json, new_room_leaves, room_id)
             .await?;
 
         Ok(Some(pdu_id))

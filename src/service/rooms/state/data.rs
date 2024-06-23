@@ -1,9 +1,10 @@
 use std::{collections::HashSet, sync::Arc};
 
-use ruma::{EventId, OwnedEventId, RoomId};
-use tokio::sync::MutexGuard;
+use ruma::{EventId, OwnedEventId, OwnedRoomId, RoomId};
 
-use crate::Result;
+use crate::{
+    service::globals::marker, utils::on_demand_hashmap::KeyToken, Result,
+};
 
 pub(crate) trait Data: Send + Sync {
     /// Returns the last state hash key added to the db for the given room.
@@ -12,10 +13,8 @@ pub(crate) trait Data: Send + Sync {
     /// Set the state hash to a new version, but does not update `state_cache`.
     fn set_room_state(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         new_shortstatehash: u64,
-        // Take mutex guard to make sure users get the room state mutex
-        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()>;
 
     /// Associates a state with an event.
@@ -34,9 +33,7 @@ pub(crate) trait Data: Send + Sync {
     /// Replace the forward extremities of the room.
     fn set_forward_extremities(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         event_ids: Vec<OwnedEventId>,
-        // Take mutex guard to make sure users get the room state mutex
-        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()>;
 }

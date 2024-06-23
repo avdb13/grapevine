@@ -1,9 +1,13 @@
 use std::{collections::HashSet, sync::Arc};
 
-use ruma::{EventId, OwnedEventId, RoomId};
-use tokio::sync::MutexGuard;
+use ruma::{EventId, OwnedEventId, OwnedRoomId, RoomId};
 
-use crate::{database::KeyValueDatabase, service, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase,
+    service::{self, globals::marker},
+    utils::{self, on_demand_hashmap::KeyToken},
+    Error, Result,
+};
 
 impl service::rooms::state::Data for KeyValueDatabase {
     fn get_room_shortstatehash(&self, room_id: &RoomId) -> Result<Option<u64>> {
@@ -21,10 +25,8 @@ impl service::rooms::state::Data for KeyValueDatabase {
 
     fn set_room_state(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         new_shortstatehash: u64,
-        // Take mutex guard to make sure users get the room state mutex
-        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         self.roomid_shortstatehash
             .insert(room_id.as_bytes(), &new_shortstatehash.to_be_bytes())?;
@@ -71,10 +73,8 @@ impl service::rooms::state::Data for KeyValueDatabase {
 
     fn set_forward_extremities(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         event_ids: Vec<OwnedEventId>,
-        // Take mutex guard to make sure users get the room state mutex
-        _mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         let mut prefix = room_id.as_bytes().to_vec();
         prefix.push(0xFF);
