@@ -107,12 +107,12 @@ This will be the first release of Grapevine since it was forked from Conduit
    * If you relied on federation being disabled by default, make sure to
      explicitly disable it before upgrading.
 7. **BREAKING:** Remove the `[global]` section from the configuration file.
-    ([!38](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/38))
-    * Details on how to migrate can be found in the merge request's description.
+   ([!38](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/38))
+   * Details on how to migrate can be found in the merge request's description.
 8. **BREAKING:** Allow specifying multiple transport listeners in the
-    configuration file.
-    ([!39](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/39))
-    * Details on how to migrate can be found in the merge request's description.
+   configuration file.
+   ([!39](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/39))
+   * Details on how to migrate can be found in the merge request's description.
 
 ### Fixed
 
