@@ -742,16 +742,11 @@ pub(crate) async fn send_transaction_message_route(
         // We do not add the event_id field to the pdu here because of signature
         // and hashes checks
 
-        let mutex = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_federation
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let mutex_lock = mutex.lock().await;
+        let federation_token = services()
+            .globals
+            .roomid_mutex_federation
+            .lock_key(room_id.clone())
+            .await;
         let start_time = Instant::now();
         resolved_map.insert(
             event_id.clone(),
@@ -769,7 +764,7 @@ pub(crate) async fn send_transaction_message_route(
                 .await
                 .map(|_| ()),
         );
-        drop(mutex_lock);
+        drop(federation_token);
 
         debug!(
             %event_id,
@@ -1619,16 +1614,11 @@ async fn create_join_event(
         Error::BadRequest(ErrorKind::InvalidParam, "Origin field is invalid.")
     })?;
 
-    let mutex = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_federation
-            .write()
-            .await
-            .entry(room_id.to_owned())
-            .or_default(),
-    );
-    let mutex_lock = mutex.lock().await;
+    let federation_token = services()
+        .globals
+        .roomid_mutex_federation
+        .lock_key(room_id.to_owned())
+        .await;
     let pdu_id: Vec<u8> = services()
         .rooms
         .event_handler
@@ -1645,7 +1635,7 @@ async fn create_join_event(
             ErrorKind::InvalidParam,
             "Could not accept incoming PDU as timeline event.",
         ))?;
-    drop(mutex_lock);
+    drop(federation_token);
 
     let state_ids =
         services().rooms.state_accessor.state_full_ids(shortstatehash).await?;

@@ -1284,16 +1284,11 @@ impl Service {
             server_server::parse_incoming_pdu(&pdu)?;
 
         // Lock so we cannot backfill the same pdu twice at the same time
-        let mutex = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_federation
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let mutex_lock = mutex.lock().await;
+        let federation_token = services()
+            .globals
+            .roomid_mutex_federation
+            .lock_key(room_id.clone())
+            .await;
 
         // Skip the PDU if we already have it as a timeline event
         if let Some(pdu_id) = services().rooms.timeline.get_pdu_id(&event_id)? {
@@ -1359,7 +1354,7 @@ impl Service {
                 )?;
             }
         }
-        drop(mutex_lock);
+        drop(federation_token);
 
         info!("Prepended backfill pdu");
         Ok(())

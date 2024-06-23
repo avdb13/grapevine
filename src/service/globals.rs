@@ -84,7 +84,7 @@ pub(crate) struct Service {
 
     // this lock will be held longer
     pub(crate) roomid_mutex_federation:
-        RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+        TokenSet<OwnedRoomId, marker::Federation>,
     pub(crate) roomid_federationhandletime:
         RwLock<HashMap<OwnedRoomId, (OwnedEventId, Instant)>>,
     pub(crate) stateres_mutex: Arc<Mutex<()>>,
@@ -281,7 +281,9 @@ impl Service {
             roomid_mutex_insert: TokenSet::new(
                 "roomid_mutex_insert".to_owned(),
             ),
-            roomid_mutex_federation: RwLock::new(HashMap::new()),
+            roomid_mutex_federation: TokenSet::new(
+                "roomid_mutex_federation".to_owned(),
+            ),
             roomid_federationhandletime: RwLock::new(HashMap::new()),
             stateres_mutex: Arc::new(Mutex::new(())),
             rotate: RotationHandler::new(),
