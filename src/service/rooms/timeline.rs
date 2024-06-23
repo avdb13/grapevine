@@ -259,16 +259,11 @@ impl Service {
             .mark_as_referenced(&pdu.room_id, &pdu.prev_events)?;
         services().rooms.state.set_forward_extremities(room_id, leaves)?;
 
-        let mutex_insert = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_insert
-                .write()
-                .await
-                .entry(pdu.room_id.clone())
-                .or_default(),
-        );
-        let insert_lock = mutex_insert.lock().await;
+        let insert_token = services()
+            .globals
+            .roomid_mutex_insert
+            .lock_key(pdu.room_id.clone())
+            .await;
 
         let count1 = services().globals.next_count()?;
         // Mark as read first so the sending client doesn't get a notification
@@ -290,7 +285,7 @@ impl Service {
         // Insert pdu
         self.db.append_pdu(&pdu_id, pdu, &pdu_json, count2)?;
 
-        drop(insert_lock);
+        drop(insert_token);
 
         // See if the event matches any known pushers
         let power_levels: RoomPowerLevelsEventContent = services()
@@ -1328,16 +1323,11 @@ impl Service {
             .get_shortroomid(&room_id)?
             .expect("room exists");
 
-        let mutex_insert = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_insert
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let insert_lock = mutex_insert.lock().await;
+        let insert_token = services()
+            .globals
+            .roomid_mutex_insert
+            .lock_key(room_id.clone())
+            .await;
 
         let count = services().globals.next_count()?;
         let mut pdu_id = shortroomid.to_be_bytes().to_vec();
@@ -1347,7 +1337,7 @@ impl Service {
         // Insert pdu
         self.db.prepend_backfill_pdu(&pdu_id, &event_id, &value)?;
 
-        drop(insert_lock);
+        drop(insert_token);
 
         if pdu.kind == TimelineEventType::RoomMessage {
             #[derive(Deserialize)]

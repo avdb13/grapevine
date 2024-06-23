@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    sync::Arc,
     time::Duration,
 };
 
@@ -161,17 +160,12 @@ pub(crate) async fn sync_events_route(
 
         {
             // Get and drop the lock to wait for remaining operations to finish
-            let mutex_insert = Arc::clone(
-                services()
-                    .globals
-                    .roomid_mutex_insert
-                    .write()
-                    .await
-                    .entry(room_id.clone())
-                    .or_default(),
-            );
-            let insert_lock = mutex_insert.lock().await;
-            drop(insert_lock);
+            let room_token = services()
+                .globals
+                .roomid_mutex_insert
+                .lock_key(room_id.clone())
+                .await;
+            drop(room_token);
         }
 
         let left_count = services()
@@ -330,17 +324,12 @@ pub(crate) async fn sync_events_route(
 
         {
             // Get and drop the lock to wait for remaining operations to finish
-            let mutex_insert = Arc::clone(
-                services()
-                    .globals
-                    .roomid_mutex_insert
-                    .write()
-                    .await
-                    .entry(room_id.clone())
-                    .or_default(),
-            );
-            let insert_lock = mutex_insert.lock().await;
-            drop(insert_lock);
+            let room_token = services()
+                .globals
+                .roomid_mutex_insert
+                .lock_key(room_id.clone())
+                .await;
+            drop(room_token);
         }
 
         let invite_count = services()
@@ -481,17 +470,12 @@ async fn load_joined_room(
     {
         // Get and drop the lock to wait for remaining operations to finish
         // This will make sure the we have all events until next_batch
-        let mutex_insert = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_insert
-                .write()
-                .await
-                .entry(room_id.to_owned())
-                .or_default(),
-        );
-        let insert_lock = mutex_insert.lock().await;
-        drop(insert_lock);
+        let room_token = services()
+            .globals
+            .roomid_mutex_insert
+            .lock_key(room_id.to_owned())
+            .await;
+        drop(room_token);
     }
 
     let (timeline_pdus, limited) =

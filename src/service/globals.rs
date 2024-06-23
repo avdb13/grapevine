@@ -79,8 +79,7 @@ pub(crate) struct Service {
         Arc<RwLock<HashMap<OwnedServerName, RateLimitState>>>,
     pub(crate) servername_ratelimiter:
         OnDemandHashMap<OwnedServerName, Semaphore>,
-    pub(crate) roomid_mutex_insert:
-        RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) roomid_mutex_insert: TokenSet<OwnedRoomId, marker::Insert>,
     pub(crate) roomid_mutex_state: TokenSet<OwnedRoomId, marker::State>,
 
     // this lock will be held longer
@@ -279,7 +278,9 @@ impl Service {
                 "servername_ratelimiter".to_owned(),
             ),
             roomid_mutex_state: TokenSet::new("roomid_mutex_state".to_owned()),
-            roomid_mutex_insert: RwLock::new(HashMap::new()),
+            roomid_mutex_insert: TokenSet::new(
+                "roomid_mutex_insert".to_owned(),
+            ),
             roomid_mutex_federation: RwLock::new(HashMap::new()),
             roomid_federationhandletime: RwLock::new(HashMap::new()),
             stateres_mutex: Arc::new(Mutex::new(())),
