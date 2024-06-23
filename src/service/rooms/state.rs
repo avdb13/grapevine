@@ -13,16 +13,18 @@ use ruma::{
     },
     serde::Raw,
     state_res::{self, StateMap},
-    EventId, OwnedEventId, RoomId, RoomVersionId, UserId,
+    EventId, OwnedEventId, OwnedRoomId, RoomId, RoomVersionId, UserId,
 };
 use serde::Deserialize;
-use tokio::sync::MutexGuard;
 use tracing::warn;
 
 use super::state_compressor::CompressedStateEvent;
 use crate::{
+    service::globals::marker,
     services,
-    utils::{calculate_hash, debug_slice_truncated},
+    utils::{
+        calculate_hash, debug_slice_truncated, on_demand_hashmap::KeyToken,
+    },
     Error, PduEvent, Result,
 };
 
@@ -32,20 +34,13 @@ pub(crate) struct Service {
 
 impl Service {
     /// Set the room to the given statehash and update caches.
-    #[tracing::instrument(skip(
-        self,
-        statediffnew,
-        _statediffremoved,
-        state_lock
-    ))]
+    #[tracing::instrument(skip(self, statediffnew, _statediffremoved))]
     pub(crate) async fn force_state(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         shortstatehash: u64,
         statediffnew: Arc<HashSet<CompressedStateEvent>>,
         _statediffremoved: Arc<HashSet<CompressedStateEvent>>,
-        // Take mutex guard to make sure users get the room state mutex
-        state_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
         for event_id in statediffnew.iter().filter_map(|new| {
             services()
@@ -116,7 +111,7 @@ impl Service {
 
         services().rooms.state_cache.update_joined_count(room_id)?;
 
-        self.db.set_room_state(room_id, shortstatehash, state_lock)?;
+        self.db.set_room_state(room_id, shortstatehash)?;
 
         Ok(())
     }
@@ -325,12 +320,10 @@ impl Service {
     #[tracing::instrument(skip(self))]
     pub(crate) fn set_room_state(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         shortstatehash: u64,
-        // Take mutex guard to make sure users get the room state mutex
-        mutex_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
-        self.db.set_room_state(room_id, shortstatehash, mutex_lock)
+        self.db.set_room_state(room_id, shortstatehash)
     }
 
     /// Returns the room's version.
@@ -383,17 +376,15 @@ impl Service {
     }
 
     #[tracing::instrument(
-        skip(self, event_ids, state_lock),
+        skip(self, event_ids),
         fields(event_ids = debug_slice_truncated(&event_ids, 5)),
     )]
     pub(crate) fn set_forward_extremities(
         &self,
-        room_id: &RoomId,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
         event_ids: Vec<OwnedEventId>,
-        // Take mutex guard to make sure users get the room state mutex
-        state_lock: &MutexGuard<'_, ()>,
     ) -> Result<()> {
-        self.db.set_forward_extremities(room_id, event_ids, state_lock)
+        self.db.set_forward_extremities(room_id, event_ids)
     }
 
     /// This fetches auth events from the current state.

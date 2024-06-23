@@ -265,17 +265,11 @@ impl Service {
             }
         };
 
-        let mutex_state = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_state
-                .write()
-                .await
-                .entry(grapevine_room.clone())
-                .or_default(),
-        );
-
-        let state_lock = mutex_state.lock().await;
+        let room_token = services()
+            .globals
+            .roomid_mutex_state
+            .lock_key(grapevine_room.clone())
+            .await;
 
         services()
             .rooms
@@ -290,8 +284,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                grapevine_room,
-                &state_lock,
+                &room_token,
             )
             .await
             .unwrap();
@@ -1220,16 +1213,11 @@ impl Service {
 
         services().rooms.short.get_or_create_shortroomid(&room_id)?;
 
-        let mutex_state = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_state
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let state_lock = mutex_state.lock().await;
+        let room_token = services()
+            .globals
+            .roomid_mutex_state
+            .lock_key(room_id.clone())
+            .await;
 
         services().users.create(&services().globals.admin_bot_user_id, None)?;
 
@@ -1268,8 +1256,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1298,8 +1285,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1323,8 +1309,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1344,8 +1329,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1367,8 +1351,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1388,8 +1371,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1411,8 +1393,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1434,8 +1415,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1458,8 +1438,7 @@ impl Service {
                     redacts: None,
                 },
                 &services().globals.admin_bot_user_id,
-                &room_id,
-                &state_lock,
+                &room_token,
             )
             .await?;
 
@@ -1495,16 +1474,11 @@ impl Service {
         displayname: String,
     ) -> Result<()> {
         if let Some(room_id) = services().admin.get_admin_room()? {
-            let mutex_state = Arc::clone(
-                services()
-                    .globals
-                    .roomid_mutex_state
-                    .write()
-                    .await
-                    .entry(room_id.clone())
-                    .or_default(),
-            );
-            let state_lock = mutex_state.lock().await;
+            let room_token = services()
+                .globals
+                .roomid_mutex_state
+                .lock_key(room_id.clone())
+                .await;
 
             // Use the server user to grant the new admin's power level
             // Invite and join the real user
@@ -1530,8 +1504,7 @@ impl Service {
                         redacts: None,
                     },
                     &services().globals.admin_bot_user_id,
-                    &room_id,
-                    &state_lock,
+                    &room_token,
                 )
                 .await?;
             services()
@@ -1556,8 +1529,7 @@ impl Service {
                         redacts: None,
                     },
                     user_id,
-                    &room_id,
-                    &state_lock,
+                    &room_token,
                 )
                 .await?;
 
@@ -1585,8 +1557,7 @@ impl Service {
                         redacts: None,
                     },
                     &services().globals.admin_bot_user_id,
-                    &room_id,
-                    &state_lock,
+                    &room_token,
                 )
                 .await?;
         }

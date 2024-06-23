@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{BTreeMap, HashSet};
 
 use ruma::{
     api::client::{
@@ -32,16 +29,11 @@ pub(crate) async fn send_message_event_route(
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
     let sender_device = body.sender_device.as_deref();
 
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(body.room_id.clone())
-            .or_default(),
-    );
-    let state_lock = mutex_state.lock().await;
+    let room_token = services()
+        .globals
+        .roomid_mutex_state
+        .lock_key(body.room_id.clone())
+        .await;
 
     // Forbid m.room.encrypted if encryption is disabled
     if TimelineEventType::RoomEncrypted == body.event_type.to_string().into()
@@ -104,8 +96,7 @@ pub(crate) async fn send_message_event_route(
                 redacts: None,
             },
             sender_user,
-            &body.room_id,
-            &state_lock,
+            &room_token,
         )
         .await?;
 
@@ -116,7 +107,7 @@ pub(crate) async fn send_message_event_route(
         event_id.as_bytes(),
     )?;
 
-    drop(state_lock);
+    drop(room_token);
 
     Ok(Ra(send_message_event::v3::Response::new((*event_id).to_owned())))
 }

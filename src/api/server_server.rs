@@ -1452,16 +1452,11 @@ pub(crate) async fn create_join_event_template_route(
         .event_handler
         .acl_check(sender_servername, &body.room_id)?;
 
-    let mutex_state = Arc::clone(
-        services()
-            .globals
-            .roomid_mutex_state
-            .write()
-            .await
-            .entry(body.room_id.clone())
-            .or_default(),
-    );
-    let state_lock = mutex_state.lock().await;
+    let room_token = services()
+        .globals
+        .roomid_mutex_state
+        .lock_key(body.room_id.clone())
+        .await;
 
     // TODO: Grapevine does not implement restricted join rules yet, we always
     // reject
@@ -1529,11 +1524,10 @@ pub(crate) async fn create_join_event_template_route(
                 redacts: None,
             },
             &body.user_id,
-            &body.room_id,
-            &state_lock,
+            &room_token,
         )?;
 
-    drop(state_lock);
+    drop(room_token);
 
     pdu_json.remove("event_id");
 

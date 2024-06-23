@@ -33,14 +33,26 @@ use tracing::{error, Instrument};
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{
-    api::server_server::FedDest, observability::FilterReloadHandles, services,
-    utils::on_demand_hashmap::OnDemandHashMap, Config, Error, Result,
+    api::server_server::FedDest,
+    observability::FilterReloadHandles,
+    services,
+    utils::on_demand_hashmap::{OnDemandHashMap, TokenSet},
+    Config, Error, Result,
 };
 
 type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
 // Time if last failed try, number of failed tries
 type RateLimitState = (Instant, u32);
+
+// Markers for
+// [`Service::roomid_mutex_state`]/[`Service::roomid_mutex_insert`]/
+// [`Service::roomid_mutex_federation`]
+pub(crate) mod marker {
+    pub(crate) struct State;
+    pub(crate) struct Insert;
+    pub(crate) struct Federation;
+}
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -69,7 +81,7 @@ pub(crate) struct Service {
         OnDemandHashMap<OwnedServerName, Semaphore>,
     pub(crate) roomid_mutex_insert:
         RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
-    pub(crate) roomid_mutex_state: RwLock<HashMap<OwnedRoomId, Arc<Mutex<()>>>>,
+    pub(crate) roomid_mutex_state: TokenSet<OwnedRoomId, marker::State>,
 
     // this lock will be held longer
     pub(crate) roomid_mutex_federation:
@@ -266,7 +278,7 @@ impl Service {
             servername_ratelimiter: OnDemandHashMap::new(
                 "servername_ratelimiter".to_owned(),
             ),
-            roomid_mutex_state: RwLock::new(HashMap::new()),
+            roomid_mutex_state: TokenSet::new("roomid_mutex_state".to_owned()),
             roomid_mutex_insert: RwLock::new(HashMap::new()),
             roomid_mutex_federation: RwLock::new(HashMap::new()),
             roomid_federationhandletime: RwLock::new(HashMap::new()),

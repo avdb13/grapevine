@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ruma::{
     api::{
         client::{
@@ -81,26 +79,16 @@ pub(crate) async fn set_displayname_route(
         .collect();
 
     for (pdu_builder, room_id) in all_rooms_joined {
-        let mutex_state = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_state
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let state_lock = mutex_state.lock().await;
+        let room_token = services()
+            .globals
+            .roomid_mutex_state
+            .lock_key(room_id.clone())
+            .await;
 
         if let Err(error) = services()
             .rooms
             .timeline
-            .build_and_append_pdu(
-                pdu_builder,
-                sender_user,
-                &room_id,
-                &state_lock,
-            )
+            .build_and_append_pdu(pdu_builder, sender_user, &room_token)
             .await
         {
             warn!(%error, "failed to add PDU");
@@ -203,26 +191,16 @@ pub(crate) async fn set_avatar_url_route(
         .collect();
 
     for (pdu_builder, room_id) in all_joined_rooms {
-        let mutex_state = Arc::clone(
-            services()
-                .globals
-                .roomid_mutex_state
-                .write()
-                .await
-                .entry(room_id.clone())
-                .or_default(),
-        );
-        let state_lock = mutex_state.lock().await;
+        let room_token = services()
+            .globals
+            .roomid_mutex_state
+            .lock_key(room_id.clone())
+            .await;
 
         if let Err(error) = services()
             .rooms
             .timeline
-            .build_and_append_pdu(
-                pdu_builder,
-                sender_user,
-                &room_id,
-                &state_lock,
-            )
+            .build_and_append_pdu(pdu_builder, sender_user, &room_token)
             .await
         {
             warn!(%error, "failed to add PDU");
