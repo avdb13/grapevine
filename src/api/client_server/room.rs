@@ -671,7 +671,6 @@ pub(crate) async fn upgrade_room_route(
         .await?;
 
     // Change lock to replacement room
-    drop(original_state_lock);
     let mutex_state = Arc::clone(
         services()
             .globals
@@ -912,7 +911,7 @@ pub(crate) async fn upgrade_room_route(
             },
             sender_user,
             &body.room_id,
-            &replacement_state_lock,
+            &original_state_lock,
         )
         .await?;
 
