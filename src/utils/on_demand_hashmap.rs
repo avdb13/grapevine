@@ -2,11 +2,12 @@ use std::{
     collections::HashMap,
     fmt,
     hash::Hash,
+    marker::PhantomData,
     ops::Deref,
     sync::{Arc, Weak},
 };
 
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, Mutex, OwnedMutexGuard, RwLock};
 use tracing::{trace, warn, Level};
 
 use crate::observability::METRICS;
@@ -210,7 +211,6 @@ impl<K> Drop for EntryDropGuard<K> {
 /// If every `Entry` for a specific key is dropped, the value is removed from
 /// the map.
 pub(crate) struct Entry<K, V> {
-    #[allow(dead_code)]
     drop_guard: EntryDropGuard<K>,
     value: Arc<V>,
 }
@@ -220,5 +220,86 @@ impl<K, V> Deref for Entry<K, V> {
 
     fn deref(&self) -> &Self::Target {
         self.value.as_ref()
+    }
+}
+
+/// Internal zero-sized type used to swallow the [`TokenSet`]'s marker type
+struct TokenMarker<T>(PhantomData<fn(T) -> T>);
+
+/// A collection of dynamically-created locks, one for each value of `K`.
+///
+/// A given key can be locked using [`TokenSet::lock_key()`], which will either
+/// return an ownership token immediately if the key is not currently locked, or
+/// wait until the previous lock has been released.
+///
+/// The marker type `M` can be used to disambiguate different `TokenSet`
+/// instances to avoid misuse of tokens.
+pub(crate) struct TokenSet<K, M = ()> {
+    inner: OnDemandHashMap<K, Mutex<TokenMarker<M>>>,
+}
+
+impl<K, M> TokenSet<K, M>
+where
+    K: Hash + Eq + Clone + fmt::Debug + Send + Sync + 'static,
+    M: 'static,
+{
+    /// Creates a new `TokenSet`. The `name` is used for metrics and should be
+    /// unique to this instance.
+    pub(crate) fn new(name: String) -> Self {
+        Self {
+            inner: OnDemandHashMap::new(name),
+        }
+    }
+
+    /// Locks this key in the `TokenSet`, returning a token proving
+    /// unique access.
+    #[tracing::instrument(level = Level::TRACE, skip(self))]
+    pub(crate) async fn lock_key(&self, key: K) -> KeyToken<K, M> {
+        let Entry {
+            drop_guard,
+            value,
+        } = self
+            .inner
+            .get_or_insert_with(key, || Mutex::new(TokenMarker(PhantomData)))
+            .await;
+
+        KeyToken {
+            drop_guard,
+            _mutex_guard: value.lock_owned().await,
+        }
+    }
+}
+
+/// Unique token for a given key in a [`TokenSet`].
+///
+/// Ownership of this token proves that no other [`KeyToken`] for this key in
+/// this [`TokenSet`] currently exists.
+///
+/// Access to the underlying key is provided by a [`Deref`] impl.
+pub(crate) struct KeyToken<K, M = ()> {
+    drop_guard: EntryDropGuard<K>,
+    _mutex_guard: OwnedMutexGuard<TokenMarker<M>>,
+}
+
+impl<K, M> Deref for KeyToken<K, M> {
+    type Target = K;
+
+    fn deref(&self) -> &Self::Target {
+        self.drop_guard
+            .key
+            .as_ref()
+            .expect("key should only be None during Drop")
+    }
+}
+
+impl<K: fmt::Debug, M> fmt::Debug for KeyToken<K, M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", &**self)
+    }
+}
+
+impl<K: fmt::Display, M> fmt::Display for KeyToken<K, M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &**self)
     }
 }
