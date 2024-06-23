@@ -175,33 +175,22 @@ where
         let value = self.shared.get_or_insert_with(&key, create).await;
 
         Entry {
-            cleanup_sender: self.cleanup_sender.downgrade(),
-            key: Some(key),
+            drop_guard: EntryDropGuard {
+                cleanup_sender: self.cleanup_sender.downgrade(),
+                key: Some(key),
+            },
             value,
         }
     }
 }
 
-/// A wrapper around a key/value pair inside an [`OnDemandHashMap`]
-///
-/// If every `Entry` for a specific key is dropped, the value is removed from
-/// the map.
-pub(crate) struct Entry<K, V> {
+struct EntryDropGuard<K> {
     cleanup_sender: mpsc::WeakUnboundedSender<K>,
     /// Only `None` during `drop()`
     key: Option<K>,
-    value: Arc<V>,
 }
 
-impl<K, V> Deref for Entry<K, V> {
-    type Target = V;
-
-    fn deref(&self) -> &Self::Target {
-        self.value.as_ref()
-    }
-}
-
-impl<K, V> Drop for Entry<K, V> {
+impl<K> Drop for EntryDropGuard<K> {
     fn drop(&mut self) {
         let Some(cleanup_sender) = self.cleanup_sender.upgrade() else {
             trace!("backing map has already been dropped");
@@ -213,5 +202,23 @@ impl<K, V> Drop for Entry<K, V> {
         {
             warn!(%error, "Failed to send cleanup message");
         };
+    }
+}
+
+/// A wrapper around a key/value pair inside an [`OnDemandHashMap`]
+///
+/// If every `Entry` for a specific key is dropped, the value is removed from
+/// the map.
+pub(crate) struct Entry<K, V> {
+    #[allow(dead_code)]
+    drop_guard: EntryDropGuard<K>,
+    value: Arc<V>,
+}
+
+impl<K, V> Deref for Entry<K, V> {
+    type Target = V;
+
+    fn deref(&self) -> &Self::Target {
+        self.value.as_ref()
     }
 }
