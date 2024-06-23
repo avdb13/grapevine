@@ -99,7 +99,8 @@ This will be the first release of Grapevine since it was forked from Conduit
    [!11 (f556fce)](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/11/diffs?commit_id=f556fce73eb7beec2ed7b1781df0acdf47920d9c)
    (merged as [ac42e0b](https://gitlab.computer.surgery/matrix/grapevine-fork/-/commit/ac42e0bfff6af8677636a3dc1a56701a3255071d)),
    [!18](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/18),
-   [!26](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/26))
+   [!26](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/26),
+   [!50](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/50))
 5. Stop returning unnecessary member counts from `/_matrix/client/{r0,v3}/sync`.
    ([!12](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/12))
 6. **BREAKING:** Allow federation by default.
@@ -113,6 +114,8 @@ This will be the first release of Grapevine since it was forked from Conduit
    configuration file.
    ([!39](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/39))
    * Details on how to migrate can be found in the merge request's description.
+9. Increase default log level so that span information is included.
+   ([!50](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/50))
 
 ### Fixed
 
