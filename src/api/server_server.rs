@@ -69,7 +69,9 @@ use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     observability::{FoundIn, Lookup, METRICS},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils, Ar, Error, PduEvent, Ra, Result,
+    services, utils,
+    utils::dbg_truncate_str,
+    Ar, Error, PduEvent, Ra, Result,
 };
 
 /// Wraps either an literal IP address plus port, or a hostname plus complement
@@ -281,10 +283,11 @@ where
             if status != 200 {
                 warn!(
                     status = u16::from(status),
-                    response = String::from_utf8_lossy(&body)
-                        .lines()
-                        .collect::<Vec<_>>()
-                        .join(" "),
+                    response = dbg_truncate_str(
+                        String::from_utf8_lossy(&body).as_ref(),
+                        100,
+                    )
+                    .into_owned(),
                     "Received error over federation",
                 );
             }
