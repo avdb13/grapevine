@@ -644,7 +644,7 @@ pub(crate) async fn upgrade_room_route(
             .entry(body.room_id.clone())
             .or_default(),
     );
-    let state_lock = mutex_state.lock().await;
+    let original_state_lock = mutex_state.lock().await;
 
     // Send a m.room.tombstone event to the old room to indicate that it is not
     // intended to be used any further Fail if the sender does not have the
@@ -666,12 +666,12 @@ pub(crate) async fn upgrade_room_route(
             },
             sender_user,
             &body.room_id,
-            &state_lock,
+            &original_state_lock,
         )
         .await?;
 
     // Change lock to replacement room
-    drop(state_lock);
+    drop(original_state_lock);
     let mutex_state = Arc::clone(
         services()
             .globals
@@ -681,7 +681,7 @@ pub(crate) async fn upgrade_room_route(
             .entry(replacement_room.clone())
             .or_default(),
     );
-    let state_lock = mutex_state.lock().await;
+    let replacement_state_lock = mutex_state.lock().await;
 
     // Get the old room creation event
     let mut create_event_content = serde_json::from_str::<CanonicalJsonObject>(
@@ -779,7 +779,7 @@ pub(crate) async fn upgrade_room_route(
             },
             sender_user,
             &replacement_room,
-            &state_lock,
+            &replacement_state_lock,
         )
         .await?;
 
@@ -807,7 +807,7 @@ pub(crate) async fn upgrade_room_route(
             },
             sender_user,
             &replacement_room,
-            &state_lock,
+            &replacement_state_lock,
         )
         .await?;
 
@@ -849,7 +849,7 @@ pub(crate) async fn upgrade_room_route(
                 },
                 sender_user,
                 &replacement_room,
-                &state_lock,
+                &replacement_state_lock,
             )
             .await?;
     }
@@ -912,11 +912,11 @@ pub(crate) async fn upgrade_room_route(
             },
             sender_user,
             &body.room_id,
-            &state_lock,
+            &replacement_state_lock,
         )
         .await?;
 
-    drop(state_lock);
+    drop(replacement_state_lock);
 
     // Return the replacement room id
     Ok(Ra(upgrade_room::v3::Response {
