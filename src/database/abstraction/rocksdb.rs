@@ -11,6 +11,7 @@ use rocksdb::{
     DBRecoveryMode, DBWithThreadMode, Direction, IteratorMode, MultiThreaded,
     Options, ReadOptions, WriteOptions,
 };
+use tracing::Level;
 
 use super::{
     super::Config, watchers::Watchers, KeyValueDatabaseEngine, KvTree,
@@ -165,12 +166,14 @@ impl RocksDbEngineTree<'_> {
 }
 
 impl KvTree for RocksDbEngineTree<'_> {
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let readoptions = ReadOptions::default();
 
         Ok(self.db.rocks.get_cf_opt(&self.cf(), key, &readoptions)?)
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn insert(&self, key: &[u8], value: &[u8]) -> Result<()> {
         let writeoptions = WriteOptions::default();
         let lock = self.write_lock.read().unwrap();
@@ -182,6 +185,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(())
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn insert_batch(
         &self,
         iter: &mut dyn Iterator<Item = (Vec<u8>, Vec<u8>)>,
@@ -194,11 +198,13 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(())
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn remove(&self, key: &[u8]) -> Result<()> {
         let writeoptions = WriteOptions::default();
         Ok(self.db.rocks.delete_cf_opt(&self.cf(), key, &writeoptions)?)
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (Vec<u8>, Vec<u8>)> + 'a> {
         let readoptions = ReadOptions::default();
 
@@ -211,6 +217,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         )
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn iter_from<'a>(
         &'a self,
         from: &[u8],
@@ -238,6 +245,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         )
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn increment(&self, key: &[u8]) -> Result<Vec<u8>> {
         let readoptions = ReadOptions::default();
         let writeoptions = WriteOptions::default();
@@ -252,6 +260,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(new)
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn increment_batch(
         &self,
         iter: &mut dyn Iterator<Item = Vec<u8>>,
@@ -273,6 +282,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         Ok(())
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn scan_prefix<'a>(
         &'a self,
         prefix: Vec<u8>,
@@ -293,6 +303,7 @@ impl KvTree for RocksDbEngineTree<'_> {
         )
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn watch_prefix<'a>(
         &'a self,
         prefix: &[u8],
