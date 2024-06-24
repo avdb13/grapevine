@@ -130,10 +130,11 @@ impl FedDest {
     }
 }
 
-#[tracing::instrument(skip(request), fields(url))]
+#[tracing::instrument(skip(request, log_error), fields(url))]
 pub(crate) async fn send_request<T>(
     destination: &ServerName,
     request: T,
+    log_error: bool,
 ) -> Result<T::IncomingResponse>
 where
     T: OutgoingRequest + Debug,
@@ -330,10 +331,12 @@ where
             }
         }
         Err(e) => {
-            warn!(
-                error = %e,
-                "Could not send request",
-            );
+            if log_error {
+                warn!(
+                    error = %e,
+                    "Could not send request",
+                );
+            }
             Err(e.into())
         }
     }

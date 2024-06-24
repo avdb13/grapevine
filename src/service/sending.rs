@@ -286,8 +286,8 @@ impl Service {
                     }))
                 }
             }
-            Err(_err) => {
-                warn!("Marking transaction as failed");
+            Err(error) => {
+                warn!(%error, "Marking transaction as failed");
                 current_transaction_status.entry(destination).and_modify(|e| {
                     *e = match e {
                         TransactionStatus::Running => {
@@ -684,7 +684,7 @@ impl Service {
         debug!("Got permit");
         let response = tokio::time::timeout(
             Duration::from_secs(2 * 60),
-            server_server::send_request(destination, request),
+            server_server::send_request(destination, request, true),
         )
         .await
         .map_err(|_| {
@@ -920,6 +920,7 @@ async fn handle_federation_event(
                 ))
                 .into(),
         },
+        false,
     )
     .await?;
 
