@@ -786,9 +786,9 @@ impl Service {
             None::<PduEvent>,
             |k, s| auth_events.get(&(k.clone(), s.to_owned())),
         )
-        .map_err(|e| {
-            error!("{:?}", e);
-            Error::bad_database("Auth check failed.")
+        .map_err(|error| {
+            error!(%error, "Auth check failed");
+            Error::BadDatabase("Auth check failed.")
         })?;
 
         if !auth_check {
