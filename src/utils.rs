@@ -228,11 +228,8 @@ pub(crate) fn debug_slice_truncated<T: fmt::Debug>(
 /// Truncates a string to an approximate maximum length, replacing any extra
 /// text with an ellipsis.
 ///
-/// Only to be used for debug logging, exact semantics are unspecified.
-pub(crate) fn truncate_str_for_debug(
-    s: &str,
-    mut max_len: usize,
-) -> Cow<'_, str> {
+/// Only to be used for informational purposes, exact semantics are unspecified.
+pub(crate) fn dbg_truncate_str(s: &str, mut max_len: usize) -> Cow<'_, str> {
     while max_len < s.len() && !s.is_char_boundary(max_len) {
         max_len += 1;
     }
@@ -247,21 +244,18 @@ pub(crate) fn truncate_str_for_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::truncate_str_for_debug;
+    use crate::utils::dbg_truncate_str;
 
     #[test]
-    fn test_truncate_str_for_debug() {
-        assert_eq!(truncate_str_for_debug("short", 10), "short");
-        assert_eq!(
-            truncate_str_for_debug("very long string", 10),
-            "very long ..."
-        );
-        assert_eq!(truncate_str_for_debug("no info, only dots", 0), "...");
-        assert_eq!(truncate_str_for_debug("", 0), "");
-        assert_eq!(truncate_str_for_debug("unicöde", 5), "unicö...");
+    fn test_truncate_str() {
+        assert_eq!(dbg_truncate_str("short", 10), "short");
+        assert_eq!(dbg_truncate_str("very long string", 10), "very long ...");
+        assert_eq!(dbg_truncate_str("no info, only dots", 0), "...");
+        assert_eq!(dbg_truncate_str("", 0), "");
+        assert_eq!(dbg_truncate_str("unicöde", 5), "unicö...");
         let ok_hand = "👌🏽";
-        assert_eq!(truncate_str_for_debug(ok_hand, 1), "👌...");
-        assert_eq!(truncate_str_for_debug(ok_hand, ok_hand.len() - 1), "👌🏽");
-        assert_eq!(truncate_str_for_debug(ok_hand, ok_hand.len()), "👌🏽");
+        assert_eq!(dbg_truncate_str(ok_hand, 1), "👌...");
+        assert_eq!(dbg_truncate_str(ok_hand, ok_hand.len() - 1), "👌🏽");
+        assert_eq!(dbg_truncate_str(ok_hand, ok_hand.len()), "👌🏽");
     }
 }

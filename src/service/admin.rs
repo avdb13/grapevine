@@ -34,7 +34,7 @@ use super::pdu::PduBuilder;
 use crate::{
     api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
     services,
-    utils::{self, truncate_str_for_debug},
+    utils::{self, dbg_truncate_str},
     Error, PduEvent, Result,
 };
 
@@ -287,7 +287,7 @@ impl Service {
     #[tracing::instrument(
         skip(self, room_message),
         fields(
-            room_message = truncate_str_for_debug(&room_message, 50).as_ref(),
+            room_message = dbg_truncate_str(&room_message, 50).as_ref(),
         ),
     )]
     pub(crate) fn process_message(&self, room_message: String) {
@@ -306,7 +306,7 @@ impl Service {
     #[tracing::instrument(
         skip(self, room_message),
         fields(
-            room_message = truncate_str_for_debug(&room_message, 50).as_ref(),
+            room_message = dbg_truncate_str(&room_message, 50).as_ref(),
         ),
     )]
     async fn process_admin_message(
@@ -357,7 +357,7 @@ impl Service {
     #[tracing::instrument(
         skip(command_line),
         fields(
-            command_line = truncate_str_for_debug(command_line, 50).as_ref(),
+            command_line = dbg_truncate_str(command_line, 50).as_ref(),
         ),
     )]
     fn parse_admin_command(
