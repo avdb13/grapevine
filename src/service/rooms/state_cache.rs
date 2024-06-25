@@ -184,21 +184,23 @@ impl Service {
         from_room_id: &RoomId,
         to_room_id: &RoomId,
     ) -> Result<()> {
-        let event_kind = RoomAccountDataEventType::Tag;
-        if let Some(tag_event) = services()
-            .account_data
-            .get(Some(from_room_id), user_id, event_kind.clone())?
-            .map(|event| {
-                serde_json::from_str(event.get()).map_err(|error| {
-                    warn!(%error, %event_kind, "Invalid account data event");
-                    Error::BadDatabase("Invalid account data event.")
-                })
-            })
-        {
-            services()
-                .account_data
-                .update(Some(to_room_id), user_id, event_kind, &tag_event?)
-                .ok();
+        let Some(event) = services().account_data.get(
+            Some(from_room_id),
+            user_id,
+            RoomAccountDataEventType::Tag,
+        )?
+        else {
+            return Ok(());
+        };
+        let event = serde_json::from_str::<serde_json::Value>(event.get())
+            .expect("RawValue -> Value should always succeed");
+        if let Err(error) = services().account_data.update(
+            Some(to_room_id),
+            user_id,
+            RoomAccountDataEventType::Tag,
+            &event,
+        ) {
+            warn!(%error, "error writing m.tag account data to upgraded room");
         }
 
         Ok(())
