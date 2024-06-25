@@ -65,118 +65,11 @@ impl Service {
                             content.predecessor
                         })
                     {
-                        // Copy user settings from predecessor to the current
-                        // room:
-                        // - Push rules
-                        //
-                        // TODO: finish this once push rules are implemented.
-                        //
-                        // let mut push_rules_event_content: PushRulesEvent =
-                        // account_data     .get(
-                        //         None,
-                        //         user_id,
-                        //         EventType::PushRules,
-                        //     )?;
-                        //
-                        // NOTE: find where `predecessor.room_id` match
-                        //       and update to `room_id`.
-                        //
-                        // account_data
-                        //     .update(
-                        //         None,
-                        //         user_id,
-                        //         EventType::PushRules,
-                        //         &push_rules_event_content,
-                        //         globals,
-                        //     )
-                        //     .ok();
-
-                        let event_kind = RoomAccountDataEventType::Tag;
-
-                        // Copy old tags to new room
-                        if let Some(tag_event) = services()
-                            .account_data
-                            .get(
-                                Some(&predecessor.room_id),
-                                user_id,
-                                event_kind.clone(),
-                            )?
-                            .map(|event| {
-                                serde_json::from_str(event.get()).map_err(
-                                    |error| {
-                                        warn!(
-                                            %error,
-                                            predecessor_room_id =
-                                                %predecessor.room_id,
-                                            %event_kind,
-                                            "Invalid account data event",
-                                        );
-                                        Error::BadDatabase(
-                                            "Invalid account data event.",
-                                        )
-                                    },
-                                )
-                            })
-                        {
-                            services()
-                                .account_data
-                                .update(
-                                    Some(room_id),
-                                    user_id,
-                                    RoomAccountDataEventType::Tag,
-                                    &tag_event?,
-                                )
-                                .ok();
-                        };
-
-                        let event_kind = RoomAccountDataEventType::from(
-                            GlobalAccountDataEventType::Direct.to_string(),
-                        );
-
-                        // Copy direct chat flag
-                        if let Some(direct_event) = services()
-                            .account_data
-                            .get(None, user_id, event_kind.clone())?
-                            .map(|event| {
-                                serde_json::from_str::<DirectEvent>(event.get())
-                                    .map_err(|error| {
-                                        warn!(
-                                            %error,
-                                            %event_kind,
-                                            "Invalid account data event",
-                                        );
-                                        Error::BadDatabase(
-                                            "Invalid account data event.",
-                                        )
-                                    })
-                            })
-                        {
-                            let mut direct_event = direct_event?;
-                            let mut room_ids_updated = false;
-
-                            for room_ids in direct_event.content.0.values_mut()
-                            {
-                                if room_ids
-                                    .iter()
-                                    .any(|r| r == &predecessor.room_id)
-                                {
-                                    room_ids.push(room_id.to_owned());
-                                    room_ids_updated = true;
-                                }
-                            }
-
-                            if room_ids_updated {
-                                services().account_data.update(
-                                    None,
-                                    user_id,
-                                    GlobalAccountDataEventType::Direct
-                                        .to_string()
-                                        .into(),
-                                    &serde_json::to_value(&direct_event)
-                                        .expect("to json always works"),
-                                )?;
-                            }
-                        };
+                        self.copy_upgraded_account_data(
+                            user_id,
+                            &predecessor.room_id,
+                            room_id,
+                        )?;
                     }
                 }
 
@@ -235,6 +128,129 @@ impl Service {
             self.update_joined_count(room_id)?;
         }
 
+        Ok(())
+    }
+
+    /// Copy all account data references from the predecessor to a new room when
+    /// joining an upgraded room.
+    ///
+    /// References to the predecessor room are not removed.
+    #[tracing::instrument(skip(self))]
+    fn copy_upgraded_account_data(
+        &self,
+        user_id: &UserId,
+        from_room_id: &RoomId,
+        to_room_id: &RoomId,
+    ) -> Result<()> {
+        // - Push rules
+        //
+        // TODO: finish this once push rules are implemented.
+        //
+        // let mut push_rules_event_content: PushRulesEvent =
+        // account_data     .get(
+        //         None,
+        //         user_id,
+        //         EventType::PushRules,
+        //     )?;
+        //
+        // NOTE: find where `predecessor.room_id` match
+        //       and update to `room_id`.
+        //
+        // account_data
+        //     .update(
+        //         None,
+        //         user_id,
+        //         EventType::PushRules,
+        //         &push_rules_event_content,
+        //         globals,
+        //     )
+        //     .ok();
+
+        self.copy_upgraded_account_data_tag(user_id, from_room_id, to_room_id)?;
+        self.copy_upgraded_account_data_direct(
+            user_id,
+            from_room_id,
+            to_room_id,
+        )?;
+        Ok(())
+    }
+
+    /// Copy `m.tag` account data to an upgraded room.
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
+    fn copy_upgraded_account_data_tag(
+        &self,
+        user_id: &UserId,
+        from_room_id: &RoomId,
+        to_room_id: &RoomId,
+    ) -> Result<()> {
+        let event_kind = RoomAccountDataEventType::Tag;
+        if let Some(tag_event) = services()
+            .account_data
+            .get(Some(from_room_id), user_id, event_kind.clone())?
+            .map(|event| {
+                serde_json::from_str(event.get()).map_err(|error| {
+                    warn!(%error, %event_kind, "Invalid account data event");
+                    Error::BadDatabase("Invalid account data event.")
+                })
+            })
+        {
+            services()
+                .account_data
+                .update(Some(to_room_id), user_id, event_kind, &tag_event?)
+                .ok();
+        }
+
+        Ok(())
+    }
+
+    /// Copy references in `m.direct` account data events to an upgraded room.
+    // Allowed because this function uses `services()`
+    #[allow(clippy::unused_self)]
+    fn copy_upgraded_account_data_direct(
+        &self,
+        user_id: &UserId,
+        from_room_id: &RoomId,
+        to_room_id: &RoomId,
+    ) -> Result<()> {
+        let event_kind = RoomAccountDataEventType::from(
+            GlobalAccountDataEventType::Direct.to_string(),
+        );
+        if let Some(direct_event) = services()
+            .account_data
+            .get(
+                None,
+                user_id,
+                event_kind.clone(),
+            )?
+            .map(|event| {
+                serde_json::from_str::<DirectEvent>(event.get())
+                    .map_err(|error| {
+                        warn!(%error, %event_kind, "Invalid account data event");
+                        Error::BadDatabase("Invalid account data event.")
+                    })
+            })
+        {
+            let mut direct_event = direct_event?;
+            let mut room_ids_updated = false;
+
+            for room_ids in direct_event.content.0.values_mut() {
+                if room_ids.iter().any(|r| r == from_room_id) {
+                    room_ids.push(to_room_id.to_owned());
+                    room_ids_updated = true;
+                }
+            }
+
+            if room_ids_updated {
+                services().account_data.update(
+                    None,
+                    user_id,
+                    event_kind,
+                    &serde_json::to_value(&direct_event)
+                        .expect("to json always works"),
+                )?;
+            }
+        }
         Ok(())
     }
 
