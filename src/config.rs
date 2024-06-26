@@ -32,6 +32,8 @@ pub(crate) struct Config {
 
     pub(crate) server_name: OwnedServerName,
     pub(crate) database: DatabaseConfig,
+    #[serde(default)]
+    pub(crate) federation: FederationConfig,
 
     #[serde(default = "default_cache_capacity_modifier")]
     pub(crate) cache_capacity_modifier: f64,
@@ -41,17 +43,11 @@ pub(crate) struct Config {
     pub(crate) cleanup_second_interval: u32,
     #[serde(default = "default_max_request_size")]
     pub(crate) max_request_size: u32,
-    #[serde(default = "default_max_concurrent_requests")]
-    pub(crate) max_concurrent_requests: u16,
-    #[serde(default = "default_max_fetch_prev_events")]
-    pub(crate) max_fetch_prev_events: u16,
     #[serde(default = "false_fn")]
     pub(crate) allow_registration: bool,
     pub(crate) registration_token: Option<String>,
     #[serde(default = "true_fn")]
     pub(crate) allow_encryption: bool,
-    #[serde(default = "true_fn")]
-    pub(crate) allow_federation: bool,
     #[serde(default = "true_fn")]
     pub(crate) allow_room_creation: bool,
     #[serde(default = "true_fn")]
@@ -61,8 +57,6 @@ pub(crate) struct Config {
     #[serde(default)]
     pub(crate) proxy: ProxyConfig,
     pub(crate) jwt_secret: Option<String>,
-    #[serde(default = "default_trusted_servers")]
-    pub(crate) trusted_servers: Vec<OwnedServerName>,
     #[serde(default)]
     pub(crate) observability: ObservabilityConfig,
     #[serde(default)]
@@ -249,6 +243,28 @@ pub(crate) struct ObservabilityConfig {
     pub(crate) logs: LogConfig,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub(crate) struct FederationConfig {
+    pub(crate) enable: bool,
+    pub(crate) trusted_servers: Vec<OwnedServerName>,
+    pub(crate) max_fetch_prev_events: u16,
+    pub(crate) max_concurrent_requests: u16,
+}
+
+impl Default for FederationConfig {
+    fn default() -> Self {
+        Self {
+            enable: true,
+            trusted_servers: vec![
+                OwnedServerName::try_from("matrix.org").unwrap()
+            ],
+            max_fetch_prev_events: 100,
+            max_concurrent_requests: 100,
+        }
+    }
+}
+
 fn false_fn() -> bool {
     false
 }
@@ -298,18 +314,6 @@ fn default_cleanup_second_interval() -> u32 {
 fn default_max_request_size() -> u32 {
     // Default to 20 MB
     20 * 1024 * 1024
-}
-
-fn default_max_concurrent_requests() -> u16 {
-    100
-}
-
-fn default_max_fetch_prev_events() -> u16 {
-    100_u16
-}
-
-fn default_trusted_servers() -> Vec<OwnedServerName> {
-    vec![OwnedServerName::try_from("matrix.org").unwrap()]
 }
 
 fn default_tracing_filter() -> EnvFilterClone {

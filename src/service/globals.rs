@@ -324,7 +324,7 @@ impl Service {
     }
 
     pub(crate) fn max_fetch_prev_events(&self) -> u16 {
-        self.config.max_fetch_prev_events
+        self.config.federation.max_fetch_prev_events
     }
 
     pub(crate) fn allow_registration(&self) -> bool {
@@ -336,7 +336,7 @@ impl Service {
     }
 
     pub(crate) fn allow_federation(&self) -> bool {
-        self.config.allow_federation
+        self.config.federation.enable
     }
 
     pub(crate) fn allow_room_creation(&self) -> bool {
@@ -352,7 +352,7 @@ impl Service {
     }
 
     pub(crate) fn trusted_servers(&self) -> &[OwnedServerName] {
-        &self.config.trusted_servers
+        &self.config.federation.trusted_servers
     }
 
     pub(crate) fn dns_resolver(&self) -> &TokioAsyncResolver {

@@ -463,7 +463,7 @@ fn routes(config: &Config) -> Router {
         .route("/", get(it_works))
         .fallback(not_found);
 
-    if config.allow_federation {
+    if config.federation.enable {
         router
             .ruma_route(s2s::get_server_version_route)
             .route("/_matrix/key/v2/server", get(s2s::get_server_keys_route))
