@@ -4,7 +4,6 @@ use std::{collections::HashSet, sync::Arc};
 pub(crate) use data::Data;
 use ruma::{
     events::{
-        direct::DirectEvent,
         ignored_user_list::IgnoredUserListEvent,
         room::{create::RoomCreateEventContent, member::MembershipState},
         AnyStrippedStateEvent, AnySyncStateEvent, GlobalAccountDataEventType,
@@ -218,39 +217,64 @@ impl Service {
         let event_kind = RoomAccountDataEventType::from(
             GlobalAccountDataEventType::Direct.to_string(),
         );
-        if let Some(direct_event) = services()
-            .account_data
-            .get(
+        let Some(event) =
+            services().account_data.get(None, user_id, event_kind.clone())?
+        else {
+            return Ok(());
+        };
+
+        let mut event = serde_json::from_str::<serde_json::Value>(event.get())
+            .expect("RawValue -> Value should always succeed");
+
+        // As a server, we should try not to assume anything about the schema
+        // of this event. Account data may be arbitrary JSON.
+        //
+        // In particular, there is an element bug[1] that causes it to store
+        // m.direct events that don't match the schema from the spec.
+        //
+        // [1]: https://github.com/element-hq/element-web/issues/27630
+        //
+        // A valid m.direct event looks like this:
+        //
+        // {
+        //     "type": "m.account_data",
+        //     "content": {
+        //         "@userid1": [ "!roomid1", "!roomid2" ],
+        //         "@userid2": [ "!roomid3" ],
+        //     }
+        // }
+        //
+        // We want to find userid keys where the value contains from_room_id,
+        // and insert a new entry for to_room_id. This should work even if some
+        // of the userid keys do not conform to the spec. If parts of the object
+        // do not match the expected schema, we should prefer to skip just those
+        // parts.
+
+        let mut event_updated = false;
+        let Some(direct_user_ids) = event.get_mut("content") else {
+            return Ok(());
+        };
+        let Some(direct_user_ids) = direct_user_ids.as_object_mut() else {
+            return Ok(());
+        };
+        for room_ids in direct_user_ids.values_mut() {
+            let Some(room_ids) = room_ids.as_array_mut() else {
+                continue;
+            };
+            if room_ids.iter().any(|room_id| room_id == from_room_id.as_str()) {
+                room_ids.push(to_room_id.to_string().into());
+                event_updated = true;
+            }
+        }
+
+        if event_updated {
+            if let Err(error) = services().account_data.update(
                 None,
                 user_id,
                 event_kind.clone(),
-            )?
-            .map(|event| {
-                serde_json::from_str::<DirectEvent>(event.get())
-                    .map_err(|error| {
-                        warn!(%error, %event_kind, "Invalid account data event");
-                        Error::BadDatabase("Invalid account data event.")
-                    })
-            })
-        {
-            let mut direct_event = direct_event?;
-            let mut room_ids_updated = false;
-
-            for room_ids in direct_event.content.0.values_mut() {
-                if room_ids.iter().any(|r| r == from_room_id) {
-                    room_ids.push(to_room_id.to_owned());
-                    room_ids_updated = true;
-                }
-            }
-
-            if room_ids_updated {
-                services().account_data.update(
-                    None,
-                    user_id,
-                    event_kind,
-                    &serde_json::to_value(&direct_event)
-                        .expect("to json always works"),
-                )?;
+                &event,
+            ) {
+                warn!(%event_kind, %error, "error writing account data event after upgrading room");
             }
         }
         Ok(())
