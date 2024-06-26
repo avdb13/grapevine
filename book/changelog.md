@@ -147,6 +147,13 @@ This will be the first release of Grapevine since it was forked from Conduit
    ([!35 (3551a6e)](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/35/diffs?commit_id=3551a6ef7a29219b9b30f50a7e8c92b92debcdcf))
 10. Only process admin commands if the admin bot is in the admin room.
     ([!43](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/43))
+11. Fix bug where invalid account data from a client could prevent a user from
+    joining any upgraded rooms and brick rooms that affected users attempted to
+    upgrade.
+    ([!53](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/53))
+12. Fix bug where unexpected keys were deleted from `m.direct` account data
+    events when joining an upgraded room.
+    ([!53](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/53))
 
 ### Added
 
