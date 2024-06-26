@@ -118,6 +118,9 @@ This will be the first release of Grapevine since it was forked from Conduit
    * Details on how to migrate can be found in the merge request's description.
 9. Increase default log level so that span information is included.
    ([!50](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/50))
+10. **BREAKING:** Reorganize config into sections.
+    ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))
+    * Details on how to migrate can be found in the merge request's description.
 
 ### Fixed
 
@@ -176,3 +179,13 @@ This will be the first release of Grapevine since it was forked from Conduit
 11. Add the `set-tracing-filter` admin command to change log/metrics/flame
     filters dynamically at runtime.
     ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))
+12. Add more configuration options.
+    ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))
+    * `observability.traces.filter`: The `tracing` filter to use for
+      OpenTelemetry traces.
+    * `observability.traces.endpoint`: Where OpenTelemetry should send traces.
+    * `observability.flame.filter`: The `tracing` filter for `tracing-flame`.
+    * `observability.flame.filename`: Where `tracing-flame` will write its
+      output.
+    * `observability.logs.timestamp`: Whether timestamps should be included in
+      the logs.
