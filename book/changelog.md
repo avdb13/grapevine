@@ -101,7 +101,8 @@ This will be the first release of Grapevine since it was forked from Conduit
    [!18](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/18),
    [!26](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/26),
    [!50](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/50),
-   [!52](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/52))
+   [!52](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/52),
+   [!54](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/54))
 5. Stop returning unnecessary member counts from `/_matrix/client/{r0,v3}/sync`.
    ([!12](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/12))
 6. **BREAKING:** Allow federation by default.
