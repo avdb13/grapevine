@@ -3,7 +3,7 @@ use std::io::Cursor;
 use image::imageops::FilterType;
 use tokio::{
     fs::File,
-    io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, AsyncWriteExt},
 };
 use tracing::{debug, warn};
 
@@ -88,15 +88,17 @@ impl Service {
             self.db.search_file_metadata(mxc, 0, 0)
         {
             let path = services().globals.get_media_file(&key);
-            let mut file = Vec::new();
-            BufReader::new(File::open(path).await?)
-                .read_to_end(&mut file)
-                .await?;
+            let mut file_data = Vec::new();
+            let Ok(mut file) = File::open(path).await else {
+                return Ok(None);
+            };
+
+            file.read_to_end(&mut file_data).await?;
 
             Ok(Some(FileMeta {
                 content_disposition,
                 content_type,
-                file,
+                file: file_data,
             }))
         } else {
             Ok(None)

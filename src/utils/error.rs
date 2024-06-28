@@ -98,9 +98,9 @@ impl Error {
     pub(crate) fn to_response(&self) -> Ra<UiaaResponse> {
         use ErrorKind::{
             Forbidden, GuestAccessForbidden, LimitExceeded, MissingToken,
-            NotFound, ThreepidAuthFailed, ThreepidDenied, TooLarge,
-            Unauthorized, Unknown, UnknownToken, Unrecognized, UserDeactivated,
-            WrongRoomKeysVersion,
+            NotFound, NotYetUploaded, ThreepidAuthFailed, ThreepidDenied,
+            TooLarge, Unauthorized, Unknown, UnknownToken, Unrecognized,
+            UserDeactivated, WrongRoomKeysVersion,
         };
 
         if let Self::Uiaa(uiaainfo) = self {
@@ -142,6 +142,7 @@ impl Error {
                         ..
                     } => StatusCode::TOO_MANY_REQUESTS,
                     TooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+                    NotYetUploaded => StatusCode::GATEWAY_TIMEOUT,
                     _ => StatusCode::BAD_REQUEST,
                 },
             ),

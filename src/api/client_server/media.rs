@@ -250,7 +250,7 @@ async fn get_content_route_ruma(
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
     } else {
-        Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
+        Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
     }
 }
 
@@ -415,6 +415,6 @@ async fn get_content_thumbnail_route_ruma(
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
     } else {
-        Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
+        Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
     }
 }
