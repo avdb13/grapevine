@@ -274,9 +274,6 @@ pub(crate) struct Metrics {
 
     /// Number of entries in an [`OnDemandHashMap`]
     on_demand_hashmap_size: opentelemetry::metrics::Gauge<u64>,
-    /// Number of times an [`OnDemandHashMap`] entry had been cloned before
-    /// being dropped
-    on_demand_hashmap_clone_count: opentelemetry::metrics::Histogram<u64>,
 }
 
 impl Metrics {
@@ -331,20 +328,12 @@ impl Metrics {
             .u64_gauge("on_demand_hashmap_size")
             .with_description("Number of entries in OnDemandHashMap")
             .init();
-        let on_demand_hashmap_clone_count = meter
-            .u64_histogram("on_demand_hashmap_clone_count")
-            .with_description(
-                "Number of times an OnDemandHashMap entry had been cloned \
-                 before being dropped",
-            )
-            .init();
 
         Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
             lookup,
             on_demand_hashmap_size,
-            on_demand_hashmap_clone_count,
         }
     }
 
@@ -374,19 +363,6 @@ impl Metrics {
     ) {
         self.on_demand_hashmap_size.record(
             size.try_into().unwrap_or(u64::MAX),
-            &[KeyValue::new("name", name)],
-        );
-    }
-
-    /// Record number of times an [`OnDemandHashMap`] entry had been accessed
-    /// before being dropped
-    pub(crate) fn record_on_demand_hashmap_clone_count(
-        &self,
-        name: Arc<str>,
-        count: usize,
-    ) {
-        self.on_demand_hashmap_clone_count.record(
-            count.try_into().unwrap_or(u64::MAX),
             &[KeyValue::new("name", name)],
         );
     }
