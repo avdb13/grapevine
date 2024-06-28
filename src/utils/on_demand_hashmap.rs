@@ -6,7 +6,6 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use strum::{AsRefStr, IntoStaticStr};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{trace, warn, Level};
 
@@ -78,11 +77,7 @@ where
     /// Either returns an existing live value, or creates a new one and inserts
     /// it into the map.
     #[tracing::instrument(level = Level::TRACE, skip(self, create))]
-    async fn get_or_insert_with<F>(
-        &self,
-        key: &K,
-        create: F,
-    ) -> (Arc<V>, GetAction)
+    async fn get_or_insert_with<F>(&self, key: &K, create: F) -> Arc<V>
     where
         F: FnOnce() -> V,
     {
@@ -94,7 +89,7 @@ where
             // and how expensive create() is
             let map = self.entries.read().await;
             if let Some(v) = Self::try_get_live_value(1, &map, key) {
-                return (v, GetAction::CloneExisting);
+                return v;
             }
         }
 
@@ -102,22 +97,20 @@ where
         let value = Arc::new(create());
         let weak = Arc::downgrade(&value);
 
-        {
-            // take a write lock, try again, otherwise insert our new value
-            let mut map = self.entries.write().await;
-            if let Some(v) = Self::try_get_live_value(2, &map, key) {
-                // another entry showed up while we had let go of the lock,
-                // use that
-                drop(value);
-                drop(weak);
-                return (v, GetAction::CloneExistingAfterCreation);
-            }
-
-            map.insert(key.clone(), weak);
-            METRICS.record_on_demand_hashmap_size(self.name.clone(), map.len());
-
-            (value, GetAction::InsertNew)
+        // take a write lock, try again, otherwise insert our new value
+        let mut map = self.entries.write().await;
+        if let Some(v) = Self::try_get_live_value(2, &map, key) {
+            // another entry showed up while we had let go of the lock,
+            // use that
+            drop(value);
+            drop(weak);
+            return v;
         }
+
+        map.insert(key.clone(), weak);
+        METRICS.record_on_demand_hashmap_size(self.name.clone(), map.len());
+
+        value
     }
 }
 
@@ -179,10 +172,7 @@ where
     where
         F: FnOnce() -> V,
     {
-        let (value, get_action) =
-            self.shared.get_or_insert_with(&key, create).await;
-        METRICS
-            .record_on_demand_hashmap_get(self.shared.name.clone(), get_action);
+        let value = self.shared.get_or_insert_with(&key, create).await;
 
         Entry {
             cleanup_sender: self.cleanup_sender.downgrade(),
@@ -224,17 +214,4 @@ impl<K, V> Drop for Entry<K, V> {
             warn!(%error, "Failed to send cleanup message");
         };
     }
-}
-
-/// Action performed during [`OnDemandHashMap::get_or_insert_with()`], for
-/// metrics.
-#[derive(Clone, Copy, AsRefStr, IntoStaticStr)]
-pub(crate) enum GetAction {
-    /// An existing entry was cheaply cloned.
-    CloneExisting,
-    /// A new entry was created, but the creation was raced by another task and
-    /// the created entry was dropped.
-    CloneExistingAfterCreation,
-    /// A new entry was created and inserted into the map.
-    InsertNew,
 }

@@ -31,7 +31,7 @@ use crate::utils::on_demand_hashmap::OnDemandHashMap;
 use crate::{
     config::{Config, EnvFilterClone, LogFormat},
     error,
-    utils::{error::Result, on_demand_hashmap},
+    utils::error::Result,
 };
 
 /// Globally accessible metrics state
@@ -272,8 +272,6 @@ pub(crate) struct Metrics {
     /// Counts where data is found from
     lookup: opentelemetry::metrics::Counter<u64>,
 
-    /// Actions performed when looking up entries in [`OnDemandHashMap`]
-    on_demand_hashmap_get: opentelemetry::metrics::Counter<u64>,
     /// Number of entries in an [`OnDemandHashMap`]
     on_demand_hashmap_size: opentelemetry::metrics::Gauge<u64>,
 }
@@ -326,12 +324,6 @@ impl Metrics {
             .with_description("Counts where data is found from")
             .init();
 
-        let on_demand_hashmap_get = meter
-            .u64_counter("on_demand_hashmap_get")
-            .with_description(
-                "Actions performed when looking up entries in OnDemandHashMap",
-            )
-            .init();
         let on_demand_hashmap_size = meter
             .u64_gauge("on_demand_hashmap_size")
             .with_description("Number of entries in OnDemandHashMap")
@@ -341,7 +333,6 @@ impl Metrics {
             otel_state: (registry, provider),
             http_requests_histogram,
             lookup,
-            on_demand_hashmap_get,
             on_demand_hashmap_size,
         }
     }
@@ -360,21 +351,6 @@ impl Metrics {
             &[
                 KeyValue::new("lookup", <&str>::from(lookup)),
                 KeyValue::new("found_in", <&str>::from(found_in)),
-            ],
-        );
-    }
-
-    /// Record action performed during [`OnDemandHashMap::get_or_insert_with()`]
-    pub(crate) fn record_on_demand_hashmap_get(
-        &self,
-        name: Arc<str>,
-        action: on_demand_hashmap::GetAction,
-    ) {
-        self.on_demand_hashmap_get.add(
-            1,
-            &[
-                KeyValue::new("name", name),
-                KeyValue::new("action", <&str>::from(action)),
             ],
         );
     }
