@@ -11,7 +11,7 @@ use ruma::{
         MatrixVersion, Metadata, OutgoingRequest, SendAccessToken,
     },
     server_util::authorization::XMatrix,
-    OwnedServerName, OwnedSigningKeyId, ServerName,
+    CanonicalJsonObject, OwnedServerName, OwnedSigningKeyId, ServerName,
 };
 use thiserror::Error;
 use tracing::{debug, error, field, warn};
@@ -93,7 +93,7 @@ fn create_request_signature(
     metadata: &Metadata,
     destination: OwnedServerName,
 ) -> Result<Authorization<XMatrix>, RequestSignError> {
-    let mut request_map = serde_json::Map::new();
+    let mut request_map = CanonicalJsonObject::new();
 
     if !http_request.body().is_empty() {
         request_map.insert(
@@ -119,22 +119,17 @@ fn create_request_signature(
     );
     request_map.insert("destination".to_owned(), destination.as_str().into());
 
-    let mut request_json = serde_json::from_value(request_map.into())
-        .expect("valid JSON is valid BTreeMap");
-
     ruma::signatures::sign_json(
         services().globals.server_name().as_str(),
         services().globals.keypair(),
-        &mut request_json,
+        &mut request_map,
     )
     .expect("our request json is what ruma expects");
 
-    let request_json: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_slice(&serde_json::to_vec(&request_json).unwrap())
-            .unwrap();
-
     // There's exactly the one signature we just created, fish it back out again
-    let (key_id, signature) = request_json["signatures"]
+    let (key_id, signature) = request_map["signatures"]
+        .as_object()
+        .unwrap()
         .get(services().globals.server_name().as_str())
         .unwrap()
         .as_object()
