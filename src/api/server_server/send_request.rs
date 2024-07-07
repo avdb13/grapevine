@@ -8,12 +8,13 @@ use axum_extra::headers::{Authorization, HeaderMapExt};
 use ruma::{
     api::{
         client::error::Error as RumaError, EndpointError, IncomingResponse,
-        MatrixVersion, OutgoingRequest, SendAccessToken,
+        MatrixVersion, Metadata, OutgoingRequest, SendAccessToken,
     },
     server_util::authorization::XMatrix,
     OwnedServerName, OwnedSigningKeyId, ServerName,
 };
-use tracing::{debug, field, warn};
+use thiserror::Error;
+use tracing::{debug, error, field, warn};
 
 use crate::{
     observability::{FoundIn, Lookup, METRICS},
@@ -78,6 +79,81 @@ impl FedDest {
     }
 }
 
+#[derive(Debug, Error)]
+enum RequestSignError {
+    #[error("invalid JSON in request body")]
+    InvalidBodyJson(#[source] serde_json::Error),
+    #[error("request has no path")]
+    NoPath,
+}
+
+#[tracing::instrument(skip(http_request, metadata))]
+fn create_request_signature(
+    http_request: &http::Request<Vec<u8>>,
+    metadata: &Metadata,
+    destination: OwnedServerName,
+) -> Result<Authorization<XMatrix>, RequestSignError> {
+    let mut request_map = serde_json::Map::new();
+
+    if !http_request.body().is_empty() {
+        request_map.insert(
+            "content".to_owned(),
+            serde_json::from_slice(http_request.body())
+                .map_err(RequestSignError::InvalidBodyJson)?,
+        );
+    };
+
+    request_map.insert("method".to_owned(), metadata.method.to_string().into());
+    request_map.insert(
+        "uri".to_owned(),
+        http_request
+            .uri()
+            .path_and_query()
+            .ok_or(RequestSignError::NoPath)?
+            .to_string()
+            .into(),
+    );
+    request_map.insert(
+        "origin".to_owned(),
+        services().globals.server_name().as_str().into(),
+    );
+    request_map.insert("destination".to_owned(), destination.as_str().into());
+
+    let mut request_json = serde_json::from_value(request_map.into())
+        .expect("valid JSON is valid BTreeMap");
+
+    ruma::signatures::sign_json(
+        services().globals.server_name().as_str(),
+        services().globals.keypair(),
+        &mut request_json,
+    )
+    .expect("our request json is what ruma expects");
+
+    let request_json: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_slice(&serde_json::to_vec(&request_json).unwrap())
+            .unwrap();
+
+    // There's exactly the one signature we just created, fish it back out again
+    let (key_id, signature) = request_json["signatures"]
+        .get(services().globals.server_name().as_str())
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .iter()
+        .next()
+        .unwrap();
+
+    let key_id = OwnedSigningKeyId::try_from(key_id.clone()).unwrap();
+    let signature = signature.as_str().unwrap().to_owned();
+
+    Ok(Authorization(XMatrix::new(
+        services().globals.server_name().to_owned(),
+        Some(destination),
+        key_id,
+        signature,
+    )))
+}
+
 #[tracing::instrument(skip(request, log_error), fields(url))]
 pub(crate) async fn send_request<T>(
     destination: &ServerName,
@@ -137,66 +213,13 @@ where
             Error::BadServerResponse("Invalid request")
         })?;
 
-    let mut request_map = serde_json::Map::new();
-
-    if !http_request.body().is_empty() {
-        request_map.insert(
-            "content".to_owned(),
-            serde_json::from_slice(http_request.body())
-                .expect("body is valid json, we just created it"),
-        );
-    };
-
-    request_map
-        .insert("method".to_owned(), T::METADATA.method.to_string().into());
-    request_map.insert(
-        "uri".to_owned(),
-        http_request
-            .uri()
-            .path_and_query()
-            .expect("all requests have a path")
-            .to_string()
-            .into(),
-    );
-    request_map.insert(
-        "origin".to_owned(),
-        services().globals.server_name().as_str().into(),
-    );
-    request_map.insert("destination".to_owned(), destination.as_str().into());
-
-    let mut request_json = serde_json::from_value(request_map.into())
-        .expect("valid JSON is valid BTreeMap");
-
-    ruma::signatures::sign_json(
-        services().globals.server_name().as_str(),
-        services().globals.keypair(),
-        &mut request_json,
+    let signature = create_request_signature(
+        &http_request,
+        &T::METADATA,
+        destination.to_owned(),
     )
-    .expect("our request json is what ruma expects");
-
-    let request_json: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_slice(&serde_json::to_vec(&request_json).unwrap())
-            .unwrap();
-
-    // There's exactly the one signature we just created, fish it back out again
-    let (key_id, signature) = request_json["signatures"]
-        .get(services().globals.server_name().as_str())
-        .unwrap()
-        .as_object()
-        .unwrap()
-        .iter()
-        .next()
-        .unwrap();
-
-    let key_id = OwnedSigningKeyId::try_from(key_id.clone()).unwrap();
-    let signature = signature.as_str().unwrap().to_owned();
-
-    http_request.headers_mut().typed_insert(Authorization(XMatrix::new(
-        services().globals.server_name().to_owned(),
-        Some(destination.to_owned()),
-        key_id,
-        signature,
-    )));
+    .expect("all outgoing requests can be signed");
+    http_request.headers_mut().typed_insert(signature);
 
     let reqwest_request = reqwest::Request::try_from(http_request)?;
 
