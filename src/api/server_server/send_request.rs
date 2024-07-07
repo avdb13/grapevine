@@ -5,6 +5,7 @@ use std::{
 };
 
 use axum_extra::headers::{Authorization, HeaderMapExt};
+use bytes::Bytes;
 use ruma::{
     api::{
         client::error::Error as RumaError, EndpointError, IncomingResponse,
@@ -149,71 +150,20 @@ fn create_request_signature(
     )))
 }
 
-#[tracing::instrument(skip(request, log_error), fields(url))]
-pub(crate) async fn send_request<T>(
-    destination: &ServerName,
-    request: T,
+/// Inner non-generic part of [`send_request()`] to reduce monomorphization
+/// bloat
+///
+/// Takes an [`http::Request`], converts it to a [`reqwest::Request`], then
+/// converts the [`reqwest::Response`] back to an [`http::Response`].
+async fn send_request_inner(
+    mut http_request: http::Request<Vec<u8>>,
+    metadata: &Metadata,
+    destination: OwnedServerName,
     log_error: bool,
-) -> Result<T::IncomingResponse>
-where
-    T: OutgoingRequest + Debug,
-{
-    if !services().globals.allow_federation() {
-        return Err(Error::BadConfig("Federation is disabled."));
-    }
-
-    if destination == services().globals.server_name() {
-        return Err(Error::bad_config(
-            "Won't send federation request to ourselves",
-        ));
-    }
-
-    debug!("Preparing to send request");
-
-    let mut write_destination_to_cache = false;
-
-    let cached_result = services()
-        .globals
-        .actual_destination_cache
-        .read()
-        .await
-        .get(destination)
-        .cloned();
-
-    let (actual_destination, host) = if let Some(result) = cached_result {
-        METRICS.record_lookup(Lookup::FederationDestination, FoundIn::Cache);
-        result
-    } else {
-        write_destination_to_cache = true;
-
-        let result = find_actual_destination(destination).await;
-
-        (result.0, result.1.to_uri_string())
-    };
-
-    let actual_destination_str = actual_destination.to_https_string();
-
-    let mut http_request = request
-        .try_into_http_request::<Vec<u8>>(
-            &actual_destination_str,
-            SendAccessToken::IfRequired(""),
-            &[MatrixVersion::V1_4],
-        )
-        .map_err(|error| {
-            warn!(
-                %error,
-                actual_destination = actual_destination_str,
-                "Failed to serialize request",
-            );
-            Error::BadServerResponse("Invalid request")
-        })?;
-
-    let signature = create_request_signature(
-        &http_request,
-        &T::METADATA,
-        destination.to_owned(),
-    )
-    .expect("all outgoing requests can be signed");
+) -> Result<http::Response<Bytes>> {
+    let signature =
+        create_request_signature(&http_request, metadata, destination.clone())
+            .expect("all outgoing requests can be signed");
     http_request.headers_mut().typed_insert(signature);
 
     let reqwest_request = reqwest::Request::try_from(http_request)?;
@@ -267,10 +217,80 @@ where
 
     if status != 200 {
         return Err(Error::Federation(
-            destination.to_owned(),
+            destination,
             RumaError::from_http_response(http_response),
         ));
     }
+
+    Ok(http_response)
+}
+
+#[tracing::instrument(skip(request, log_error), fields(url))]
+pub(crate) async fn send_request<T>(
+    destination: &ServerName,
+    request: T,
+    log_error: bool,
+) -> Result<T::IncomingResponse>
+where
+    T: OutgoingRequest + Debug,
+{
+    if !services().globals.allow_federation() {
+        return Err(Error::BadConfig("Federation is disabled."));
+    }
+
+    if destination == services().globals.server_name() {
+        return Err(Error::bad_config(
+            "Won't send federation request to ourselves",
+        ));
+    }
+
+    debug!("Preparing to send request");
+
+    let mut write_destination_to_cache = false;
+
+    let cached_result = services()
+        .globals
+        .actual_destination_cache
+        .read()
+        .await
+        .get(destination)
+        .cloned();
+
+    let (actual_destination, host) = if let Some(result) = cached_result {
+        METRICS.record_lookup(Lookup::FederationDestination, FoundIn::Cache);
+        result
+    } else {
+        write_destination_to_cache = true;
+
+        let result = find_actual_destination(destination).await;
+
+        (result.0, result.1.to_uri_string())
+    };
+
+    let actual_destination_str = actual_destination.to_https_string();
+
+    let http_request = request
+        .try_into_http_request::<Vec<u8>>(
+            &actual_destination_str,
+            SendAccessToken::IfRequired(""),
+            &[MatrixVersion::V1_4],
+        )
+        .map_err(|error| {
+            warn!(
+                %error,
+                actual_destination = actual_destination_str,
+                "Failed to serialize request",
+            );
+            Error::BadServerResponse("Invalid request")
+        })?;
+
+    let http_response = send_request_inner(
+        http_request,
+        &T::METADATA,
+        destination.to_owned(),
+        log_error,
+    )
+    .await?;
 
     debug!("Parsing response bytes");
     let response = T::IncomingResponse::try_from_http_response(http_response);
