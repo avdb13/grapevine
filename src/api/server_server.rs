@@ -184,9 +184,9 @@ where
             warn!(
                 %error,
                 actual_destination = actual_destination_str,
-                "Failed to find destination",
+                "Failed to serialize request",
             );
-            Error::BadServerResponse("Invalid destination")
+            Error::BadServerResponse("Invalid request")
         })?;
 
     let mut request_map = serde_json::Map::new();
