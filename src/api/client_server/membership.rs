@@ -518,6 +518,7 @@ pub(crate) async fn joined_members_route(
 }
 
 #[allow(clippy::too_many_lines)]
+#[tracing::instrument(skip(reason, _third_party_signed))]
 async fn join_room_by_id_helper(
     sender_user: Option<&UserId>,
     room_id: &RoomId,
@@ -557,8 +558,8 @@ async fn join_room_by_id_helper(
                 .as_ref()
                 .map(|join_rules_event| {
                     serde_json::from_str(join_rules_event.content.get())
-                        .map_err(|e| {
-                            warn!("Invalid join rules event: {}", e);
+                        .map_err(|error| {
+                            warn!(%error, "Invalid join rules event");
                             Error::bad_database(
                                 "Invalid join rules event in db.",
                             )
@@ -811,7 +812,7 @@ async fn join_room_by_id_helper(
             )
             .await?;
     } else {
-        info!("Joining {room_id} over federation.");
+        info!("Joining over federation.");
 
         let (make_join_response, remote_server) =
             make_join_request(sender_user, room_id, servers).await?;
@@ -915,7 +916,7 @@ async fn join_room_by_id_helper(
         // It has enough fields to be called a proper event now
         let mut join_event = join_event_stub;
 
-        info!("Asking {remote_server} for send_join");
+        info!(server = %remote_server, "Asking other server for send_join");
         let send_join_response = services()
             .sending
             .send_federation_request(
@@ -975,10 +976,13 @@ async fn join_room_by_id_helper(
                         .expect("we created a valid pdu")
                         .insert(remote_server.to_string(), signature.clone());
                 }
-                Err(e) => {
+                Err(error) => {
                     warn!(
-                        "Server {remote_server} sent invalid signature in \
-                         sendjoin signatures for event {signed_value:?}: {e:?}",
+                        %error,
+                        server = %remote_server,
+                        event = ?signed_value,
+                        "Other server sent invalid signature in sendjoin \
+                        signatures for event",
                     );
                 }
             }
@@ -1015,10 +1019,11 @@ async fn join_room_by_id_helper(
             };
 
             let pdu = PduEvent::from_id_val(&event_id, value.clone()).map_err(
-                |e| {
+                |error| {
                     warn!(
-                        "Invalid PDU in send_join response: {} {:?}",
-                        e, value
+                        %error,
+                        object = ?value,
+                        "Invalid PDU in send_join response",
                     );
                     Error::BadServerResponse(
                         "Invalid PDU in send_join response.",
@@ -1076,8 +1081,8 @@ async fn join_room_by_id_helper(
                     .ok()?
             },
         )
-        .map_err(|e| {
-            warn!("Auth check failed: {e}");
+        .map_err(|error| {
+            warn!(%error, "Auth check failed");
             Error::BadRequest(ErrorKind::InvalidParam, "Auth check failed")
         })?;
 
@@ -1168,7 +1173,7 @@ async fn make_join_request(
         if remote_server == services().globals.server_name() {
             continue;
         }
-        info!("Asking {remote_server} for make_join");
+        info!(server = %remote_server, "Asking other server for make_join");
         let make_join_response = services()
             .sending
             .send_federation_request(
@@ -1198,8 +1203,8 @@ async fn validate_and_add_event_id(
     pub_key_map: &RwLock<BTreeMap<String, SigningKeys>>,
 ) -> Result<(OwnedEventId, CanonicalJsonObject)> {
     let mut value: CanonicalJsonObject = serde_json::from_str(pdu.get())
-        .map_err(|e| {
-            error!("Invalid PDU in server response: {:?}: {:?}", pdu, e);
+        .map_err(|error| {
+            error!(%error, object = ?pdu, "Invalid PDU in server response");
             Error::BadServerResponse("Invalid PDU in server response")
         })?;
     let event_id = EventId::parse(format!(
@@ -1231,7 +1236,7 @@ async fn validate_and_add_event_id(
         }
 
         if time.elapsed() < min_elapsed_duration {
-            debug!("Backing off from {}", event_id);
+            debug!(%event_id, "Backing off from event");
             return Err(Error::BadServerResponse(
                 "bad event, still backing off",
             ));
@@ -1270,9 +1275,15 @@ async fn validate_and_add_event_id(
         room_version,
     );
 
-    if let Err(e) = ruma::signatures::verify_event(&keys, &value, room_version)
+    if let Err(error) =
+        ruma::signatures::verify_event(&keys, &value, room_version)
     {
-        warn!("Event {} failed verification {:?} {}", event_id, pdu, e);
+        warn!(
+            %event_id,
+            %error,
+            ?pdu,
+            "Event failed verification",
+        );
         back_off(event_id).await;
         return Err(Error::BadServerResponse("Event failed verification."));
     }
@@ -1375,11 +1386,11 @@ pub(crate) async fn invite_helper(
 
         if *pdu.event_id != *event_id {
             warn!(
-                "Server {} changed invite event, that's not allowed in the \
-                 spec: ours: {:?}, theirs: {:?}",
-                user_id.server_name(),
-                pdu_json,
-                value
+                server = %user_id.server_name(),
+                our_object = ?pdu_json,
+                their_object = ?value,
+                "Other server changed invite event, that's not allowed in the \
+                 spec",
             );
         }
 
@@ -1500,13 +1511,14 @@ pub(crate) async fn leave_all_rooms(user_id: &UserId) -> Result<()> {
         };
 
         if let Err(error) = leave_room(user_id, &room_id, None).await {
-            warn!(%user_id, %room_id, %error, "failed to leave room");
+            warn!(%user_id, %room_id, %error, "Failed to leave room");
         }
     }
 
     Ok(())
 }
 
+#[tracing::instrument(skip(reason))]
 pub(crate) async fn leave_room(
     user_id: &UserId,
     room_id: &RoomId,
@@ -1580,8 +1592,8 @@ pub(crate) async fn leave_room(
             )
             .await?;
     } else {
-        if let Err(e) = remote_leave_room(user_id, room_id).await {
-            warn!("Failed to leave room {} remotely: {}", user_id, e);
+        if let Err(error) = remote_leave_room(user_id, room_id).await {
+            warn!(%error, "Failed to leave room remotely");
             // Don't tell the client about this error
         }
 
