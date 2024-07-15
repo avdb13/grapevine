@@ -216,7 +216,7 @@ async fn run_server() -> Result<(), error::Serve> {
     }
 
     for listen in &config.listen {
-        info!("Listening for incoming traffic on {listen}");
+        info!(listener = %listen, "Listening for incoming traffic");
         match listen {
             ListenConfig::Tcp {
                 address,
@@ -283,7 +283,7 @@ async fn unrecognized_method(
     let uri = req.uri().clone();
     let inner = next.run(req).await;
     if inner.status() == StatusCode::METHOD_NOT_ALLOWED {
-        warn!("Method not allowed: {method} {uri}");
+        warn!(%method, %uri, "Method not allowed");
         return Ok(Ra(UiaaResponse::MatrixError(RumaError {
             body: ErrorBody::Standard {
                 kind: ErrorKind::Unrecognized,
@@ -519,7 +519,7 @@ async fn shutdown_signal(handles: Vec<ServerHandle>) {
         () = terminate => { sig = "SIGTERM"; },
     }
 
-    warn!(signal = %sig, "shutting down due to signal");
+    warn!(signal = %sig, "Shutting down due to signal");
 
     services().globals.shutdown();
 
@@ -537,7 +537,7 @@ async fn federation_disabled(_: Uri) -> impl IntoResponse {
 }
 
 async fn not_found(method: Method, uri: Uri) -> impl IntoResponse {
-    debug!(%method, %uri, "unknown route");
+    debug!(%method, %uri, "Unknown route");
     Error::BadRequest(ErrorKind::Unrecognized, "Unrecognized request")
 }
 
@@ -657,11 +657,11 @@ fn maximize_fd_limit() -> Result<(), nix::errno::Errno> {
 
     let (soft_limit, hard_limit) = getrlimit(res)?;
 
-    debug!("Current nofile soft limit: {soft_limit}");
+    debug!(soft_limit, "Current nofile soft limit");
 
     setrlimit(res, hard_limit, hard_limit)?;
 
-    debug!("Increased nofile soft limit to {hard_limit}");
+    debug!(hard_limit, "Increased nofile soft limit to the hard limit");
 
     Ok(())
 }
