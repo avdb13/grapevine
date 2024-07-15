@@ -25,7 +25,7 @@ use ruma::{
     OwnedServerName, OwnedUserId, UserId,
 };
 use serde::Deserialize;
-use tracing::{debug, error, warn};
+use tracing::{error, warn};
 
 use super::{Ar, Ra};
 use crate::{service::appservice::RegistrationInfo, services, Error, Result};
@@ -81,8 +81,8 @@ async fn ar_from_request_inner(
     let query = parts.uri.query().unwrap_or_default();
     let query_params: QueryParams = match serde_html_form::from_str(query) {
         Ok(params) => params,
-        Err(e) => {
-            error!(%query, "Failed to deserialize query parameters: {}", e);
+        Err(error) => {
+            error!(%error, %query, "Failed to deserialize query parameters");
             return Err(Error::BadRequest(
                 ErrorKind::Unknown,
                 "Failed to read query parameters",
@@ -181,10 +181,10 @@ async fn ar_from_request_inner(
                 let TypedHeader(Authorization(x_matrix)) = parts
                     .extract::<TypedHeader<Authorization<XMatrix>>>()
                     .await
-                    .map_err(|e| {
-                        warn!("Missing or invalid Authorization header: {}", e);
+                    .map_err(|error| {
+                        warn!(%error, "Missing or invalid Authorization header");
 
-                        let msg = match e.reason() {
+                        let msg = match error.reason() {
                             TypedHeaderRejectionReason::Missing => {
                                 "Missing Authorization header."
                             }
@@ -267,8 +267,8 @@ async fn ar_from_request_inner(
 
                 let keys = match keys_result {
                     Ok(b) => b,
-                    Err(e) => {
-                        warn!("Failed to fetch signing keys: {}", e);
+                    Err(error) => {
+                        warn!(%error, "Failed to fetch signing keys");
                         return Err(Error::BadRequest(
                             ErrorKind::forbidden(),
                             "Failed to fetch signing keys.",
@@ -293,10 +293,12 @@ async fn ar_from_request_inner(
                 match ruma::signatures::verify_json(&pub_key_map, &request_map)
                 {
                     Ok(()) => (None, None, Some(x_matrix.origin), None),
-                    Err(e) => {
+                    Err(error) => {
                         warn!(
-                            "Failed to verify json request from {}: {}\n{:?}",
-                            x_matrix.origin, e, request_map
+                            %error,
+                            origin = %x_matrix.origin,
+                            object = ?request_map,
+                            "Failed to verify JSON request"
                         );
 
                         if parts.uri.to_string().contains('@') {
@@ -402,9 +404,12 @@ where
 
         let body =
             T::try_from_http_request(pieces.http_request, &pieces.path_params)
-                .map_err(|e| {
-                    warn!("try_from_http_request failed: {:?}", e);
-                    debug!("JSON body: {:?}", pieces.json_body);
+                .map_err(|error| {
+                    warn!(
+                        %error,
+                        body = ?pieces.json_body,
+                        "Request body JSON structure is incorrect"
+                    );
                     Error::BadRequest(
                         ErrorKind::BadJson,
                         "Failed to deserialize request.",
