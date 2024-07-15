@@ -57,21 +57,19 @@ where
     *reqwest_request.timeout_mut() = Some(Duration::from_secs(30));
 
     let url = reqwest_request.url().clone();
-    let mut response = match services()
+    let mut response = services()
         .globals
         .default_client()
         .execute(reqwest_request)
         .await
-    {
-        Ok(r) => r,
-        Err(e) => {
+        .inspect_err(|error| {
             warn!(
-                "Could not send request to appservice {:?} at {}: {}",
-                registration.id, destination, e
+                %error,
+                appservice = registration.id,
+                %destination,
+                "Could not send request to appservice",
             );
-            return Err(e.into());
-        }
-    };
+        })?;
 
     // reqwest::Response -> http::Response conversion
     let status = response.status();
@@ -85,18 +83,21 @@ where
     );
 
     // TODO: handle timeout
-    let body = response.bytes().await.unwrap_or_else(|e| {
-        warn!("server error: {}", e);
+    let body = response.bytes().await.unwrap_or_else(|error| {
+        warn!(%error, "Server error");
         Vec::new().into()
     });
 
     if status != 200 {
         warn!(
-            "Appservice returned bad response {} {}\n{}\n{:?}",
-            destination,
-            status,
-            url,
-            utils::string_from_bytes(&body)
+            appservice = %destination,
+            %status,
+            %url,
+            body = %utils::dbg_truncate_str(
+                String::from_utf8_lossy(&body).as_ref(),
+                100,
+            ),
+            "Appservice returned bad response",
         );
     }
 
@@ -106,10 +107,12 @@ where
             .expect("reqwest body is valid http body"),
     );
 
-    response.map(Some).map_err(|_| {
+    response.map(Some).map_err(|error| {
         warn!(
-            "Appservice returned invalid response bytes {}\n{}",
-            destination, url
+            %error,
+            appservice = %destination,
+            %url,
+            "Appservice returned invalid response bytes",
         );
         Error::BadServerResponse("Server returned bad response.")
     })
