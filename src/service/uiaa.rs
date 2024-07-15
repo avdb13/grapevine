@@ -118,7 +118,7 @@ impl Service {
             AuthData::Dummy(_) => {
                 uiaainfo.completed.push(AuthType::Dummy);
             }
-            k => error!("type not supported: {:?}", k),
+            kind => error!(?kind, "Auth kind not supported"),
         }
 
         // Check if a flow now succeeds
