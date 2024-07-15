@@ -93,7 +93,11 @@ pub(crate) async fn set_room_visibility_route(
     match &body.visibility {
         room::Visibility::Public => {
             services().rooms.directory.set_public(&body.room_id)?;
-            info!("{} made {} public", sender_user, body.room_id);
+            info!(
+                user_id = %sender_user,
+                room_id = %body.room_id,
+                "User made room public",
+            );
         }
         room::Visibility::Private => {
             services().rooms.directory.set_not_public(&body.room_id)?;
@@ -264,6 +268,7 @@ pub(crate) async fn get_public_rooms_filtered_helper(
 }
 
 #[allow(clippy::too_many_lines)]
+#[tracing::instrument]
 fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
     let canonical_alias = services()
         .rooms
@@ -286,7 +291,7 @@ fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
         .state_cache
         .room_joined_count(&room_id)?
         .unwrap_or_else(|| {
-            warn!("Room {} has no member count", room_id);
+            warn!("Room has no member count");
             0
         })
         .try_into()
@@ -300,10 +305,7 @@ fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
             serde_json::from_str(s.content.get())
                 .map(|c: RoomTopicEventContent| Some(c.topic))
                 .map_err(|_| {
-                    error!(
-                        "Invalid room topic event in database for room {}",
-                        room_id
-                    );
+                    error!("Invalid room topic event in database for room",);
                     Error::bad_database("Invalid room topic event in database.")
                 })
         })?;
@@ -367,8 +369,8 @@ fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
                     JoinRule::Knock => Some(PublicRoomJoinRule::Knock),
                     _ => None,
                 })
-                .map_err(|e| {
-                    error!("Invalid room join rule event in database: {}", e);
+                .map_err(|error| {
+                    error!(%error, "Invalid room join rule event in database");
                     Error::BadDatabase(
                         "Invalid room join rule event in database.",
                     )
@@ -386,8 +388,8 @@ fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
         .room_state_get(&room_id, &StateEventType::RoomCreate, "")?
         .map(|s| {
             serde_json::from_str::<RoomCreateEventContent>(s.content.get())
-                .map_err(|e| {
-                    error!("Invalid room create event in database: {}", e);
+                .map_err(|error| {
+                    error!(%error, "Invalid room create event in database");
                     Error::BadDatabase("Invalid room create event in database.")
                 })
         })
