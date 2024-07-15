@@ -197,177 +197,9 @@ pub(crate) async fn get_public_rooms_filtered_helper(
         .rooms
         .directory
         .public_rooms()
-        .map(|room_id| {
-            let room_id = room_id?;
-
-            let chunk = PublicRoomsChunk {
-                canonical_alias: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(
-                        &room_id,
-                        &StateEventType::RoomCanonicalAlias,
-                        "",
-                    )?
-                    .map_or(Ok(None), |s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomCanonicalAliasEventContent| c.alias)
-                            .map_err(|_| {
-                                Error::bad_database(
-                                    "Invalid canonical alias event in \
-                                     database.",
-                                )
-                            })
-                    })?,
-                name: services().rooms.state_accessor.get_name(&room_id)?,
-                num_joined_members: services()
-                    .rooms
-                    .state_cache
-                    .room_joined_count(&room_id)?
-                    .unwrap_or_else(|| {
-                        warn!("Room {} has no member count", room_id);
-                        0
-                    })
-                    .try_into()
-                    .expect("user count should not be that big"),
-                topic: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(&room_id, &StateEventType::RoomTopic, "")?
-                    .map_or(Ok(None), |s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomTopicEventContent| Some(c.topic))
-                            .map_err(|_| {
-                                error!(
-                                    "Invalid room topic event in database for \
-                                     room {}",
-                                    room_id
-                                );
-                                Error::bad_database(
-                                    "Invalid room topic event in database.",
-                                )
-                            })
-                    })?,
-                world_readable: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(
-                        &room_id,
-                        &StateEventType::RoomHistoryVisibility,
-                        "",
-                    )?
-                    .map_or(Ok(false), |s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomHistoryVisibilityEventContent| {
-                                c.history_visibility
-                                    == HistoryVisibility::WorldReadable
-                            })
-                            .map_err(|_| {
-                                Error::bad_database(
-                                    "Invalid room history visibility event in \
-                                     database.",
-                                )
-                            })
-                    })?,
-                guest_can_join: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(
-                        &room_id,
-                        &StateEventType::RoomGuestAccess,
-                        "",
-                    )?
-                    .map_or(Ok(false), |s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomGuestAccessEventContent| {
-                                c.guest_access == GuestAccess::CanJoin
-                            })
-                            .map_err(|_| {
-                                Error::bad_database(
-                                    "Invalid room guest access event in \
-                                     database.",
-                                )
-                            })
-                    })?,
-                avatar_url: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(&room_id, &StateEventType::RoomAvatar, "")?
-                    .map(|s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomAvatarEventContent| c.url)
-                            .map_err(|_| {
-                                Error::bad_database(
-                                    "Invalid room avatar event in database.",
-                                )
-                            })
-                    })
-                    .transpose()?
-                    .flatten(),
-                join_rule: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(
-                        &room_id,
-                        &StateEventType::RoomJoinRules,
-                        "",
-                    )?
-                    .map(|s| {
-                        serde_json::from_str(s.content.get())
-                            .map(|c: RoomJoinRulesEventContent| {
-                                match c.join_rule {
-                                    JoinRule::Public => {
-                                        Some(PublicRoomJoinRule::Public)
-                                    }
-                                    JoinRule::Knock => {
-                                        Some(PublicRoomJoinRule::Knock)
-                                    }
-                                    _ => None,
-                                }
-                            })
-                            .map_err(|e| {
-                                error!(
-                                    "Invalid room join rule event in \
-                                     database: {}",
-                                    e
-                                );
-                                Error::BadDatabase(
-                                    "Invalid room join rule event in database.",
-                                )
-                            })
-                    })
-                    .transpose()?
-                    .flatten()
-                    .ok_or_else(|| {
-                        Error::bad_database(
-                            "Missing room join rule event for room.",
-                        )
-                    })?,
-                room_type: services()
-                    .rooms
-                    .state_accessor
-                    .room_state_get(&room_id, &StateEventType::RoomCreate, "")?
-                    .map(|s| {
-                        serde_json::from_str::<RoomCreateEventContent>(
-                            s.content.get(),
-                        )
-                        .map_err(|e| {
-                            error!(
-                                "Invalid room create event in database: {}",
-                                e
-                            );
-                            Error::BadDatabase(
-                                "Invalid room create event in database.",
-                            )
-                        })
-                    })
-                    .transpose()?
-                    .and_then(|e| e.room_type),
-                room_id,
-            };
-            Ok(chunk)
-        })
-        .filter_map(Result::<_>::ok)
+        .filter_map(Result::ok)
+        .map(room_id_to_chunk)
+        .filter_map(Result::ok)
         .filter(|chunk| {
             if let Some(query) =
                 filter.generic_search_term.as_ref().map(|q| q.to_lowercase())
@@ -428,5 +260,150 @@ pub(crate) async fn get_public_rooms_filtered_helper(
         prev_batch,
         next_batch,
         total_room_count_estimate: Some(total_room_count_estimate),
+    })
+}
+
+#[allow(clippy::too_many_lines)]
+fn room_id_to_chunk(room_id: ruma::OwnedRoomId) -> Result<PublicRoomsChunk> {
+    let canonical_alias = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomCanonicalAlias, "")?
+        .map_or(Ok(None), |s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomCanonicalAliasEventContent| c.alias)
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Invalid canonical alias event in database.",
+                    )
+                })
+        })?;
+
+    let name = services().rooms.state_accessor.get_name(&room_id)?;
+
+    let num_joined_members = services()
+        .rooms
+        .state_cache
+        .room_joined_count(&room_id)?
+        .unwrap_or_else(|| {
+            warn!("Room {} has no member count", room_id);
+            0
+        })
+        .try_into()
+        .expect("user count should not be that big");
+
+    let topic = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomTopic, "")?
+        .map_or(Ok(None), |s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomTopicEventContent| Some(c.topic))
+                .map_err(|_| {
+                    error!(
+                        "Invalid room topic event in database for room {}",
+                        room_id
+                    );
+                    Error::bad_database("Invalid room topic event in database.")
+                })
+        })?;
+
+    let world_readable = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomHistoryVisibility, "")?
+        .map_or(Ok(false), |s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomHistoryVisibilityEventContent| {
+                    c.history_visibility == HistoryVisibility::WorldReadable
+                })
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Invalid room history visibility event in database.",
+                    )
+                })
+        })?;
+
+    let guest_can_join = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomGuestAccess, "")?
+        .map_or(Ok(false), |s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomGuestAccessEventContent| {
+                    c.guest_access == GuestAccess::CanJoin
+                })
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Invalid room guest access event in database.",
+                    )
+                })
+        })?;
+
+    let avatar_url = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomAvatar, "")?
+        .map(|s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomAvatarEventContent| c.url)
+                .map_err(|_| {
+                    Error::bad_database(
+                        "Invalid room avatar event in database.",
+                    )
+                })
+        })
+        .transpose()?
+        .flatten();
+
+    let join_rule = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomJoinRules, "")?
+        .map(|s| {
+            serde_json::from_str(s.content.get())
+                .map(|c: RoomJoinRulesEventContent| match c.join_rule {
+                    JoinRule::Public => Some(PublicRoomJoinRule::Public),
+                    JoinRule::Knock => Some(PublicRoomJoinRule::Knock),
+                    _ => None,
+                })
+                .map_err(|e| {
+                    error!("Invalid room join rule event in database: {}", e);
+                    Error::BadDatabase(
+                        "Invalid room join rule event in database.",
+                    )
+                })
+        })
+        .transpose()?
+        .flatten()
+        .ok_or_else(|| {
+            Error::bad_database("Missing room join rule event for room.")
+        })?;
+
+    let room_type = services()
+        .rooms
+        .state_accessor
+        .room_state_get(&room_id, &StateEventType::RoomCreate, "")?
+        .map(|s| {
+            serde_json::from_str::<RoomCreateEventContent>(s.content.get())
+                .map_err(|e| {
+                    error!("Invalid room create event in database: {}", e);
+                    Error::BadDatabase("Invalid room create event in database.")
+                })
+        })
+        .transpose()?
+        .and_then(|e| e.room_type);
+
+    Ok(PublicRoomsChunk {
+        canonical_alias,
+        name,
+        num_joined_members,
+        room_id,
+        topic,
+        world_readable,
+        guest_can_join,
+        avatar_url,
+        join_rule,
+        room_type,
     })
 }
