@@ -350,7 +350,10 @@ impl KeyValueDatabase {
         }
 
         if config.max_request_size < 1024 {
-            error!(?config.max_request_size, "Max request size is less than 1KB. Please increase it.");
+            error!(
+                ?config.max_request_size,
+                "Max request size is less than 1KB. Please increase it.",
+            );
         }
 
         let db_raw = Box::new(Self {
@@ -543,9 +546,8 @@ impl KeyValueDatabase {
             let admin_bot = services().globals.admin_bot_user_id.as_ref();
             if !services().users.exists(admin_bot)? {
                 error!(
-                    "The {} admin bot does not exist, and the database is not \
-                     new.",
-                    admin_bot
+                    user_id = %admin_bot,
+                    "The admin bot does not exist and the database is not new",
                 );
                 return Err(Error::bad_database(
                     "Cannot reuse an existing database after changing the \
@@ -962,8 +964,12 @@ impl KeyValueDatabase {
                         services().globals.server_name(),
                     ) {
                         Ok(u) => u,
-                        Err(e) => {
-                            warn!("Invalid username {username}: {e}");
+                        Err(error) => {
+                            warn!(
+                                %error,
+                                user_localpart = %username,
+                                "Invalid username",
+                            );
                             continue;
                         }
                     };
@@ -1063,8 +1069,12 @@ impl KeyValueDatabase {
                         services().globals.server_name(),
                     ) {
                         Ok(u) => u,
-                        Err(e) => {
-                            warn!("Invalid username {username}: {e}");
+                        Err(error) => {
+                            warn!(
+                                %error,
+                                user_localpart = %username,
+                                "Invalid username",
+                            );
                             continue;
                         }
                     };
@@ -1116,9 +1126,9 @@ impl KeyValueDatabase {
             );
 
             info!(
-                "Loaded {} database with version {}",
-                services().globals.config.database.backend,
-                latest_database_version
+                backend = %services().globals.config.database.backend,
+                version = latest_database_version,
+                "Loaded database",
             );
         } else {
             services()
@@ -1128,10 +1138,10 @@ impl KeyValueDatabase {
             // Create the admin room and server user on first run
             services().admin.create_admin_room().await?;
 
-            warn!(
-                "Created new {} database with version {}",
-                services().globals.config.database.backend,
-                latest_database_version
+            info!(
+                backend = %services().globals.config.database.backend,
+                version = latest_database_version,
+                "Created new database",
             );
         }
 
@@ -1155,11 +1165,11 @@ impl KeyValueDatabase {
                     );
                 }
             }
-            Err(e) => {
+            Err(error) => {
                 error!(
+                    %error,
                     "Could not set the configured emergency password for the \
-                     grapevine user: {}",
-                    e
+                     Grapevine user",
                 );
             }
         };
@@ -1207,10 +1217,10 @@ impl KeyValueDatabase {
                 async {
                     msg();
                     let start = Instant::now();
-                    if let Err(e) = services().globals.cleanup() {
-                        error!("cleanup: Errored: {}", e);
+                    if let Err(error) = services().globals.cleanup() {
+                        error!(%error, "cleanup: Error");
                     } else {
-                        debug!("cleanup: Finished in {:?}", start.elapsed());
+                        debug!(elapsed = ?start.elapsed(), "cleanup: Finished");
                     }
                 }
                 .instrument(info_span!("database_cleanup"))
