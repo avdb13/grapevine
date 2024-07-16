@@ -31,11 +31,12 @@ impl service::rooms::timeline::Data for KeyValueDatabase {
             hash_map::Entry::Vacant(v) => {
                 if let Some(last_count) = self
                     .pdus_until(sender_user, room_id, PduCount::MAX)?
-                    .find_map(|r| {
-                        if r.is_err() {
-                            error!("Bad pdu in pdus_since: {:?}", r);
+                    .find_map(|x| match x {
+                        Ok(x) => Some(x),
+                        Err(error) => {
+                            error!(%error, "Bad pdu in pdus_since");
+                            None
                         }
-                        r.ok()
                     })
                 {
                     METRICS.record_lookup(lookup, FoundIn::Database);
