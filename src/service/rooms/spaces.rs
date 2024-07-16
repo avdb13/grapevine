@@ -179,11 +179,10 @@ impl Service {
                         .map(|s| {
                             serde_json::from_str(s.content.get())
                                 .map(|c: RoomJoinRulesEventContent| c.join_rule)
-                                .map_err(|e| {
+                                .map_err(|error| {
                                     error!(
-                                        "Invalid room join rule event in \
-                                         database: {}",
-                                        e
+                                        %error,
+                                        "Invalid room join rule event"
                                     );
                                     Error::BadDatabase(
                                         "Invalid room join rule event in \
@@ -218,7 +217,7 @@ impl Service {
                     // Early return so the client can see some data already
                     break;
                 }
-                debug!("Asking {server} for /hierarchy");
+                debug!(%server, "Asking other server for /hierarchy");
                 if let Ok(response) = services()
                     .sending
                     .send_federation_request(
@@ -231,8 +230,9 @@ impl Service {
                     .await
                 {
                     warn!(
-                        "Got response from {server} for \
-                         /hierarchy\n{response:?}"
+                        %server,
+                        ?response,
+                        "Got response from other server for /hierarchy",
                     );
                     let chunk = SpaceHierarchyRoomsChunk {
                         canonical_alias: response.room.canonical_alias,
@@ -327,7 +327,7 @@ impl Service {
     }
 
     #[allow(clippy::too_many_lines)]
-    #[tracing::instrument(skip(self, sender_user, children))]
+    #[tracing::instrument(skip(self, children))]
     fn get_room_chunk(
         &self,
         sender_user: &UserId,
@@ -346,8 +346,13 @@ impl Service {
                 .map_or(Ok(None), |s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomCanonicalAliasEventContent| c.alias)
-                        .map_err(|_| {
-                            Error::bad_database(
+                        .map_err(|error| {
+                            error!(
+                                %error,
+                                event_id = %s.event_id,
+                                "Invalid room canonical alias event"
+                            );
+                            Error::BadDatabase(
                                 "Invalid canonical alias event in database.",
                             )
                         })
@@ -358,7 +363,7 @@ impl Service {
                 .state_cache
                 .room_joined_count(room_id)?
                 .unwrap_or_else(|| {
-                    warn!("Room {} has no member count", room_id);
+                    warn!("Room has no member count");
                     0
                 })
                 .try_into()
@@ -371,13 +376,13 @@ impl Service {
                 .map_or(Ok(None), |s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomTopicEventContent| Some(c.topic))
-                        .map_err(|_| {
+                        .map_err(|error| {
                             error!(
-                                "Invalid room topic event in database for \
-                                 room {}",
-                                room_id
+                                %error,
+                                event_id = %s.event_id,
+                                "Invalid room topic event"
                             );
-                            Error::bad_database(
+                            Error::BadDatabase(
                                 "Invalid room topic event in database.",
                             )
                         })
@@ -396,8 +401,13 @@ impl Service {
                             c.history_visibility
                                 == HistoryVisibility::WorldReadable
                         })
-                        .map_err(|_| {
-                            Error::bad_database(
+                        .map_err(|error| {
+                            error!(
+                                %error,
+                                event_id = %s.event_id,
+                                "Invalid room history visibility event"
+                            );
+                            Error::BadDatabase(
                                 "Invalid room history visibility event in \
                                  database.",
                             )
@@ -412,8 +422,13 @@ impl Service {
                         .map(|c: RoomGuestAccessEventContent| {
                             c.guest_access == GuestAccess::CanJoin
                         })
-                        .map_err(|_| {
-                            Error::bad_database(
+                        .map_err(|error| {
+                            error!(
+                                %error,
+                                event_id = %s.event_id,
+                                "Invalid room guest access event"
+                            );
+                            Error::BadDatabase(
                                 "Invalid room guest access event in database.",
                             )
                         })
@@ -425,7 +440,12 @@ impl Service {
                 .map(|s| {
                     serde_json::from_str(s.content.get())
                         .map(|c: RoomAvatarEventContent| c.url)
-                        .map_err(|_| {
+                        .map_err(|error| {
+                            error!(
+                                %error,
+                                event_id = %s.event_id,
+                                "Invalid room avatar event"
+                            );
                             Error::bad_database(
                                 "Invalid room avatar event in database.",
                             )
@@ -445,11 +465,11 @@ impl Service {
                     .map(|s| {
                         serde_json::from_str(s.content.get())
                             .map(|c: RoomJoinRulesEventContent| c.join_rule)
-                            .map_err(|e| {
+                            .map_err(|error| {
                                 error!(
-                                    "Invalid room join rule event in \
-                                     database: {}",
-                                    e
+                                    %error,
+                                    event_id = %s.event_id,
+                                    "Invalid room join rule event",
                                 );
                                 Error::BadDatabase(
                                     "Invalid room join rule event in database.",
@@ -460,7 +480,7 @@ impl Service {
                     .unwrap_or(JoinRule::Invite);
 
                 if !self.handle_join_rule(&join_rule, sender_user, room_id)? {
-                    debug!("User is not allowed to see room {room_id}");
+                    debug!("User is not allowed to see room");
                     // This error will be caught later
                     return Err(Error::BadRequest(
                         ErrorKind::forbidden(),
@@ -478,8 +498,12 @@ impl Service {
                     serde_json::from_str::<RoomCreateEventContent>(
                         s.content.get(),
                     )
-                    .map_err(|e| {
-                        error!("Invalid room create event in database: {}", e);
+                    .map_err(|error| {
+                        error!(
+                            %error,
+                            event_id = %s.event_id,
+                            "Invalid room create event",
+                        );
                         Error::BadDatabase(
                             "Invalid room create event in database.",
                         )
