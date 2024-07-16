@@ -180,10 +180,11 @@ where
             SendAccessToken::IfRequired(""),
             &[MatrixVersion::V1_4],
         )
-        .map_err(|e| {
+        .map_err(|error| {
             warn!(
-                "Failed to find destination {}: {}",
-                actual_destination_str, e
+                %error,
+                actual_destination = actual_destination_str,
+                "Failed to find destination",
             );
             Error::BadServerResponse("Invalid destination")
         })?;
@@ -278,8 +279,8 @@ where
 
     debug!("Getting response bytes");
     // TODO: handle timeout
-    let body = response.bytes().await.unwrap_or_else(|e| {
-        warn!("server error {}", e);
+    let body = response.bytes().await.unwrap_or_else(|error| {
+        warn!(%error, "Server error");
         Vec::new().into()
     });
     debug!("Got response bytes");
@@ -344,11 +345,11 @@ fn add_port_to_hostname(destination_str: &str) -> FedDest {
 /// Numbers in comments below refer to bullet points in linked section of
 /// specification
 #[allow(clippy::too_many_lines)]
-#[tracing::instrument(skip(destination), ret(level = "debug"))]
+#[tracing::instrument(ret(level = "debug"))]
 async fn find_actual_destination(
     destination: &'_ ServerName,
 ) -> (FedDest, FedDest) {
-    debug!("Finding actual destination for {destination}");
+    debug!("Finding actual destination");
     let destination_str = destination.as_str().to_owned();
     let mut hostname = destination_str.clone();
     let actual_destination = match get_ip_with_port(&destination_str) {
@@ -362,7 +363,7 @@ async fn find_actual_destination(
                 let (host, port) = destination_str.split_at(pos);
                 FedDest::Named(host.to_owned(), port.to_owned())
             } else {
-                debug!("Requesting well known for {destination}");
+                debug!(%destination, "Requesting well known");
                 if let Some(delegated_hostname) =
                     request_well_known(destination.as_str()).await
                 {
@@ -471,7 +472,7 @@ async fn find_actual_destination(
             }
         }
     };
-    debug!("Actual destination: {actual_destination:?}");
+    debug!(?actual_destination, "Resolved actual destination");
 
     // Can't use get_ip_with_port here because we don't want to add a port
     // to an IP address if it wasn't specified
@@ -532,8 +533,8 @@ async fn request_well_known(destination: &str) -> Option<String> {
         .send()
         .await;
     debug!("Got well known response");
-    if let Err(e) = &response {
-        debug!("Well known error: {e:?}");
+    if let Err(error) = &response {
+        debug!(%error, "Failed to request .well-known");
         return None;
     }
     let text = response.ok()?.text().await;
@@ -670,8 +671,8 @@ pub(crate) fn parse_incoming_pdu(
     pdu: &RawJsonValue,
 ) -> Result<(OwnedEventId, CanonicalJsonObject, OwnedRoomId)> {
     let value: CanonicalJsonObject =
-        serde_json::from_str(pdu.get()).map_err(|e| {
-            warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
+        serde_json::from_str(pdu.get()).map_err(|error| {
+            warn!(%error, object = ?pdu, "Error parsing incoming event");
             Error::BadServerResponse("Invalid PDU in server response")
         })?;
 
@@ -713,8 +714,8 @@ pub(crate) async fn send_transaction_message_route(
 
     for pdu in &body.pdus {
         let value: CanonicalJsonObject = serde_json::from_str(pdu.get())
-            .map_err(|e| {
-                warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
+            .map_err(|error| {
+                warn!(%error, object = ?pdu, "Error parsing incoming event");
                 Error::BadServerResponse("Invalid PDU in server response")
             })?;
         let room_id: OwnedRoomId = value
@@ -726,16 +727,15 @@ pub(crate) async fn send_transaction_message_route(
             ))?;
 
         if services().rooms.state.get_room_version(&room_id).is_err() {
-            debug!("Server is not in room {room_id}");
+            debug!(%room_id, "This server is not in the room");
             continue;
         }
 
         let r = parse_incoming_pdu(pdu);
         let (event_id, value, room_id) = match r {
             Ok(t) => t,
-            Err(e) => {
-                warn!("Could not parse PDU: {e}");
-                warn!("Full PDU: {:?}", &pdu);
+            Err(error) => {
+                warn!(%error, object = ?pdu, "Error parsing incoming event");
                 continue;
             }
         };
@@ -771,19 +771,17 @@ pub(crate) async fn send_transaction_message_route(
         );
         drop(mutex_lock);
 
-        let elapsed = start_time.elapsed();
         debug!(
-            "Handling transaction of event {} took {}m{}s",
-            event_id,
-            elapsed.as_secs() / 60,
-            elapsed.as_secs() % 60
+            %event_id,
+            elapsed = ?start_time.elapsed(),
+            "Finished handling event",
         );
     }
 
     for pdu in &resolved_map {
-        if let Err(e) = pdu.1 {
-            if matches!(e, Error::BadRequest(ErrorKind::NotFound, _)) {
-                warn!("Incoming PDU failed {:?}", pdu);
+        if let (event_id, Err(error)) = pdu {
+            if matches!(error, Error::BadRequest(ErrorKind::NotFound, _)) {
+                warn!(%error, %event_id, "Incoming PDU failed");
             }
         }
     }
@@ -845,8 +843,8 @@ pub(crate) async fn send_transaction_message_route(
                         } else {
                             // TODO fetch missing events
                             debug!(
-                                "No known event ids in read receipt: {:?}",
-                                user_updates
+                                ?user_updates,
+                                "No known event ids in read receipt",
                             );
                         }
                     }
@@ -933,16 +931,19 @@ pub(crate) async fn send_transaction_message_route(
                                     target_user_id,
                                     target_device_id,
                                     &ev_type.to_string(),
-                                    event.deserialize_as().map_err(|e| {
-                                        warn!(
-                                            "To-Device event is invalid: \
-                                             {event:?} {e}"
-                                        );
-                                        Error::BadRequest(
-                                            ErrorKind::InvalidParam,
-                                            "Event is invalid",
-                                        )
-                                    })?,
+                                    event.deserialize_as().map_err(
+                                        |error| {
+                                            warn!(
+                                                %error,
+                                                object = ?event.json(),
+                                                "To-Device event is invalid",
+                                            );
+                                            Error::BadRequest(
+                                                ErrorKind::InvalidParam,
+                                                "Event is invalid",
+                                            )
+                                        },
+                                    )?,
                                 )?,
 
                                 DeviceIdOrAllDevices::AllDevices => {
@@ -985,7 +986,12 @@ pub(crate) async fn send_transaction_message_route(
                 self_signing_key,
             }) => {
                 if user_id.server_name() != sender_servername {
-                    warn!(%user_id, %sender_servername, "Got signing key update from incorrect homeserver, ignoring");
+                    warn!(
+                        %user_id,
+                        %sender_servername,
+                        "Got signing key update from incorrect homeserver, \
+                        ignoring",
+                    );
                     continue;
                 }
                 if let Some(master_key) = master_key {
@@ -1025,7 +1031,7 @@ pub(crate) async fn get_event_route(
     let event =
         services().rooms.timeline.get_pdu_json(&body.event_id)?.ok_or_else(
             || {
-                warn!("Event not found, event ID: {:?}", &body.event_id);
+                warn!(event_id = %body.event_id, "Event not found");
                 Error::BadRequest(ErrorKind::NotFound, "Event not found.")
             },
         )?;
@@ -1078,7 +1084,7 @@ pub(crate) async fn get_backfill_route(
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
-    debug!("Got backfill request from: {}", sender_servername);
+    debug!(server = %sender_servername, "Got backfill request");
 
     if !services()
         .rooms
@@ -1188,9 +1194,10 @@ pub(crate) async fn get_missing_events_route(
 
             if event_room_id != body.room_id {
                 warn!(
-                    "Evil event detected: Event {} found while searching in \
-                     room {}",
-                    queued_events[i], body.room_id
+                    event_id = %queued_events[i],
+                    expected_room_id = %body.room_id,
+                    actual_room_id = %event_room_id,
+                    "Evil event detected"
                 );
                 return Err(Error::BadRequest(
                     ErrorKind::InvalidParam,
@@ -1269,7 +1276,7 @@ pub(crate) async fn get_event_authorization_route(
     let event =
         services().rooms.timeline.get_pdu_json(&body.event_id)?.ok_or_else(
             || {
-                warn!("Event not found, event ID: {:?}", &body.event_id);
+                warn!(event_id = %body.event_id, "Event not found");
                 Error::BadRequest(ErrorKind::NotFound, "Event not found.")
             },
         )?;
@@ -1354,13 +1361,13 @@ pub(crate) async fn get_room_state_route(
 
     Ok(Ra(get_room_state::v1::Response {
         auth_chain: auth_chain_ids
-            .filter_map(|id| {
+            .filter_map(|event_id| {
                 if let Some(json) =
-                    services().rooms.timeline.get_pdu_json(&id).ok()?
+                    services().rooms.timeline.get_pdu_json(&event_id).ok()?
                 {
                     Some(PduEvent::convert_to_outgoing_federation_event(json))
                 } else {
-                    error!("Could not find event json for {id} in db.");
+                    error!(%event_id, "Could not find event JSON for event");
                     None
                 }
             })
@@ -1469,8 +1476,8 @@ pub(crate) async fn create_join_event_template_route(
             .as_ref()
             .map(|join_rules_event| {
                 serde_json::from_str(join_rules_event.content.get()).map_err(
-                    |e| {
-                        warn!("Invalid join rules event: {}", e);
+                    |error| {
+                        warn!(%error, "Invalid join rules event");
                         Error::bad_database("Invalid join rules event in db.")
                     },
                 )
@@ -1565,8 +1572,8 @@ async fn create_join_event(
             .as_ref()
             .map(|join_rules_event| {
                 serde_json::from_str(join_rules_event.content.get()).map_err(
-                    |e| {
-                        warn!("Invalid join rules event: {}", e);
+                    |error| {
+                        warn!(%error, "Invalid join rules event");
                         Error::bad_database("Invalid join rules event in db.")
                     },
                 )
@@ -1829,10 +1836,11 @@ pub(crate) async fn create_invite_route(
 
     event.insert("event_id".to_owned(), "$dummy".into());
 
-    let pdu: PduEvent = serde_json::from_value(event.into()).map_err(|e| {
-        warn!("Invalid invite event: {}", e);
-        Error::BadRequest(ErrorKind::InvalidParam, "Invalid invite event.")
-    })?;
+    let pdu: PduEvent =
+        serde_json::from_value(event.into()).map_err(|error| {
+            warn!(%error, "Invalid invite event");
+            Error::BadRequest(ErrorKind::InvalidParam, "Invalid invite event.")
+        })?;
 
     invite_state.push(pdu.to_stripped_state_event());
 
