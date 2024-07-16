@@ -25,9 +25,9 @@ use ruma::{
     serde::Raw,
     uint, RoomId, UInt, UserId,
 };
-use tracing::{info, warn};
+use tracing::warn;
 
-use crate::{services, Error, PduEvent, Result};
+use crate::{services, utils, Error, PduEvent, Result};
 
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
@@ -78,8 +78,8 @@ impl Service {
                 SendAccessToken::IfRequired(""),
                 &[MatrixVersion::V1_0],
             )
-            .map_err(|e| {
-                warn!("Failed to find destination {}: {}", destination, e);
+            .map_err(|error| {
+                warn!(%error, %destination, "Failed to find destination");
                 Error::BadServerResponse("Invalid destination")
             })?
             .map(BytesMut::freeze);
@@ -105,18 +105,21 @@ impl Service {
                 );
 
                 // TODO: handle timeout
-                let body = response.bytes().await.unwrap_or_else(|e| {
-                    warn!("server error {}", e);
+                let body = response.bytes().await.unwrap_or_else(|error| {
+                    warn!(%error, "Server error");
                     Vec::new().into()
                 });
 
                 if status != 200 {
-                    info!(
-                        "Push gateway returned bad response {} {}\n{}\n{:?}",
-                        destination,
-                        status,
-                        url,
-                        crate::utils::string_from_bytes(&body)
+                    warn!(
+                        push_gateway = %destination,
+                        %status,
+                        %url,
+                        body = %utils::dbg_truncate_str(
+                            String::from_utf8_lossy(&body).as_ref(),
+                            100,
+                        ),
+                        "Push gateway returned bad response",
                     );
                 }
 
@@ -125,22 +128,25 @@ impl Service {
                         .body(body)
                         .expect("reqwest body is valid http body"),
                 );
-                response.map_err(|_| {
-                    info!(
-                        "Push gateway returned invalid response bytes {}\n{}",
-                        destination, url
+                response.map_err(|error| {
+                    warn!(
+                        %error,
+                        appservice = %destination,
+                        %url,
+                        "Push gateway returned invalid response bytes",
                     );
                     Error::BadServerResponse(
                         "Push gateway returned bad response.",
                     )
                 })
             }
-            Err(e) => {
+            Err(error) => {
                 warn!(
-                    "Could not send request to pusher {}: {}",
-                    destination, e
+                    %error,
+                    %destination,
+                    "Could not send request to push gateway",
                 );
-                Err(e.into())
+                Err(error.into())
             }
         }
     }
