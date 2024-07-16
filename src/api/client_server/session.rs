@@ -79,7 +79,7 @@ pub(crate) async fn login_route(
                 } else if let Some(user) = user {
                     UserId::parse(user)
                 } else {
-                    warn!("Bad login type: {:?}", &body.login_info);
+                    warn!(kind = ?body.login_info, "Bad login kind");
                     return Err(Error::BadRequest(
                         ErrorKind::forbidden(),
                         "Bad login type.",
@@ -184,7 +184,7 @@ pub(crate) async fn login_route(
                 } else if let Some(user) = user {
                     UserId::parse(user)
                 } else {
-                    warn!("Bad login type: {:?}", &body.login_info);
+                    warn!(kind = ?body.login_info, "Bad login kind");
                     return Err(Error::BadRequest(
                         ErrorKind::forbidden(),
                         "Bad login type.",
@@ -214,7 +214,7 @@ pub(crate) async fn login_route(
             user_id
         }
         _ => {
-            warn!("Unsupported or unknown login type: {:?}", &body.login_info);
+            warn!(kind = ?body.login_info, "Unsupported or unknown login kind");
             return Err(Error::BadRequest(
                 ErrorKind::Unknown,
                 "Unsupported login type.",
@@ -250,7 +250,7 @@ pub(crate) async fn login_route(
         )?;
     }
 
-    info!("{} logged in", user_id);
+    info!(%user_id, %device_id, "User logged in");
 
     // Homeservers are still required to send the `home_server` field
     #[allow(deprecated)]
@@ -291,6 +291,8 @@ pub(crate) async fn logout_route(
     }
 
     services().users.remove_device(sender_user, sender_device)?;
+
+    info!(user_id = %sender_user, device_id = %sender_device, "User logged out");
 
     Ok(Ra(logout::v3::Response::new()))
 }
