@@ -86,12 +86,12 @@ pub(crate) enum Error {
 
 impl Error {
     pub(crate) fn bad_database(message: &'static str) -> Self {
-        error!("BadDatabase: {}", message);
+        error!(message, "Bad database");
         Self::BadDatabase(message)
     }
 
     pub(crate) fn bad_config(message: &'static str) -> Self {
-        error!("BadConfig: {}", message);
+        error!(message, "Bad config");
         Self::BadConfig(message)
     }
 
