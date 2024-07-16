@@ -159,19 +159,21 @@ pub(crate) async fn get_context_route(
 
     let mut state = Vec::new();
 
-    for (shortstatekey, id) in state_ids {
+    for (shortstatekey, event_id) in state_ids {
         let (event_type, state_key) =
             services().rooms.short.get_statekey_from_short(shortstatekey)?;
 
         if event_type != StateEventType::RoomMember {
-            let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
-                error!("Pdu in state not found: {}", id);
+            let Some(pdu) = services().rooms.timeline.get_pdu(&event_id)?
+            else {
+                error!(%event_id, "Event in state not found");
                 continue;
             };
             state.push(pdu.to_state_event());
         } else if !lazy_load_enabled || lazy_loaded.contains(&state_key) {
-            let Some(pdu) = services().rooms.timeline.get_pdu(&id)? else {
-                error!("Pdu in state not found: {}", id);
+            let Some(pdu) = services().rooms.timeline.get_pdu(&event_id)?
+            else {
+                error!(%event_id, "Event in state not found");
                 continue;
             };
             state.push(pdu.to_state_event());
