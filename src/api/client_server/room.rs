@@ -442,8 +442,8 @@ pub(crate) async fn create_room_route(
     // 6. Events listed in initial_state
     for event in &body.initial_state {
         let mut pdu_builder =
-            event.deserialize_as::<PduBuilder>().map_err(|e| {
-                warn!("Invalid initial state event: {:?}", e);
+            event.deserialize_as::<PduBuilder>().map_err(|error| {
+                warn!(%error, "Invalid initial state event");
                 Error::BadRequest(
                     ErrorKind::InvalidParam,
                     "Invalid initial state event.",
@@ -524,7 +524,7 @@ pub(crate) async fn create_room_route(
             invite_helper(sender_user, user_id, &room_id, None, body.is_direct)
                 .await
         {
-            warn!(%error, "invite helper failed");
+            warn!(%error, "Invite helper failed");
         };
     }
 
@@ -537,7 +537,7 @@ pub(crate) async fn create_room_route(
         services().rooms.directory.set_public(&room_id)?;
     }
 
-    info!("{} created a room", sender_user);
+    info!(user_id = %sender_user, room_id = %room_id, "User created a room");
 
     Ok(Ra(create_room::v3::Response::new(room_id)))
 }
@@ -555,7 +555,7 @@ pub(crate) async fn get_room_event_route(
 
     let event = services().rooms.timeline.get_pdu(&body.event_id)?.ok_or_else(
         || {
-            warn!("Event not found, event ID: {:?}", &body.event_id);
+            warn!(event_id = %body.event_id, "Event not found");
             Error::BadRequest(ErrorKind::NotFound, "Event not found.")
         },
     )?;
