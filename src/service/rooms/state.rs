@@ -348,10 +348,12 @@ impl Service {
         let create_event_content: RoomCreateEventContent = create_event
             .as_ref()
             .map(|create_event| {
-                serde_json::from_str(create_event.content.get()).map_err(|e| {
-                    warn!("Invalid create event: {}", e);
-                    Error::bad_database("Invalid create event in db.")
-                })
+                serde_json::from_str(create_event.content.get()).map_err(
+                    |error| {
+                        warn!(%error, "Invalid create event");
+                        Error::BadDatabase("Invalid create event in db.")
+                    },
+                )
             })
             .transpose()?
             .ok_or_else(|| {
