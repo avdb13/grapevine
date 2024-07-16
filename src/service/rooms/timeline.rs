@@ -244,7 +244,7 @@ impl Service {
                     }
                 }
             } else {
-                error!("Invalid unsigned type in pdu.");
+                error!("Invalid unsigned type in pdu");
             }
         }
 
@@ -1251,7 +1251,7 @@ impl Service {
 
         // Request backfill
         for backfill_server in admin_servers {
-            info!("Asking {backfill_server} for backfill");
+            info!(server = %backfill_server, "Asking server for backfill");
             let response = services()
                 .sending
                 .send_federation_request(
@@ -1267,17 +1267,21 @@ impl Service {
                 Ok(response) => {
                     let pub_key_map = RwLock::new(BTreeMap::new());
                     for pdu in response.pdus {
-                        if let Err(e) = self
+                        if let Err(error) = self
                             .backfill_pdu(backfill_server, pdu, &pub_key_map)
                             .await
                         {
-                            warn!("Failed to add backfilled pdu: {e}");
+                            warn!(%error, "Failed to add backfilled pdu");
                         }
                     }
                     return Ok(());
                 }
-                Err(e) => {
-                    warn!("{backfill_server} could not provide backfill: {e}");
+                Err(error) => {
+                    warn!(
+                        server = %backfill_server,
+                        %error,
+                        "Server could not provide backfill",
+                    );
                 }
             }
         }
@@ -1310,7 +1314,7 @@ impl Service {
 
         // Skip the PDU if we already have it as a timeline event
         if let Some(pdu_id) = services().rooms.timeline.get_pdu_id(&event_id)? {
-            info!("We already know {event_id} at {pdu_id:?}");
+            info!(%event_id, ?pdu_id, "We already know this event");
             return Ok(());
         }
 
