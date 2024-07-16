@@ -188,8 +188,8 @@ impl Service {
                 current_server_members
                     .any(|member| self.user_was_joined(shortstatehash, &member))
             }
-            _ => {
-                error!("Unknown history visibility {history_visibility}");
+            other => {
+                error!(kind = %other, "Unknown history visibility");
                 false
             }
         };
@@ -261,8 +261,8 @@ impl Service {
                 // Allow if any member on requested server was joined, else deny
                 self.user_was_joined(shortstatehash, user_id)
             }
-            _ => {
-                error!("Unknown history visibility {history_visibility}");
+            other => {
+                error!(kind = %other, "Unknown history visibility");
                 false
             }
         };
@@ -358,13 +358,9 @@ impl Service {
             |s| {
                 serde_json::from_str(s.content.get())
                     .map(|c: RoomNameEventContent| Some(c.name))
-                    .map_err(|e| {
-                        error!(
-                            "Invalid room name event in database for room {}. \
-                             {}",
-                            room_id, e
-                        );
-                        Error::bad_database(
+                    .map_err(|error| {
+                        error!(%error, "Invalid room name event in database");
+                        Error::BadDatabase(
                             "Invalid room name event in database.",
                         )
                     })
