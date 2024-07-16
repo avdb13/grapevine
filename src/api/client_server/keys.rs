@@ -414,7 +414,7 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
                 }
 
                 if time.elapsed() < min_elapsed_duration {
-                    debug!("Backing off query from {:?}", server);
+                    debug!(%server, "Backing off from server");
                     return (
                         server,
                         Err(Error::BadServerResponse(
