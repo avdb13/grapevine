@@ -276,7 +276,7 @@ pub(crate) async fn register_route(
         body.initial_device_display_name.clone(),
     )?;
 
-    info!("New user {} registered on this server.", user_id);
+    info!(%user_id, "New user registered on this server");
     if body.appservice_info.is_none() && !is_guest {
         services().admin.send_message(RoomMessageEventContent::notice_plain(
             format!("New user {user_id} registered on this server."),
@@ -293,8 +293,8 @@ pub(crate) async fn register_route(
                 services().admin.make_user_admin(&user_id, displayname).await?;
 
                 warn!(
-                    "Granting {} admin privileges as the first user",
-                    user_id
+                    %user_id,
+                    "Granting admin privileges to the first user",
                 );
             }
         }
@@ -376,7 +376,7 @@ pub(crate) async fn change_password_route(
         }
     }
 
-    info!("User {} changed their password.", sender_user);
+    info!(user_id = %sender_user, "User changed their password");
     services().admin.send_message(RoomMessageEventContent::notice_plain(
         format!("User {sender_user} changed their password."),
     ));
@@ -456,7 +456,7 @@ pub(crate) async fn deactivate_route(
     // Remove devices and mark account as deactivated
     services().users.deactivate_account(sender_user)?;
 
-    info!("User {} deactivated their account.", sender_user);
+    info!(user_id = %sender_user, "User deactivated their account");
     services().admin.send_message(RoomMessageEventContent::notice_plain(
         format!("User {sender_user} deactivated their account."),
     ));
