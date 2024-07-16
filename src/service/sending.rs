@@ -190,8 +190,10 @@ impl Service {
 
             if entry.len() > 30 {
                 warn!(
-                    "Dropping some current events: {:?} {:?} {:?}",
-                    key, destination, event
+                    ?key,
+                    ?destination,
+                    ?event,
+                    "Dropping some current events",
                 );
                 self.db.delete_active_request(key)?;
                 continue;
@@ -324,7 +326,7 @@ impl Service {
             current_transaction_status,
         ) {
             Ok(SelectedEvents::Retries(events)) => {
-                debug!("retrying old events");
+                debug!("Retrying old events");
                 Some(HandlerInputs {
                     destination,
                     events,
@@ -332,7 +334,7 @@ impl Service {
                 })
             }
             Ok(SelectedEvents::New(events)) => {
-                debug!("sending new event");
+                debug!("Sending new event");
                 Some(HandlerInputs {
                     destination,
                     events,
@@ -340,7 +342,7 @@ impl Service {
                 })
             }
             Ok(SelectedEvents::None) => {
-                debug!("holding off from sending any events");
+                debug!("Holding off from sending any events");
                 None
             }
             Err(error) => {
@@ -678,7 +680,7 @@ impl Service {
         )
         .await
         .map_err(|_| {
-            warn!("Timeout waiting for server response of {destination}");
+            warn!("Timeout waiting for server response");
             Error::BadServerResponse("Timeout waiting for server response")
         })?;
         drop(permit);
@@ -873,7 +875,7 @@ async fn handle_federation_event(
                         .timeline
                         .get_pdu_json_from_id(pdu_id)?
                         .ok_or_else(|| {
-                            error!("event not found: {server} {pdu_id:?}");
+                            error!(pdu_id = ?pdu_id, "PDU not found");
                             Error::bad_database(
                                 "[Normal] Event in servernamevent_datas not \
                                  found in db.",
@@ -915,8 +917,8 @@ async fn handle_federation_event(
     .await?;
 
     for pdu in response.pdus {
-        if pdu.1.is_err() {
-            warn!("Failed to send to {}: {:?}", server, pdu);
+        if let (event_id, Err(error)) = pdu {
+            warn!(%server, %event_id, %error, "Failed to send event to server");
         }
     }
 
