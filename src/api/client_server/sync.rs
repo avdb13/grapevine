@@ -276,8 +276,8 @@ pub(crate) async fn sync_events_route(
         left_state_ids.insert(leave_shortstatekey, left_event_id);
 
         let mut i = 0;
-        for (key, id) in left_state_ids {
-            if full_state || since_state_ids.get(&key) != Some(&id) {
+        for (key, event_id) in left_state_ids {
+            if full_state || since_state_ids.get(&key) != Some(&event_id) {
                 let (event_type, state_key) =
                     services().rooms.short.get_statekey_from_short(key)?;
 
@@ -287,9 +287,10 @@ pub(crate) async fn sync_events_route(
                     // TODO: Delete the following line when this is resolved: https://github.com/vector-im/element-web/issues/22565
                     || *sender_user == state_key
                 {
-                    let Some(pdu) = services().rooms.timeline.get_pdu(&id)?
+                    let Some(pdu) =
+                        services().rooms.timeline.get_pdu(&event_id)?
                     else {
-                        error!("Pdu in state not found: {}", id);
+                        error!(%event_id, "Event in state not found");
                         continue;
                     };
 
@@ -455,7 +456,7 @@ pub(crate) async fn sync_events_route(
         }
         match tokio::time::timeout(duration, watcher).await {
             Ok(x) => x.expect("watcher should succeed"),
-            Err(error) => debug!(%error, "timed out"),
+            Err(error) => debug!(%error, "Timed out"),
         };
     }
     Ok(Ra(response))
@@ -524,7 +525,7 @@ async fn load_joined_room(
     let Some(current_shortstatehash) =
         services().rooms.state.get_room_shortstatehash(room_id)?
     else {
-        error!("Room {} has no state", room_id);
+        error!("Room has no state");
         return Err(Error::BadDatabase("Room has no state"));
     };
 
@@ -672,16 +673,17 @@ async fn load_joined_room(
             let mut lazy_loaded = HashSet::new();
 
             let mut i = 0;
-            for (shortstatekey, id) in current_state_ids {
+            for (shortstatekey, event_id) in current_state_ids {
                 let (event_type, state_key) = services()
                     .rooms
                     .short
                     .get_statekey_from_short(shortstatekey)?;
 
                 if event_type != StateEventType::RoomMember {
-                    let Some(pdu) = services().rooms.timeline.get_pdu(&id)?
+                    let Some(pdu) =
+                        services().rooms.timeline.get_pdu(&event_id)?
                     else {
-                        error!("Pdu in state not found: {}", id);
+                        error!(%event_id, "Event in state not found");
                         continue;
                     };
                     state_events.push(pdu);
@@ -696,9 +698,10 @@ async fn load_joined_room(
                 // TODO: Delete the following line when this is resolved: https://github.com/vector-im/element-web/issues/22565
                 || *sender_user == state_key
                 {
-                    let Some(pdu) = services().rooms.timeline.get_pdu(&id)?
+                    let Some(pdu) =
+                        services().rooms.timeline.get_pdu(&event_id)?
                     else {
-                        error!("Pdu in state not found: {}", id);
+                        error!(%event_id, "Event in state not found");
                         continue;
                     };
 
@@ -762,12 +765,14 @@ async fn load_joined_room(
                     .state_full_ids(since_shortstatehash)
                     .await?;
 
-                for (key, id) in current_state_ids {
-                    if full_state || since_state_ids.get(&key) != Some(&id) {
+                for (key, event_id) in current_state_ids {
+                    if full_state
+                        || since_state_ids.get(&key) != Some(&event_id)
+                    {
                         let Some(pdu) =
-                            services().rooms.timeline.get_pdu(&id)?
+                            services().rooms.timeline.get_pdu(&event_id)?
                         else {
-                            error!("Pdu in state not found: {}", id);
+                            error!(%event_id, "Event in state not found");
                             continue;
                         };
 
@@ -895,8 +900,12 @@ async fn load_joined_room(
                         Ok(state_key_userid) => {
                             lazy_loaded.insert(state_key_userid);
                         }
-                        Err(e) => {
-                            error!("Invalid state key for member event: {}", e);
+                        Err(error) => {
+                            error!(
+                                event_id = %pdu.event_id,
+                                %error,
+                                "Invalid state key for member event",
+                            );
                         }
                     }
                 }
@@ -974,7 +983,7 @@ async fn load_joined_room(
         |(pdu_count, _)| {
             Ok(Some(match pdu_count {
                 PduCount::Backfilled(_) => {
-                    error!("timeline in backfill state?!");
+                    error!("Timeline in backfill state?!");
                     "0".to_owned()
                 }
                 PduCount::Normal(c) => c.to_string(),
@@ -1074,11 +1083,12 @@ fn load_timeline(
             .rooms
             .timeline
             .pdus_until(sender_user, room_id, PduCount::MAX)?
-            .filter_map(|r| {
-                if r.is_err() {
-                    error!("Bad pdu in pdus_since: {:?}", r);
+            .filter_map(|x| match x {
+                Ok(x) => Some(x),
+                Err(error) => {
+                    error!(%error, "Bad PDU in pdus_since");
+                    None
                 }
-                r.ok()
             })
             .take_while(|(pducount, _)| pducount > &roomsincecount);
 
@@ -1195,7 +1205,7 @@ pub(crate) async fn sync_events_v4_route(
             let Some(current_shortstatehash) =
                 services().rooms.state.get_room_shortstatehash(room_id)?
             else {
-                error!("Room {} has no state", room_id);
+                error!(%room_id, "Room has no state");
                 continue;
             };
 
@@ -1268,12 +1278,12 @@ pub(crate) async fn sync_events_v4_route(
                         .state_full_ids(since_shortstatehash)
                         .await?;
 
-                    for (key, id) in current_state_ids {
-                        if since_state_ids.get(&key) != Some(&id) {
+                    for (key, event_id) in current_state_ids {
+                        if since_state_ids.get(&key) != Some(&event_id) {
                             let Some(pdu) =
-                                services().rooms.timeline.get_pdu(&id)?
+                                services().rooms.timeline.get_pdu(&event_id)?
                             else {
-                                error!("Pdu in state not found: {}", id);
+                                error!(%event_id, "Event in state not found");
                                 continue;
                             };
                             if pdu.kind == TimelineEventType::RoomMember {
@@ -1552,7 +1562,7 @@ pub(crate) async fn sync_events_v4_route(
             .map_or(Ok::<_, Error>(None), |(pdu_count, _)| {
                 Ok(Some(match pdu_count {
                     PduCount::Backfilled(_) => {
-                        error!("timeline in backfill state?!");
+                        error!("Timeline in backfill state?!");
                         "0".to_owned()
                     }
                     PduCount::Normal(c) => c.to_string(),
@@ -1704,7 +1714,7 @@ pub(crate) async fn sync_events_v4_route(
         }
         match tokio::time::timeout(duration, watcher).await {
             Ok(x) => x.expect("watcher should succeed"),
-            Err(error) => debug!(%error, "timed out"),
+            Err(error) => debug!(%error, "Timed out"),
         };
     }
 
