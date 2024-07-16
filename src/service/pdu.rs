@@ -474,8 +474,8 @@ pub(crate) fn gen_event_id_canonical_json(
     room_version_id: &RoomVersionId,
 ) -> crate::Result<(OwnedEventId, CanonicalJsonObject)> {
     let value: CanonicalJsonObject =
-        serde_json::from_str(pdu.get()).map_err(|e| {
-            warn!("Error parsing incoming event {:?}: {:?}", pdu, e);
+        serde_json::from_str(pdu.get()).map_err(|error| {
+            warn!(%error, object = ?pdu, "Error parsing incoming event");
             Error::BadServerResponse("Invalid PDU in server response")
         })?;
 
