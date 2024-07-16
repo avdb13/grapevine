@@ -91,24 +91,31 @@ impl Service {
                         //     )
                         //     .ok();
 
+                        let event_kind = RoomAccountDataEventType::Tag;
+
                         // Copy old tags to new room
                         if let Some(tag_event) = services()
                             .account_data
                             .get(
                                 Some(&predecessor.room_id),
                                 user_id,
-                                RoomAccountDataEventType::Tag,
+                                event_kind.clone(),
                             )?
                             .map(|event| {
-                                serde_json::from_str(event.get()).map_err(|e| {
-                                    warn!(
-                                        "Invalid account data event in db: \
-                                         {e:?}"
-                                    );
-                                    Error::BadDatabase(
-                                        "Invalid account data event in db.",
-                                    )
-                                })
+                                serde_json::from_str(event.get()).map_err(
+                                    |error| {
+                                        warn!(
+                                            %error,
+                                            predecessor_room_id =
+                                                %predecessor.room_id,
+                                            %event_kind,
+                                            "Invalid account data event",
+                                        );
+                                        Error::BadDatabase(
+                                            "Invalid account data event.",
+                                        )
+                                    },
+                                )
                             })
                         {
                             services()
@@ -122,25 +129,24 @@ impl Service {
                                 .ok();
                         };
 
+                        let event_kind = RoomAccountDataEventType::from(
+                            GlobalAccountDataEventType::Direct.to_string(),
+                        );
+
                         // Copy direct chat flag
                         if let Some(direct_event) = services()
                             .account_data
-                            .get(
-                                None,
-                                user_id,
-                                GlobalAccountDataEventType::Direct
-                                    .to_string()
-                                    .into(),
-                            )?
+                            .get(None, user_id, event_kind.clone())?
                             .map(|event| {
                                 serde_json::from_str::<DirectEvent>(event.get())
-                                    .map_err(|e| {
+                                    .map_err(|error| {
                                         warn!(
-                                            "Invalid account data event in \
-                                             db: {e:?}"
+                                            %error,
+                                            %event_kind,
+                                            "Invalid account data event",
                                         );
                                         Error::BadDatabase(
-                                            "Invalid account data event in db.",
+                                            "Invalid account data event.",
                                         )
                                     })
                             })
@@ -177,6 +183,10 @@ impl Service {
                 self.db.mark_as_joined(user_id, room_id)?;
             }
             MembershipState::Invite => {
+                let event_kind = RoomAccountDataEventType::from(
+                    GlobalAccountDataEventType::IgnoredUserList.to_string(),
+                );
+
                 // We want to know if the sender is ignored by the receiver
                 let is_ignored = services()
                     .account_data
@@ -185,19 +195,19 @@ impl Service {
                         None,
                         // Receiver
                         user_id,
-                        GlobalAccountDataEventType::IgnoredUserList
-                            .to_string()
-                            .into(),
+                        event_kind.clone(),
                     )?
                     .map(|event| {
                         serde_json::from_str::<IgnoredUserListEvent>(
                             event.get(),
                         )
-                        .map_err(|e| {
-                            warn!("Invalid account data event in db: {e:?}");
-                            Error::BadDatabase(
-                                "Invalid account data event in db.",
-                            )
+                        .map_err(|error| {
+                            warn!(
+                                %error,
+                                %event_kind,
+                                "Invalid account data event",
+                            );
+                            Error::BadDatabase("Invalid account data event.")
                         })
                     })
                     .transpose()?
