@@ -64,9 +64,10 @@ use crate::{
     services, utils, Ar, Error, PduEvent, Ra, Result,
 };
 
+pub(crate) mod resolution;
 mod send_request;
 
-pub(crate) use send_request::{send_request, FedDest};
+pub(crate) use send_request::send_request;
 
 /// # `GET /_matrix/federation/v1/version`
 ///

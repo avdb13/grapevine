@@ -33,11 +33,11 @@ use tracing::{error, Instrument};
 use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::{
-    api::server_server::FedDest, observability::FilterReloadHandles, services,
-    Config, Error, Result,
+    api::server_server::resolution::ResolutionResult,
+    observability::FilterReloadHandles, services, Config, Error, Result,
 };
 
-type WellKnownMap = HashMap<OwnedServerName, (FedDest, String)>;
+type WellKnownMap = HashMap<OwnedServerName, ResolutionResult>;
 type TlsNameMap = HashMap<String, (Vec<IpAddr>, u16)>;
 // Time if last failed try, number of failed tries
 type RateLimitState = (Instant, u32);
