@@ -13,8 +13,11 @@ use cmp::Ordering;
 use rand::{prelude::*, rngs::OsRng};
 use ring::digest;
 use ruma::{
-    canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject,
+    api::client::error::ErrorKind, canonical_json::try_from_json_map,
+    CanonicalJsonError, CanonicalJsonObject, MxcUri, MxcUriError, OwnedMxcUri,
 };
+
+use crate::{Error, Result};
 
 // Hopefully we have a better chat protocol in 530 years
 #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
@@ -240,6 +243,57 @@ pub(crate) fn dbg_truncate_str(s: &str, mut max_len: usize) -> Cow<'_, str> {
     } else {
         #[allow(clippy::string_slice)] // we checked it's at a char boundary
         format!("{}...", &s[..max_len]).into()
+    }
+}
+
+/// Data that makes up an `mxc://` URL.
+#[derive(Debug, Clone)]
+pub(crate) struct MxcData<'a> {
+    pub(crate) server_name: &'a ruma::ServerName,
+    pub(crate) media_id: &'a str,
+}
+
+impl<'a> MxcData<'a> {
+    pub(crate) fn new(
+        server_name: &'a ruma::ServerName,
+        media_id: &'a str,
+    ) -> Result<Self> {
+        if !media_id.bytes().all(|b| {
+            matches!(b,
+                b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'-' | b'_'
+            )
+        }) {
+            return Err(Error::BadRequest(
+                ErrorKind::InvalidParam,
+                "Invalid MXC media id",
+            ));
+        }
+
+        Ok(Self {
+            server_name,
+            media_id,
+        })
+    }
+}
+
+impl fmt::Display for MxcData<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "mxc://{}/{}", self.server_name, self.media_id)
+    }
+}
+
+impl From<MxcData<'_>> for OwnedMxcUri {
+    fn from(value: MxcData<'_>) -> Self {
+        value.to_string().into()
+    }
+}
+
+impl<'a> TryFrom<&'a MxcUri> for MxcData<'a> {
+    type Error = MxcUriError;
+
+    fn try_from(value: &'a MxcUri) -> Result<Self, Self::Error> {
+        Ok(Self::new(value.server_name()?, value.media_id()?)
+            .expect("validated MxcUri should always be valid MxcData"))
     }
 }
 
