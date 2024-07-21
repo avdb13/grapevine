@@ -501,6 +501,8 @@ fn routes(config: &Config) -> Router {
             .ruma_route(s2s::get_profile_information_route)
             .ruma_route(s2s::get_keys_route)
             .ruma_route(s2s::claim_keys_route)
+            .ruma_route(s2s::media_download_route)
+            .ruma_route(s2s::media_thumbnail_route)
     } else {
         router
             .route("/_matrix/federation/*path", any(federation_disabled))

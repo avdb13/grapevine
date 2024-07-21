@@ -17,6 +17,7 @@ use ruma::{
     api::{
         client::error::{Error as RumaError, ErrorKind},
         federation::{
+            authenticated_media,
             authorization::get_event_authorization,
             backfill::get_backfill,
             device::get_devices::{self, v1::UserDevice},
@@ -72,8 +73,8 @@ use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     observability::{FoundIn, Lookup, METRICS},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils,
-    utils::dbg_truncate_str,
+    services,
+    utils::{self, dbg_truncate_str, MxcData},
     Ar, Error, PduEvent, Ra, Result,
 };
 
@@ -2035,6 +2036,82 @@ pub(crate) async fn claim_keys_route(
 
     Ok(Ra(claim_keys::v1::Response {
         one_time_keys: result.one_time_keys,
+    }))
+}
+
+/// # `GET /_matrix/federation/v1/media/download/{mediaId}`
+///
+/// Downloads media owned by a remote homeserver.
+pub(crate) async fn media_download_route(
+    body: Ar<authenticated_media::get_content::v1::Request>,
+) -> Result<Ra<authenticated_media::get_content::v1::Response>> {
+    let mxc = MxcData::new(services().globals.server_name(), &body.media_id)?;
+    let Some(crate::service::media::FileMeta {
+        content_disposition,
+        content_type,
+        file,
+    }) = services().media.get(mxc.to_string()).await?
+    else {
+        return Err(Error::BadRequest(
+            ErrorKind::NotYetUploaded,
+            "Media not found",
+        ));
+    };
+
+    let content_disposition = content_disposition.and_then(|s| {
+        s.parse().inspect_err(
+            |error| warn!(%error, "Invalid Content-Disposition in database"),
+        )
+        .ok()
+    });
+
+    Ok(Ra(authenticated_media::get_content::v1::Response {
+        metadata: authenticated_media::ContentMetadata {},
+        content: authenticated_media::FileOrLocation::File(
+            authenticated_media::Content {
+                file,
+                content_type,
+                content_disposition,
+            },
+        ),
+    }))
+}
+
+/// # `GET /_matrix/federation/v1/media/thumbnail/{mediaId}`
+///
+/// Downloads a thumbnail from a remote homeserver.
+pub(crate) async fn media_thumbnail_route(
+    body: Ar<authenticated_media::get_content_thumbnail::v1::Request>,
+) -> Result<Ra<authenticated_media::get_content_thumbnail::v1::Response>> {
+    let mxc = MxcData::new(services().globals.server_name(), &body.media_id)?;
+    let width = body.width.try_into().map_err(|_| {
+        Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
+    })?;
+    let height = body.height.try_into().map_err(|_| {
+        Error::BadRequest(ErrorKind::InvalidParam, "Height is invalid.")
+    })?;
+
+    let Some(crate::service::media::FileMeta {
+        content_type,
+        file,
+        ..
+    }) = services().media.get_thumbnail(mxc.to_string(), width, height).await?
+    else {
+        return Err(Error::BadRequest(
+            ErrorKind::NotYetUploaded,
+            "Media not found",
+        ));
+    };
+
+    Ok(Ra(authenticated_media::get_content_thumbnail::v1::Response {
+        metadata: authenticated_media::ContentMetadata {},
+        content: authenticated_media::FileOrLocation::File(
+            authenticated_media::Content {
+                file,
+                content_type,
+                content_disposition: None,
+            },
+        ),
     }))
 }
 
