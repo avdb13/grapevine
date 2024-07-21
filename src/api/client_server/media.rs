@@ -9,10 +9,7 @@ use phf::{phf_set, Set};
 use ruma::{
     api::client::{
         error::ErrorKind,
-        media::{
-            create_content, get_content, get_content_as_filename,
-            get_content_thumbnail, get_media_config,
-        },
+        media::{self as legacy_media, create_content},
     },
     http_headers::{ContentDisposition, ContentDispositionType},
 };
@@ -120,9 +117,9 @@ fn set_header_or_panic(
 /// Returns max upload size.
 #[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_media_config_route(
-    _body: Ar<get_media_config::v3::Request>,
-) -> Result<Ra<get_media_config::v3::Response>> {
-    Ok(Ra(get_media_config::v3::Response {
+    _body: Ar<legacy_media::get_media_config::v3::Request>,
+) -> Result<Ra<legacy_media::get_media_config::v3::Response>> {
+    Ok(Ra(legacy_media::get_media_config::v3::Response {
         upload_size: services().globals.max_request_size().into(),
     }))
 }
@@ -169,12 +166,12 @@ pub(crate) async fn get_remote_content(
     mxc: &str,
     server_name: &ruma::ServerName,
     media_id: String,
-) -> Result<get_content::v3::Response, Error> {
+) -> Result<legacy_media::get_content::v3::Response, Error> {
     let content_response = services()
         .sending
         .send_federation_request(
             server_name,
-            get_content::v3::Request {
+            legacy_media::get_content::v3::Request {
                 allow_remote: false,
                 server_name: server_name.to_owned(),
                 media_id,
@@ -194,7 +191,7 @@ pub(crate) async fn get_remote_content(
         )
         .await?;
 
-    Ok(get_content::v3::Response {
+    Ok(legacy_media::get_content::v3::Response {
         file: content_response.file,
         content_disposition: content_response.content_disposition,
         content_type: content_response.content_type,
@@ -209,7 +206,7 @@ pub(crate) async fn get_remote_content(
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_route(
-    body: Ar<get_content::v3::Request>,
+    body: Ar<legacy_media::get_content::v3::Request>,
 ) -> Result<axum::response::Response> {
     get_content_route_ruma(body).await.map(|x| {
         let mut r = Ra(x).into_response();
@@ -226,8 +223,8 @@ pub(crate) async fn get_content_route(
 
 #[allow(deprecated)] // unauthenticated media
 async fn get_content_route_ruma(
-    body: Ar<get_content::v3::Request>,
-) -> Result<get_content::v3::Response> {
+    body: Ar<legacy_media::get_content::v3::Request>,
+) -> Result<legacy_media::get_content::v3::Response> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -236,7 +233,7 @@ async fn get_content_route_ruma(
         ..
     }) = services().media.get(mxc.clone()).await?
     {
-        Ok(get_content::v3::Response {
+        Ok(legacy_media::get_content::v3::Response {
             file,
             content_disposition: Some(content_disposition_for(
                 content_type.as_deref(),
@@ -251,7 +248,7 @@ async fn get_content_route_ruma(
         let remote_content_response =
             get_remote_content(&mxc, &body.server_name, body.media_id.clone())
                 .await?;
-        Ok(get_content::v3::Response {
+        Ok(legacy_media::get_content::v3::Response {
             file: remote_content_response.file,
             content_disposition: Some(content_disposition_for(
                 remote_content_response.content_type.as_deref(),
@@ -272,7 +269,7 @@ async fn get_content_route_ruma(
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_as_filename_route(
-    body: Ar<get_content_as_filename::v3::Request>,
+    body: Ar<legacy_media::get_content_as_filename::v3::Request>,
 ) -> Result<axum::response::Response> {
     get_content_as_filename_route_ruma(body).await.map(|x| {
         let mut r = Ra(x).into_response();
@@ -289,8 +286,8 @@ pub(crate) async fn get_content_as_filename_route(
 
 #[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_as_filename_route_ruma(
-    body: Ar<get_content_as_filename::v3::Request>,
-) -> Result<get_content_as_filename::v3::Response> {
+    body: Ar<legacy_media::get_content_as_filename::v3::Request>,
+) -> Result<legacy_media::get_content_as_filename::v3::Response> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -299,7 +296,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
         ..
     }) = services().media.get(mxc.clone()).await?
     {
-        Ok(get_content_as_filename::v3::Response {
+        Ok(legacy_media::get_content_as_filename::v3::Response {
             file,
             content_disposition: Some(content_disposition_for(
                 content_type.as_deref(),
@@ -315,7 +312,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
             get_remote_content(&mxc, &body.server_name, body.media_id.clone())
                 .await?;
 
-        Ok(get_content_as_filename::v3::Response {
+        Ok(legacy_media::get_content_as_filename::v3::Response {
             content_disposition: Some(content_disposition_for(
                 remote_content_response.content_type.as_deref(),
                 Some(body.filename.clone()),
@@ -336,7 +333,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_thumbnail_route(
-    body: Ar<get_content_thumbnail::v3::Request>,
+    body: Ar<legacy_media::get_content_thumbnail::v3::Request>,
 ) -> Result<axum::response::Response> {
     get_content_thumbnail_route_ruma(body).await.map(|x| {
         let mut r = Ra(x).into_response();
@@ -367,8 +364,8 @@ pub(crate) async fn get_content_thumbnail_route(
 
 #[allow(deprecated)] // unauthenticated media
 async fn get_content_thumbnail_route_ruma(
-    body: Ar<get_content_thumbnail::v3::Request>,
-) -> Result<get_content_thumbnail::v3::Response> {
+    body: Ar<legacy_media::get_content_thumbnail::v3::Request>,
+) -> Result<legacy_media::get_content_thumbnail::v3::Response> {
     let mxc = format!("mxc://{}/{}", body.server_name, body.media_id);
 
     if let Some(FileMeta {
@@ -388,7 +385,7 @@ async fn get_content_thumbnail_route_ruma(
         )
         .await?
     {
-        Ok(get_content_thumbnail::v3::Response {
+        Ok(legacy_media::get_content_thumbnail::v3::Response {
             file,
             content_type,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
@@ -400,7 +397,7 @@ async fn get_content_thumbnail_route_ruma(
             .sending
             .send_federation_request(
                 &body.server_name,
-                get_content_thumbnail::v3::Request {
+                legacy_media::get_content_thumbnail::v3::Request {
                     allow_remote: false,
                     height: body.height,
                     width: body.width,
@@ -426,7 +423,7 @@ async fn get_content_thumbnail_route_ruma(
             )
             .await?;
 
-        Ok(get_content_thumbnail::v3::Response {
+        Ok(legacy_media::get_content_thumbnail::v3::Response {
             file: get_thumbnail_response.file,
             content_type: get_thumbnail_response.content_type,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
