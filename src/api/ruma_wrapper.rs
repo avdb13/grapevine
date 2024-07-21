@@ -24,6 +24,31 @@ pub(crate) struct Ar<T> {
     pub(crate) appservice_info: Option<RegistrationInfo>,
 }
 
+impl<T> Ar<T> {
+    pub(crate) fn map_body<F, U>(self, f: F) -> Ar<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        let Ar {
+            body,
+            sender_user,
+            sender_device,
+            sender_servername,
+            json_body,
+            appservice_info,
+        } = self;
+
+        Ar {
+            body: f(body),
+            sender_user,
+            sender_device,
+            sender_servername,
+            json_body,
+            appservice_info,
+        }
+    }
+}
+
 impl<T> Deref for Ar<T> {
     type Target = T;
 

@@ -390,12 +390,24 @@ fn routes(config: &Config) -> Router {
         .ruma_route(c2s::get_message_events_route)
         .ruma_route(c2s::search_events_route)
         .ruma_route(c2s::turn_server_route)
-        .ruma_route(c2s::send_event_to_device_route)
+        .ruma_route(c2s::send_event_to_device_route);
+
+    // unauthenticated (legacy) media
+    let router = router
+        .ruma_route(c2s::get_media_config_legacy_route)
+        .ruma_route(c2s::get_content_legacy_route)
+        .ruma_route(c2s::get_content_as_filename_legacy_route)
+        .ruma_route(c2s::get_content_thumbnail_legacy_route);
+
+    // authenticated media
+    let router = router
         .ruma_route(c2s::get_media_config_route)
         .ruma_route(c2s::create_content_route)
         .ruma_route(c2s::get_content_route)
         .ruma_route(c2s::get_content_as_filename_route)
-        .ruma_route(c2s::get_content_thumbnail_route)
+        .ruma_route(c2s::get_content_thumbnail_route);
+
+    let router = router
         .ruma_route(c2s::get_devices_route)
         .ruma_route(c2s::get_device_route)
         .ruma_route(c2s::update_device_route)

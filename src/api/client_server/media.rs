@@ -3,17 +3,21 @@ use std::time::Duration;
 use axum::response::IntoResponse;
 use http::{
     header::{CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, CONTENT_TYPE},
-    HeaderName, HeaderValue,
+    HeaderName, HeaderValue, Method,
 };
 use phf::{phf_set, Set};
 use ruma::{
-    api::client::{
-        error::ErrorKind,
-        media::{self as legacy_media, create_content},
+    api::{
+        client::{
+            authenticated_media as authenticated_media_client,
+            error::ErrorKind,
+            media::{self as legacy_media, create_content},
+        },
+        federation::authenticated_media as authenticated_media_fed,
     },
     http_headers::{ContentDisposition, ContentDispositionType},
 };
-use tracing::error;
+use tracing::{debug, error, info, warn};
 
 use crate::{
     service::media::FileMeta,
@@ -121,10 +125,21 @@ fn set_header_or_panic(
 ///
 /// Returns max upload size.
 #[allow(deprecated)] // unauthenticated media
-pub(crate) async fn get_media_config_route(
+pub(crate) async fn get_media_config_legacy_route(
     _body: Ar<legacy_media::get_media_config::v3::Request>,
 ) -> Result<Ra<legacy_media::get_media_config::v3::Response>> {
     Ok(Ra(legacy_media::get_media_config::v3::Response {
+        upload_size: services().globals.max_request_size().into(),
+    }))
+}
+
+/// # `GET /_matrix/client/v1/media/config`
+///
+/// Returns max upload size.
+pub(crate) async fn get_media_config_route(
+    _body: Ar<authenticated_media_client::get_media_config::v1::Request>,
+) -> Result<Ra<authenticated_media_client::get_media_config::v1::Response>> {
+    Ok(Ra(authenticated_media_client::get_media_config::v1::Response {
         upload_size: services().globals.max_request_size().into(),
     }))
 }
@@ -163,10 +178,106 @@ pub(crate) async fn create_content_route(
     }))
 }
 
-#[allow(deprecated)] // unauthenticated media
-pub(crate) async fn get_remote_content(
+struct RemoteResponse {
+    #[allow(unused)]
+    metadata: authenticated_media_fed::ContentMetadata,
+    content: authenticated_media_fed::Content,
+}
+
+/// Fetches remote media content from a URL specified in a
+/// `/_matrix/federation/v1/media/*/{mediaId}` `Location` header
+#[tracing::instrument]
+async fn get_redirected_content(
+    location: String,
+) -> Result<authenticated_media_fed::Content> {
+    let location = location.parse().map_err(|error| {
+        warn!(location, %error, "Invalid redirect location");
+        Error::BadServerResponse("Invalid redirect location")
+    })?;
+    let response = services()
+        .globals
+        .federation_client()
+        .execute(reqwest::Request::new(Method::GET, location))
+        .await?;
+
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .map(|value| {
+            value.to_str().map_err(|error| {
+                error!(
+                    ?value,
+                    %error,
+                    "Invalid Content-Type header"
+                );
+                Error::BadServerResponse("Invalid Content-Type header")
+            })
+        })
+        .transpose()?
+        .map(str::to_owned);
+
+    let content_disposition = response
+        .headers()
+        .get(CONTENT_DISPOSITION)
+        .map(|value| {
+            ContentDisposition::try_from(value.as_bytes()).map_err(|error| {
+                error!(
+                    ?value,
+                    %error,
+                    "Invalid Content-Disposition header"
+                );
+                Error::BadServerResponse("Invalid Content-Disposition header")
+            })
+        })
+        .transpose()?;
+
+    Ok(authenticated_media_fed::Content {
+        file: response.bytes().await?.to_vec(),
+        content_type,
+        content_disposition,
+    })
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_remote_content_via_federation_api(
     mxc: &MxcData<'_>,
-) -> Result<legacy_media::get_content::v3::Response, Error> {
+) -> Result<RemoteResponse, Error> {
+    let authenticated_media_fed::get_content::v1::Response {
+        metadata,
+        content,
+    } = services()
+        .sending
+        .send_federation_request(
+            mxc.server_name,
+            authenticated_media_fed::get_content::v1::Request {
+                media_id: mxc.media_id.to_owned(),
+                timeout_ms: Duration::from_secs(20),
+            },
+        )
+        .await?;
+
+    let content = match content {
+        authenticated_media_fed::FileOrLocation::File(content) => {
+            debug!("Got media from remote server");
+            content
+        }
+        authenticated_media_fed::FileOrLocation::Location(location) => {
+            debug!(location, "Following redirect");
+            get_redirected_content(location).await?
+        }
+    };
+
+    Ok(RemoteResponse {
+        metadata,
+        content,
+    })
+}
+
+#[allow(deprecated)] // unauthenticated media
+#[tracing::instrument(skip_all)]
+async fn get_remote_content_via_legacy_api(
+    mxc: &MxcData<'_>,
+) -> Result<RemoteResponse, Error> {
     let content_response = services()
         .sending
         .send_federation_request(
@@ -181,22 +292,53 @@ pub(crate) async fn get_remote_content(
         )
         .await?;
 
+    Ok(RemoteResponse {
+        metadata: authenticated_media_fed::ContentMetadata {},
+        content: authenticated_media_fed::Content {
+            file: content_response.file,
+            content_disposition: content_response.content_disposition,
+            content_type: content_response.content_type,
+        },
+    })
+}
+
+#[tracing::instrument]
+pub(crate) async fn get_remote_content(
+    mxc: &MxcData<'_>,
+) -> Result<RemoteResponse, Error> {
+    let fed_result = get_remote_content_via_federation_api(mxc).await;
+
+    let response = match fed_result {
+        Ok(response) => {
+            debug!("Got remote content via authenticated media API");
+            response
+        }
+        Err(Error::Federation(_, error))
+            if error.error_kind() == Some(&ErrorKind::Unrecognized) =>
+        {
+            info!(
+                "Remote server does not support authenticated media, falling \
+                 back to deprecated API"
+            );
+
+            get_remote_content_via_legacy_api(mxc).await?
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
     services()
         .media
         .create(
             mxc.to_string(),
-            content_response.content_disposition.as_ref(),
-            content_response.content_type.as_deref(),
-            &content_response.file,
+            response.content.content_disposition.as_ref(),
+            response.content.content_type.as_deref(),
+            &response.content.file,
         )
         .await?;
 
-    Ok(legacy_media::get_content::v3::Response {
-        file: content_response.file,
-        content_disposition: content_response.content_disposition,
-        content_type: content_response.content_type,
-        cross_origin_resource_policy: Some("cross-origin".to_owned()),
-    })
+    Ok(response)
 }
 
 /// # `GET /_matrix/media/r0/download/{serverName}/{mediaId}`
@@ -205,10 +347,71 @@ pub(crate) async fn get_remote_content(
 ///
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
-pub(crate) async fn get_content_route(
+pub(crate) async fn get_content_legacy_route(
     body: Ar<legacy_media::get_content::v3::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_route_ruma(body).await.map(|x| {
+    use authenticated_media_client::get_content::v1::{
+        Request as AmRequest, Response as AmResponse,
+    };
+    use legacy_media::get_content::v3::{
+        Request as LegacyRequest, Response as LegacyResponse,
+    };
+
+    fn convert_request(
+        LegacyRequest {
+            server_name,
+            media_id,
+            timeout_ms,
+            ..
+        }: LegacyRequest,
+    ) -> AmRequest {
+        AmRequest {
+            server_name,
+            media_id,
+            timeout_ms,
+        }
+    }
+
+    fn convert_response(
+        AmResponse {
+            file,
+            content_type,
+            content_disposition,
+        }: AmResponse,
+    ) -> LegacyResponse {
+        LegacyResponse {
+            file,
+            content_type,
+            content_disposition,
+            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+        }
+    }
+
+    let allow_remote = body.allow_remote;
+
+    get_content_route_ruma(body.map_body(convert_request), allow_remote)
+        .await
+        .map(|response| {
+            let response = convert_response(response);
+            let mut r = Ra(response).into_response();
+
+            set_header_or_panic(
+                &mut r,
+                CONTENT_SECURITY_POLICY,
+                content_security_policy(),
+            );
+
+            r
+        })
+}
+
+/// # `GET /_matrix/client/v1/media/download/{serverName}/{mediaId}`
+///
+/// Load media from our server or over federation.
+pub(crate) async fn get_content_route(
+    body: Ar<authenticated_media_client::get_content::v1::Request>,
+) -> Result<axum::response::Response> {
+    get_content_route_ruma(body, true).await.map(|x| {
         let mut r = Ra(x).into_response();
 
         set_header_or_panic(
@@ -221,10 +424,10 @@ pub(crate) async fn get_content_route(
     })
 }
 
-#[allow(deprecated)] // unauthenticated media
 async fn get_content_route_ruma(
-    body: Ar<legacy_media::get_content::v3::Request>,
-) -> Result<legacy_media::get_content::v3::Response> {
+    body: Ar<authenticated_media_client::get_content::v1::Request>,
+    allow_remote: bool,
+) -> Result<authenticated_media_client::get_content::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
     if let Some(FileMeta {
@@ -233,27 +436,25 @@ async fn get_content_route_ruma(
         ..
     }) = services().media.get(mxc.to_string()).await?
     {
-        Ok(legacy_media::get_content::v3::Response {
+        Ok(authenticated_media_client::get_content::v1::Response {
             file,
             content_disposition: Some(content_disposition_for(
                 content_type.as_deref(),
                 None,
             )),
             content_type,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
     } else if &*body.server_name != services().globals.server_name()
-        && body.allow_remote
+        && allow_remote
     {
-        let remote_content_response = get_remote_content(&mxc).await?;
-        Ok(legacy_media::get_content::v3::Response {
-            file: remote_content_response.file,
+        let remote_response = get_remote_content(&mxc).await?;
+        Ok(authenticated_media_client::get_content::v1::Response {
+            file: remote_response.content.file,
             content_disposition: Some(content_disposition_for(
-                remote_content_response.content_type.as_deref(),
+                remote_response.content.content_type.as_deref(),
                 None,
             )),
-            content_type: remote_content_response.content_type,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+            content_type: remote_response.content.content_type,
         })
     } else {
         Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
@@ -266,10 +467,75 @@ async fn get_content_route_ruma(
 ///
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
-pub(crate) async fn get_content_as_filename_route(
+pub(crate) async fn get_content_as_filename_legacy_route(
     body: Ar<legacy_media::get_content_as_filename::v3::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_as_filename_route_ruma(body).await.map(|x| {
+    use authenticated_media_client::get_content_as_filename::v1::{
+        Request as AmRequest, Response as AmResponse,
+    };
+    use legacy_media::get_content_as_filename::v3::{
+        Request as LegacyRequest, Response as LegacyResponse,
+    };
+
+    fn convert_request(
+        LegacyRequest {
+            server_name,
+            media_id,
+            filename,
+            timeout_ms,
+            ..
+        }: LegacyRequest,
+    ) -> AmRequest {
+        AmRequest {
+            server_name,
+            media_id,
+            filename,
+            timeout_ms,
+        }
+    }
+
+    fn convert_response(
+        AmResponse {
+            file,
+            content_type,
+            content_disposition,
+        }: AmResponse,
+    ) -> LegacyResponse {
+        LegacyResponse {
+            file,
+            content_type,
+            content_disposition,
+            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+        }
+    }
+
+    let allow_remote = body.allow_remote;
+    get_content_as_filename_route_ruma(
+        body.map_body(convert_request),
+        allow_remote,
+    )
+    .await
+    .map(|response| {
+        let response = convert_response(response);
+        let mut r = Ra(response).into_response();
+
+        set_header_or_panic(
+            &mut r,
+            CONTENT_SECURITY_POLICY,
+            content_security_policy(),
+        );
+
+        r
+    })
+}
+
+/// # `GET /_matrix/client/v1/media/download/{serverName}/{mediaId}/{fileName}`
+///
+/// Load media from our server or over federation, permitting desired filename.
+pub(crate) async fn get_content_as_filename_route(
+    body: Ar<authenticated_media_client::get_content_as_filename::v1::Request>,
+) -> Result<axum::response::Response> {
+    get_content_as_filename_route_ruma(body, true).await.map(|x| {
         let mut r = Ra(x).into_response();
 
         set_header_or_panic(
@@ -282,10 +548,10 @@ pub(crate) async fn get_content_as_filename_route(
     })
 }
 
-#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_as_filename_route_ruma(
-    body: Ar<legacy_media::get_content_as_filename::v3::Request>,
-) -> Result<legacy_media::get_content_as_filename::v3::Response> {
+    body: Ar<authenticated_media_client::get_content_as_filename::v1::Request>,
+    allow_remote: bool,
+) -> Result<authenticated_media_client::get_content_as_filename::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
     if let Some(FileMeta {
@@ -294,32 +560,48 @@ pub(crate) async fn get_content_as_filename_route_ruma(
         ..
     }) = services().media.get(mxc.to_string()).await?
     {
-        Ok(legacy_media::get_content_as_filename::v3::Response {
+        Ok(authenticated_media_client::get_content_as_filename::v1::Response {
             file,
             content_disposition: Some(content_disposition_for(
                 content_type.as_deref(),
                 Some(body.filename.clone()),
             )),
             content_type,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
     } else if &*body.server_name != services().globals.server_name()
-        && body.allow_remote
+        && allow_remote
     {
-        let remote_content_response = get_remote_content(&mxc).await?;
+        let remote_response = get_remote_content(&mxc).await?;
 
-        Ok(legacy_media::get_content_as_filename::v3::Response {
+        Ok(authenticated_media_client::get_content_as_filename::v1::Response {
             content_disposition: Some(content_disposition_for(
-                remote_content_response.content_type.as_deref(),
+                remote_response.content.content_type.as_deref(),
                 Some(body.filename.clone()),
             )),
-            content_type: remote_content_response.content_type,
-            file: remote_content_response.file,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+            content_type: remote_response.content.content_type,
+            file: remote_response.content.file,
         })
     } else {
         Err(Error::BadRequest(ErrorKind::NotFound, "Media not found."))
     }
+}
+
+fn fix_thumbnail_headers(r: &mut axum::response::Response) {
+    let content_type = r
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|x| std::str::from_utf8(x.as_ref()).ok())
+        .map(ToOwned::to_owned);
+
+    set_header_or_panic(r, CONTENT_SECURITY_POLICY, content_security_policy());
+    set_header_or_panic(
+        r,
+        CONTENT_DISPOSITION,
+        content_disposition_for(content_type.as_deref(), None)
+            .to_string()
+            .try_into()
+            .expect("generated header value should be valid"),
+    );
 }
 
 /// # `GET /_matrix/media/r0/thumbnail/{serverName}/{mediaId}`
@@ -328,40 +610,192 @@ pub(crate) async fn get_content_as_filename_route_ruma(
 ///
 /// - Only allows federation if `allow_remote` is true
 #[allow(deprecated)] // unauthenticated media
-pub(crate) async fn get_content_thumbnail_route(
+pub(crate) async fn get_content_thumbnail_legacy_route(
     body: Ar<legacy_media::get_content_thumbnail::v3::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_thumbnail_route_ruma(body).await.map(|x| {
-        let mut r = Ra(x).into_response();
+    use authenticated_media_client::get_content_thumbnail::v1::{
+        Request as AmRequest, Response as AmResponse,
+    };
+    use legacy_media::get_content_thumbnail::v3::{
+        Request as LegacyRequest, Response as LegacyResponse,
+    };
 
-        let content_type = r
-            .headers()
-            .get(CONTENT_TYPE)
-            .and_then(|x| std::str::from_utf8(x.as_ref()).ok())
-            .map(ToOwned::to_owned);
+    fn convert_request(
+        LegacyRequest {
+            server_name,
+            media_id,
+            method,
+            width,
+            height,
+            timeout_ms,
+            animated,
+            ..
+        }: LegacyRequest,
+    ) -> AmRequest {
+        AmRequest {
+            server_name,
+            media_id,
+            method,
+            width,
+            height,
+            timeout_ms,
+            animated,
+        }
+    }
 
-        set_header_or_panic(
-            &mut r,
-            CONTENT_SECURITY_POLICY,
-            content_security_policy(),
-        );
-        set_header_or_panic(
-            &mut r,
-            CONTENT_DISPOSITION,
-            content_disposition_for(content_type.as_deref(), None)
-                .to_string()
-                .try_into()
-                .expect("generated header value should be valid"),
-        );
+    fn convert_response(
+        AmResponse {
+            file,
+            content_type,
+        }: AmResponse,
+    ) -> LegacyResponse {
+        LegacyResponse {
+            file,
+            content_type,
+            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+        }
+    }
+
+    let allow_remote = body.allow_remote;
+
+    get_content_thumbnail_route_ruma(
+        body.map_body(convert_request),
+        allow_remote,
+    )
+    .await
+    .map(|response| {
+        let response = convert_response(response);
+        let mut r = Ra(response).into_response();
+
+        fix_thumbnail_headers(&mut r);
 
         r
     })
 }
 
+/// # `GET /_matrix/client/v1/media/thumbnail/{serverName}/{mediaId}`
+///
+/// Load media thumbnail from our server or over federation.
+pub(crate) async fn get_content_thumbnail_route(
+    body: Ar<authenticated_media_client::get_content_thumbnail::v1::Request>,
+) -> Result<axum::response::Response> {
+    get_content_thumbnail_route_ruma(body, true).await.map(|x| {
+        let mut r = Ra(x).into_response();
+
+        fix_thumbnail_headers(&mut r);
+
+        r
+    })
+}
+
+#[tracing::instrument(skip_all)]
+async fn get_remote_thumbnail_via_federation_api(
+    server_name: &ruma::ServerName,
+    request: authenticated_media_fed::get_content_thumbnail::v1::Request,
+) -> Result<RemoteResponse, Error> {
+    let authenticated_media_fed::get_content_thumbnail::v1::Response {
+        metadata,
+        content,
+    } = services()
+        .sending
+        .send_federation_request(server_name, request)
+        .await?;
+
+    let content = match content {
+        authenticated_media_fed::FileOrLocation::File(content) => {
+            debug!("Got thumbnail from remote server");
+            content
+        }
+        authenticated_media_fed::FileOrLocation::Location(location) => {
+            debug!(location, "Following redirect");
+            get_redirected_content(location).await?
+        }
+    };
+
+    Ok(RemoteResponse {
+        metadata,
+        content,
+    })
+}
+
 #[allow(deprecated)] // unauthenticated media
+#[tracing::instrument(skip_all)]
+async fn get_remote_thumbnail_via_legacy_api(
+    server_name: &ruma::ServerName,
+    authenticated_media_fed::get_content_thumbnail::v1::Request {
+        media_id,
+        method,
+        width,
+        height,
+        timeout_ms,
+        animated,
+    }: authenticated_media_fed::get_content_thumbnail::v1::Request,
+) -> Result<RemoteResponse, Error> {
+    let content_response = services()
+        .sending
+        .send_federation_request(
+            server_name,
+            legacy_media::get_content_thumbnail::v3::Request {
+                server_name: server_name.to_owned(),
+                allow_remote: false,
+                allow_redirect: false,
+                media_id,
+                method,
+                width,
+                height,
+                timeout_ms,
+                animated,
+            },
+        )
+        .await?;
+
+    Ok(RemoteResponse {
+        metadata: authenticated_media_fed::ContentMetadata {},
+        content: authenticated_media_fed::Content {
+            file: content_response.file,
+            content_disposition: None,
+            content_type: content_response.content_type,
+        },
+    })
+}
+
+#[tracing::instrument]
+pub(crate) async fn get_remote_thumbnail(
+    server_name: &ruma::ServerName,
+    request: authenticated_media_fed::get_content_thumbnail::v1::Request,
+) -> Result<RemoteResponse, Error> {
+    let fed_result =
+        get_remote_thumbnail_via_federation_api(server_name, request.clone())
+            .await;
+
+    let response = match fed_result {
+        Ok(response) => {
+            debug!("Got remote content via authenticated media API");
+            response
+        }
+        Err(Error::Federation(_, error))
+            if error.error_kind() == Some(&ErrorKind::Unrecognized) =>
+        {
+            info!(
+                "Remote server does not support authenticated media, falling \
+                 back to deprecated API"
+            );
+
+            get_remote_thumbnail_via_legacy_api(server_name, request.clone())
+                .await?
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    Ok(response)
+}
+
 async fn get_content_thumbnail_route_ruma(
-    body: Ar<legacy_media::get_content_thumbnail::v3::Request>,
-) -> Result<legacy_media::get_content_thumbnail::v3::Response> {
+    body: Ar<authenticated_media_client::get_content_thumbnail::v1::Request>,
+    allow_remote: bool,
+) -> Result<authenticated_media_client::get_content_thumbnail::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
     let width = body.width.try_into().map_err(|_| {
         Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
@@ -377,48 +811,44 @@ async fn get_content_thumbnail_route_ruma(
     }) =
         services().media.get_thumbnail(mxc.to_string(), width, height).await?
     {
-        Ok(legacy_media::get_content_thumbnail::v3::Response {
+        Ok(authenticated_media_client::get_content_thumbnail::v1::Response {
             file,
             content_type,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
         })
     } else if &*body.server_name != services().globals.server_name()
-        && body.allow_remote
+        && allow_remote
     {
-        let get_thumbnail_response = services()
-            .sending
-            .send_federation_request(
-                &body.server_name,
-                legacy_media::get_content_thumbnail::v3::Request {
-                    allow_remote: false,
-                    height: body.height,
-                    width: body.width,
-                    method: body.method.clone(),
-                    server_name: body.server_name.clone(),
-                    media_id: body.media_id.clone(),
-                    timeout_ms: Duration::from_secs(20),
-                    allow_redirect: false,
-                    animated: Some(false),
-                },
-            )
-            .await?;
+        let get_thumbnail_response = get_remote_thumbnail(
+            &body.server_name,
+            authenticated_media_fed::get_content_thumbnail::v1::Request {
+                height: body.height,
+                width: body.width,
+                method: body.method.clone(),
+                media_id: body.media_id.clone(),
+                timeout_ms: Duration::from_secs(20),
+                // we don't support animated thumbnails, so don't try requesting
+                // one - we're allowed to ignore the client's request for an
+                // animated thumbnail
+                animated: Some(false),
+            },
+        )
+        .await?;
 
         services()
             .media
             .upload_thumbnail(
                 mxc.to_string(),
                 None,
-                get_thumbnail_response.content_type.as_deref(),
+                get_thumbnail_response.content.content_type.as_deref(),
                 width,
                 height,
-                &get_thumbnail_response.file,
+                &get_thumbnail_response.content.file,
             )
             .await?;
 
-        Ok(legacy_media::get_content_thumbnail::v3::Response {
-            file: get_thumbnail_response.file,
-            content_type: get_thumbnail_response.content_type,
-            cross_origin_resource_policy: Some("cross-origin".to_owned()),
+        Ok(authenticated_media_client::get_content_thumbnail::v1::Response {
+            file: get_thumbnail_response.content.file,
+            content_type: get_thumbnail_response.content.content_type,
         })
     } else {
         Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
