@@ -212,7 +212,7 @@ async fn ar_from_request_inner(
 
                 let origin_signatures = BTreeMap::from_iter([(
                     x_matrix.key.to_string(),
-                    CanonicalJsonValue::String(x_matrix.sig),
+                    CanonicalJsonValue::String(x_matrix.sig.to_string()),
                 )]);
 
                 let signatures = BTreeMap::from_iter([(

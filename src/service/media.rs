@@ -1,6 +1,7 @@
 use std::io::Cursor;
 
 use image::imageops::FilterType;
+use ruma::http_headers::ContentDisposition;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
@@ -35,7 +36,7 @@ impl Service {
     pub(crate) async fn create(
         &self,
         mxc: String,
-        content_disposition: Option<&str>,
+        content_disposition: Option<&ContentDisposition>,
         content_type: Option<&str>,
         file: &[u8],
     ) -> Result<()> {
@@ -44,7 +45,7 @@ impl Service {
             mxc,
             0,
             0,
-            content_disposition,
+            content_disposition.map(ContentDisposition::to_string).as_deref(),
             content_type,
         )?;
 

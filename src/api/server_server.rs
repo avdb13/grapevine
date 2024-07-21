@@ -244,11 +244,12 @@ where
         .unwrap();
 
     let key_id = OwnedSigningKeyId::try_from(key_id.clone()).unwrap();
-    let signature = signature.as_str().unwrap().to_owned();
+    let signature = Base64::parse(signature.as_str().unwrap())
+        .expect("generated signature should be valid base64");
 
     http_request.headers_mut().typed_insert(Authorization(XMatrix::new(
         services().globals.server_name().to_owned(),
-        Some(destination.to_owned()),
+        destination.to_owned(),
         key_id,
         signature,
     )));

@@ -6,12 +6,15 @@ use http::{
     HeaderName, HeaderValue,
 };
 use phf::{phf_set, Set};
-use ruma::api::client::{
-    error::ErrorKind,
-    media::{
-        create_content, get_content, get_content_as_filename,
-        get_content_thumbnail, get_media_config,
+use ruma::{
+    api::client::{
+        error::ErrorKind,
+        media::{
+            create_content, get_content, get_content_as_filename,
+            get_content_thumbnail, get_media_config,
+        },
     },
+    http_headers::{ContentDisposition, ContentDispositionType},
 };
 use tracing::error;
 
@@ -77,16 +80,17 @@ fn content_security_policy() -> HeaderValue {
 // Doing this correctly is tricky, so I'm skipping it for now.
 fn content_disposition_for(
     content_type: Option<&str>,
-    filename: Option<&str>,
-) -> String {
-    match (
-        content_type.is_some_and(|x| INLINE_CONTENT_TYPES.contains(x)),
+    filename: Option<String>,
+) -> ContentDisposition {
+    let disposition_type = match content_type {
+        Some(x) if INLINE_CONTENT_TYPES.contains(x) => {
+            ContentDispositionType::Inline
+        }
+        _ => ContentDispositionType::Attachment,
+    };
+    ContentDisposition {
+        disposition_type,
         filename,
-    ) {
-        (true, None) => "inline".to_owned(),
-        (true, Some(x)) => format!("inline; filename={x}"),
-        (false, None) => "attachment".to_owned(),
-        (false, Some(x)) => format!("attachment; filename={x}"),
     }
 }
 
@@ -114,6 +118,7 @@ fn set_header_or_panic(
 /// # `GET /_matrix/media/r0/config`
 ///
 /// Returns max upload size.
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_media_config_route(
     _body: Ar<get_media_config::v3::Request>,
 ) -> Result<Ra<get_media_config::v3::Response>> {
@@ -142,9 +147,12 @@ pub(crate) async fn create_content_route(
         .create(
             mxc.clone(),
             body.filename
-                .as_ref()
-                .map(|filename| format!("inline; filename={filename}"))
-                .as_deref(),
+                .clone()
+                .map(|filename| ContentDisposition {
+                    disposition_type: ContentDispositionType::Inline,
+                    filename: Some(filename),
+                })
+                .as_ref(),
             body.content_type.as_deref(),
             &body.file,
         )
@@ -156,6 +164,7 @@ pub(crate) async fn create_content_route(
     }))
 }
 
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_remote_content(
     mxc: &str,
     server_name: &ruma::ServerName,
@@ -179,7 +188,7 @@ pub(crate) async fn get_remote_content(
         .media
         .create(
             mxc.to_owned(),
-            content_response.content_disposition.as_deref(),
+            content_response.content_disposition.as_ref(),
             content_response.content_type.as_deref(),
             &content_response.file,
         )
@@ -198,6 +207,7 @@ pub(crate) async fn get_remote_content(
 /// Load media from our server or over federation.
 ///
 /// - Only allows federation if `allow_remote` is true
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_route(
     body: Ar<get_content::v3::Request>,
 ) -> Result<axum::response::Response> {
@@ -214,6 +224,7 @@ pub(crate) async fn get_content_route(
     })
 }
 
+#[allow(deprecated)] // unauthenticated media
 async fn get_content_route_ruma(
     body: Ar<get_content::v3::Request>,
 ) -> Result<get_content::v3::Response> {
@@ -259,6 +270,7 @@ async fn get_content_route_ruma(
 /// Load media from our server or over federation, permitting desired filename.
 ///
 /// - Only allows federation if `allow_remote` is true
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_as_filename_route(
     body: Ar<get_content_as_filename::v3::Request>,
 ) -> Result<axum::response::Response> {
@@ -275,6 +287,7 @@ pub(crate) async fn get_content_as_filename_route(
     })
 }
 
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_as_filename_route_ruma(
     body: Ar<get_content_as_filename::v3::Request>,
 ) -> Result<get_content_as_filename::v3::Response> {
@@ -290,7 +303,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
             file,
             content_disposition: Some(content_disposition_for(
                 content_type.as_deref(),
-                Some(body.filename.as_str()),
+                Some(body.filename.clone()),
             )),
             content_type,
             cross_origin_resource_policy: Some("cross-origin".to_owned()),
@@ -305,7 +318,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
         Ok(get_content_as_filename::v3::Response {
             content_disposition: Some(content_disposition_for(
                 remote_content_response.content_type.as_deref(),
-                Some(body.filename.as_str()),
+                Some(body.filename.clone()),
             )),
             content_type: remote_content_response.content_type,
             file: remote_content_response.file,
@@ -321,6 +334,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
 /// Load media thumbnail from our server or over federation.
 ///
 /// - Only allows federation if `allow_remote` is true
+#[allow(deprecated)] // unauthenticated media
 pub(crate) async fn get_content_thumbnail_route(
     body: Ar<get_content_thumbnail::v3::Request>,
 ) -> Result<axum::response::Response> {
@@ -342,6 +356,7 @@ pub(crate) async fn get_content_thumbnail_route(
             &mut r,
             CONTENT_DISPOSITION,
             content_disposition_for(content_type.as_deref(), None)
+                .to_string()
                 .try_into()
                 .expect("generated header value should be valid"),
         );
@@ -350,6 +365,7 @@ pub(crate) async fn get_content_thumbnail_route(
     })
 }
 
+#[allow(deprecated)] // unauthenticated media
 async fn get_content_thumbnail_route_ruma(
     body: Ar<get_content_thumbnail::v3::Request>,
 ) -> Result<get_content_thumbnail::v3::Response> {
@@ -393,6 +409,7 @@ async fn get_content_thumbnail_route_ruma(
                     media_id: body.media_id.clone(),
                     timeout_ms: Duration::from_secs(20),
                     allow_redirect: false,
+                    animated: Some(false),
                 },
             )
             .await?;
