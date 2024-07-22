@@ -5,6 +5,7 @@ use std::{
     fmt::Debug,
     mem,
     net::{IpAddr, SocketAddr},
+    ops::Deref,
     sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
@@ -1040,32 +1041,36 @@ pub(crate) async fn get_event_route(
         Error::bad_database("Invalid room id field in event in database")
     })?;
 
-    if !services()
+    let room_version_id = services().rooms.state.get_room_version(room_id)?;
+
+    let server_in_room = services()
         .rooms
         .state_cache
-        .server_in_room(sender_servername, room_id)?
-    {
-        return Err(Error::BadRequest(
-            ErrorKind::forbidden(),
-            "Server is not in room",
-        ));
-    }
+        .server_in_room(sender_servername, room_id)?;
+    let server_can_see_event = services()
+        .rooms
+        .state_accessor
+        .server_can_see_event(sender_servername, room_id, &body.event_id)?;
 
-    if !services().rooms.state_accessor.server_can_see_event(
-        sender_servername,
-        room_id,
-        &body.event_id,
-    )? {
-        return Err(Error::BadRequest(
-            ErrorKind::forbidden(),
-            "Server is not allowed to see event.",
-        ));
-    }
+    let redaction =
+        ruma::canonical_json::redact(event.clone(), &room_version_id, None)
+            .map_err(|error| {
+                error!(%error, "Failed to redact invisible federation event.");
+
+                Error::bad_database(
+                    "Failed to redact invisible federation event.",
+                )
+            });
+
+    let pdu = (server_in_room && server_can_see_event)
+        .then(|| Ok(event))
+        .unwrap_or_else(|| redaction)
+        .map(PduEvent::convert_to_outgoing_federation_event)?;
 
     Ok(Ra(get_event::v1::Response {
         origin: services().globals.server_name().to_owned(),
         origin_server_ts: MilliSecondsSinceUnixEpoch::now(),
-        pdu: PduEvent::convert_to_outgoing_federation_event(event),
+        pdu,
     }))
 }
 
@@ -1080,17 +1085,6 @@ pub(crate) async fn get_backfill_route(
         body.sender_servername.as_ref().expect("server is authenticated");
 
     debug!(server = %sender_servername, "Got backfill request");
-
-    if !services()
-        .rooms
-        .state_cache
-        .server_in_room(sender_servername, &body.room_id)?
-    {
-        return Err(Error::BadRequest(
-            ErrorKind::forbidden(),
-            "Server is not in room.",
-        ));
-    }
 
     services()
         .rooms
@@ -1116,27 +1110,60 @@ pub(crate) async fn get_backfill_route(
         .pdus_until(user_id!("@doesntmatter:grapevine"), &body.room_id, until)?
         .take(limit.try_into().unwrap());
 
-    let events = all_events
-        .filter_map(Result::ok)
-        .filter(|(_, e)| {
-            matches!(
-                services().rooms.state_accessor.server_can_see_event(
-                    sender_servername,
-                    &e.room_id,
-                    &e.event_id,
-                ),
-                Ok(true),
-            )
-        })
-        .map(|(_, pdu)| services().rooms.timeline.get_pdu_json(&pdu.event_id))
-        .filter_map(|r| r.ok().flatten())
-        .map(PduEvent::convert_to_outgoing_federation_event)
-        .collect();
+    let server_in_room = services()
+        .rooms
+        .state_cache
+        .server_in_room(sender_servername, &body.room_id)?;
+
+    let room_version_id =
+        services().rooms.state.get_room_version(&body.room_id)?;
+
+    let redaction = |event, room_version_id| -> Result<CanonicalJsonObject> {
+        ruma::canonical_json::redact(event, room_version_id, None).map_err(
+            |error| {
+                error!(%error, "Failed to redact invisible federation event.");
+
+                Error::bad_database(
+                    "Failed to redact invisible federation event.",
+                )
+            },
+        )
+    };
+
+    let pdus = all_events.filter_map(Result::ok).try_fold(
+        Vec::new(),
+        |mut pdus, (_, pdu)| -> Result<Vec<Box<RawJsonValue>>> {
+            let (room_id, event_id) = (&*pdu.room_id, &*pdu.event_id);
+
+            let visible = services()
+                .rooms
+                .state_accessor
+                .server_can_see_event(sender_servername, &room_id, &event_id)?;
+
+            let Some(pdu_json) =
+                services().rooms.timeline.get_pdu_json(&event_id)?
+            else {
+                return Ok(pdus);
+            };
+
+            if let Some(event) = (server_in_room && visible)
+                .then(|| Ok(pdu_json.clone()))
+                .or(Some(redaction(pdu_json, &room_version_id)))
+                .transpose()?
+            {
+                pdus.push(PduEvent::convert_to_outgoing_federation_event(
+                    event,
+                ));
+            };
+
+            Ok(pdus)
+        },
+    )?;
 
     Ok(Ra(get_backfill::v1::Response {
         origin: services().globals.server_name().to_owned(),
         origin_server_ts: MilliSecondsSinceUnixEpoch::now(),
-        pdus: events,
+        pdus,
     }))
 }
 
