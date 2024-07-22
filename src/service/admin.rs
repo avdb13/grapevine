@@ -1222,21 +1222,18 @@ impl Service {
         services().users.create(&services().globals.admin_bot_user_id, None)?;
 
         let room_version = services().globals.default_room_version();
-        let mut content = match room_version {
-            RoomVersionId::V1
-            | RoomVersionId::V2
-            | RoomVersionId::V3
-            | RoomVersionId::V4
-            | RoomVersionId::V5
-            | RoomVersionId::V6
-            | RoomVersionId::V7
-            | RoomVersionId::V8
-            | RoomVersionId::V9
-            | RoomVersionId::V10 => RoomCreateEventContent::new_v1(
-                services().globals.admin_bot_user_id.clone(),
-            ),
+        let mut content = match &room_version {
+            room_version if *room_version < RoomVersionId::V11 => {
+                RoomCreateEventContent::new_v1(
+                    services().globals.admin_bot_user_id.clone(),
+                )
+            }
             RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
-            _ => unreachable!("Validity of room version already checked"),
+            _ => {
+                return Err(Error::BadServerResponse(
+                    "Unsupported room version.",
+                ))
+            }
         };
         content.federate = true;
         content.predecessor = None;

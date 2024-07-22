@@ -68,7 +68,6 @@ pub(crate) struct Service {
     federation_client: reqwest::Client,
     default_client: reqwest::Client,
     pub(crate) stable_room_versions: Vec<RoomVersionId>,
-    pub(crate) unstable_room_versions: Vec<RoomVersionId>,
     pub(crate) admin_bot_user_id: OwnedUserId,
     pub(crate) admin_bot_room_alias_id: OwnedRoomAliasId,
     pub(crate) bad_event_ratelimiter:
@@ -224,9 +223,6 @@ impl Service {
             RoomVersionId::V10,
             RoomVersionId::V11,
         ];
-        // Experimental, partially supported room versions
-        let unstable_room_versions =
-            vec![RoomVersionId::V3, RoomVersionId::V4, RoomVersionId::V5];
 
         let admin_bot_user_id = UserId::parse(format!(
             "@{}:{}",
@@ -268,7 +264,6 @@ impl Service {
             default_client,
             jwt_decoding_key,
             stable_room_versions,
-            unstable_room_versions,
             admin_bot_user_id,
             admin_bot_room_alias_id,
             bad_event_ratelimiter: Arc::new(RwLock::new(HashMap::new())),
@@ -369,10 +364,6 @@ impl Service {
         self.config.allow_room_creation
     }
 
-    pub(crate) fn allow_unstable_room_versions(&self) -> bool {
-        self.config.allow_unstable_room_versions
-    }
-
     pub(crate) fn default_room_version(&self) -> RoomVersionId {
         self.config.default_room_version.clone()
     }
@@ -416,12 +407,7 @@ impl Service {
     }
 
     pub(crate) fn supported_room_versions(&self) -> Vec<RoomVersionId> {
-        let mut room_versions: Vec<RoomVersionId> = vec![];
-        room_versions.extend(self.stable_room_versions.clone());
-        if self.allow_unstable_room_versions() {
-            room_versions.extend(self.unstable_room_versions.clone());
-        };
-        room_versions
+        self.stable_room_versions.clone()
     }
 
     /// This doesn't actually check that the keys provided are newer than the
@@ -479,15 +465,10 @@ impl Service {
         &self,
         keys: SigningKeys,
         timestamp: MilliSecondsSinceUnixEpoch,
-        room_version_id: &RoomVersionId,
+        _room_version_id: &RoomVersionId,
     ) -> Option<BTreeMap<String, Base64>> {
-        let all_valid = keys.valid_until_ts > timestamp
-            // valid_until_ts MUST be ignored in room versions 1, 2, 3, and 4.
-            // https://spec.matrix.org/v1.10/server-server-api/#get_matrixkeyv2server
-            || matches!(room_version_id, RoomVersionId::V1
-                | RoomVersionId::V2
-                | RoomVersionId::V4
-                | RoomVersionId::V3);
+        let all_valid = keys.valid_until_ts > timestamp;
+
         all_valid.then(|| {
             // Given that either the room version allows stale keys, or the
             // valid_until_ts is in the future, all verify_keys are

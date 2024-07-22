@@ -138,17 +138,8 @@ pub(crate) async fn create_room_route(
                 .deserialize_as::<CanonicalJsonObject>()
                 .expect("Invalid creation content");
 
-            match room_version {
-                RoomVersionId::V1
-                | RoomVersionId::V2
-                | RoomVersionId::V3
-                | RoomVersionId::V4
-                | RoomVersionId::V5
-                | RoomVersionId::V6
-                | RoomVersionId::V7
-                | RoomVersionId::V8
-                | RoomVersionId::V9
-                | RoomVersionId::V10 => {
+            match &room_version {
+                room_version if *room_version < RoomVersionId::V11 => {
                     content.insert(
                         "creator".into(),
                         json!(&sender_user).try_into().map_err(|_| {
@@ -161,7 +152,11 @@ pub(crate) async fn create_room_route(
                 }
                 // V11 removed the "creator" key
                 RoomVersionId::V11 => {}
-                _ => unreachable!("Validity of room version already checked"),
+                _ => {
+                    return Err(Error::BadServerResponse(
+                        "Unsupported room version.",
+                    ))
+                }
             }
 
             content.insert(
@@ -176,21 +171,16 @@ pub(crate) async fn create_room_route(
             content
         }
         None => {
-            let content = match room_version {
-                RoomVersionId::V1
-                | RoomVersionId::V2
-                | RoomVersionId::V3
-                | RoomVersionId::V4
-                | RoomVersionId::V5
-                | RoomVersionId::V6
-                | RoomVersionId::V7
-                | RoomVersionId::V8
-                | RoomVersionId::V9
-                | RoomVersionId::V10 => {
+            let content = match &room_version {
+                room_version if *room_version < RoomVersionId::V11 => {
                     RoomCreateEventContent::new_v1(sender_user.to_owned())
                 }
                 RoomVersionId::V11 => RoomCreateEventContent::new_v11(),
-                _ => unreachable!("Validity of room version already checked"),
+                _ => {
+                    return Err(Error::BadServerResponse(
+                        "Unsupported room version.",
+                    ))
+                }
             };
             let mut content = serde_json::from_str::<CanonicalJsonObject>(
                 to_raw_value(&content)
@@ -671,17 +661,8 @@ pub(crate) async fn upgrade_room_route(
 
     // Send a m.room.create event containing a predecessor field and the
     // applicable room_version
-    match body.new_version {
-        RoomVersionId::V1
-        | RoomVersionId::V2
-        | RoomVersionId::V3
-        | RoomVersionId::V4
-        | RoomVersionId::V5
-        | RoomVersionId::V6
-        | RoomVersionId::V7
-        | RoomVersionId::V8
-        | RoomVersionId::V9
-        | RoomVersionId::V10 => {
+    match &body.new_version {
+        room_version if *room_version < RoomVersionId::V11 => {
             create_event_content.insert(
                 "creator".into(),
                 json!(&sender_user).try_into().map_err(|_| {
@@ -696,7 +677,7 @@ pub(crate) async fn upgrade_room_route(
             // "creator" key no longer exists in V11 rooms
             create_event_content.remove("creator");
         }
-        _ => unreachable!("Validity of room version already checked"),
+        _ => return Err(Error::BadServerResponse("Unsupported room version.")),
     }
     create_event_content.insert(
         "room_version".into(),

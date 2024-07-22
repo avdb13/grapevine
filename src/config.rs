@@ -50,8 +50,6 @@ pub(crate) struct Config {
     pub(crate) allow_encryption: bool,
     #[serde(default = "true_fn")]
     pub(crate) allow_room_creation: bool,
-    #[serde(default = "true_fn")]
-    pub(crate) allow_unstable_room_versions: bool,
     #[serde(default = "default_default_room_version")]
     pub(crate) default_room_version: RoomVersionId,
     #[serde(default)]

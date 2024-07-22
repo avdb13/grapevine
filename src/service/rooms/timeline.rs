@@ -391,17 +391,8 @@ impl Service {
             TimelineEventType::RoomRedaction => {
                 let room_version_id =
                     services().rooms.state.get_room_version(&pdu.room_id)?;
-                match room_version_id {
-                    RoomVersionId::V1
-                    | RoomVersionId::V2
-                    | RoomVersionId::V3
-                    | RoomVersionId::V4
-                    | RoomVersionId::V5
-                    | RoomVersionId::V6
-                    | RoomVersionId::V7
-                    | RoomVersionId::V8
-                    | RoomVersionId::V9
-                    | RoomVersionId::V10 => {
+                match &room_version_id {
+                    room_version if *room_version < RoomVersionId::V11 => {
                         if let Some(redact_id) = &pdu.redacts {
                             if services().rooms.state_accessor.user_can_redact(
                                 redact_id,
@@ -435,7 +426,9 @@ impl Service {
                         }
                     }
                     _ => {
-                        unreachable!("Validity of room version already checked")
+                        return Err(Error::BadServerResponse(
+                            "Unsupported room version.",
+                        ));
                     }
                 };
             }
