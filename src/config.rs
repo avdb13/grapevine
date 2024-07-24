@@ -250,6 +250,7 @@ pub(crate) struct FederationConfig {
     pub(crate) trusted_servers: Vec<OwnedServerName>,
     pub(crate) max_fetch_prev_events: u16,
     pub(crate) max_concurrent_requests: u16,
+    pub(crate) redact_invisible_events: bool,
 }
 
 impl Default for FederationConfig {
@@ -261,6 +262,7 @@ impl Default for FederationConfig {
             ],
             max_fetch_prev_events: 100,
             max_concurrent_requests: 100,
+            redact_invisible_events: false,
         }
     }
 }

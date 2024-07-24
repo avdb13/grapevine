@@ -1024,48 +1024,15 @@ pub(crate) async fn get_event_route(
     let sender_servername =
         body.sender_servername.as_ref().expect("server is authenticated");
 
-    let event =
-        services().rooms.timeline.get_pdu_json(&body.event_id)?.ok_or_else(
-            || {
-                warn!(event_id = %body.event_id, "Event not found");
-                Error::BadRequest(ErrorKind::NotFound, "Event not found.")
-            },
-        )?;
-
-    let room_id_str = event
-        .get("room_id")
-        .and_then(|val| val.as_str())
-        .ok_or_else(|| Error::bad_database("Invalid event in database"))?;
-
-    let room_id = <&RoomId>::try_from(room_id_str).map_err(|_| {
-        Error::bad_database("Invalid room id field in event in database")
-    })?;
-
-    let room_version_id = services().rooms.state.get_room_version(room_id)?;
-
-    let server_in_room = services()
-        .rooms
-        .state_cache
-        .server_in_room(sender_servername, room_id)?;
-    let server_can_see_event = services()
-        .rooms
-        .state_accessor
-        .server_can_see_event(sender_servername, room_id, &body.event_id)?;
-
-    let redaction =
-        ruma::canonical_json::redact(event.clone(), &room_version_id, None)
-            .map_err(|error| {
-                error!(%error, "Failed to redact invisible federation event.");
-
-                Error::bad_database(
-                    "Failed to redact invisible federation event.",
-                )
-            });
-
-    let pdu = (server_in_room && server_can_see_event)
-        .then(|| Ok(event))
-        .unwrap_or_else(|| redaction)
-        .map(PduEvent::convert_to_outgoing_federation_event)?;
+    let pdu = pdu_visibility_helper(sender_servername, room_id, &body.event_id)
+        .and_then(|pdu| {
+            pdu.map(PduEvent::convert_to_outgoing_federation_event).ok_or_else(
+                || {
+                    warn!(event_id = %body.event_id, "Event not found");
+                    Error::BadRequest(ErrorKind::NotFound, "Event not found.")
+                },
+            )
+        })?;
 
     Ok(Ra(get_event::v1::Response {
         origin: services().globals.server_name().to_owned(),
@@ -1110,53 +1077,12 @@ pub(crate) async fn get_backfill_route(
         .pdus_until(user_id!("@doesntmatter:grapevine"), &body.room_id, until)?
         .take(limit.try_into().unwrap());
 
-    let server_in_room = services()
-        .rooms
-        .state_cache
-        .server_in_room(sender_servername, &body.room_id)?;
-
-    let room_version_id =
-        services().rooms.state.get_room_version(&body.room_id)?;
-
-    let redaction = |event, room_version_id| -> Result<CanonicalJsonObject> {
-        ruma::canonical_json::redact(event, room_version_id, None).map_err(
-            |error| {
-                error!(%error, "Failed to redact invisible federation event.");
-
-                Error::bad_database(
-                    "Failed to redact invisible federation event.",
-                )
-            },
-        )
-    };
-
     let pdus = all_events.filter_map(Result::ok).try_fold(
         Vec::new(),
         |mut pdus, (_, pdu)| -> Result<Vec<Box<RawJsonValue>>> {
             let (room_id, event_id) = (&*pdu.room_id, &*pdu.event_id);
 
-            let visible = services()
-                .rooms
-                .state_accessor
-                .server_can_see_event(sender_servername, &room_id, &event_id)?;
-
-            let Some(pdu_json) =
-                services().rooms.timeline.get_pdu_json(&event_id)?
-            else {
-                return Ok(pdus);
-            };
-
-            if let Some(event) = (server_in_room && visible)
-                .then(|| Ok(pdu_json.clone()))
-                .or(Some(redaction(pdu_json, &room_version_id)))
-                .transpose()?
-            {
-                pdus.push(PduEvent::convert_to_outgoing_federation_event(
-                    event,
-                ));
-            };
-
-            Ok(pdus)
+            pdu_visibility_helper(sender_servername, room_id, event_id)
         },
     )?;
 
@@ -2038,6 +1964,47 @@ pub(crate) async fn claim_keys_route(
     Ok(Ra(claim_keys::v1::Response {
         one_time_keys: result.one_time_keys,
     }))
+}
+
+pub(crate) fn pdu_visibility_helper(
+    sender_servername: &ServerName,
+    room_id: &RoomId,
+    event_id: &EventId,
+) -> Result<Option<CanonicalJsonObject>> {
+    let event =
+        services().rooms.timeline.get_pdu_json(event_id)?.ok_or_else(|| {
+            warn!(event_id = %event_id, "Event not found");
+
+            Error::BadRequest(ErrorKind::NotFound, "Event not found.")
+        })?;
+
+    let server_in_room = services()
+        .rooms
+        .state_cache
+        .server_in_room(sender_servername, room_id)?;
+    let server_can_see_event = services()
+        .rooms
+        .state_accessor
+        .server_can_see_event(sender_servername, room_id, event_id)?;
+    let redact = services().globals.config.federation.redact_invisible_events;
+
+    let redaction = redact
+        .then(|| {
+            let room_version_id =
+                services().rooms.state.get_room_version(room_id)?;
+
+            ruma::canonical_json::redact(event.clone(), &room_version_id, None)
+            .map_err(|error| {
+                error!(%error, "Failed to redact invisible federation event.");
+
+                Error::bad_database(
+                    "Failed to redact invisible federation event.",
+                )
+            })
+        })
+        .transpose()?;
+
+    Ok((server_in_room && server_can_see_event).then_some(event).or(redaction))
 }
 
 #[cfg(test)]
