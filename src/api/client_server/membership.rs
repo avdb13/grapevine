@@ -29,7 +29,7 @@ use ruma::{
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
     OwnedUserId, RoomId, RoomVersionId, UserId,
 };
-use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
+use serde_json::value::{to_raw_value, RawValue as RawJsonValue, Value};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -57,19 +57,9 @@ pub(crate) async fn join_room_by_id_route(
 
     // There is no body.server_name for /roomId/join
     let mut servers = Vec::new();
-    servers.extend(
-        services()
-            .rooms
-            .state_cache
-            .invite_state(sender_user, &body.room_id)?
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|event| serde_json::from_str(event.json().get()).ok())
-            .filter_map(|event: serde_json::Value| event.get("sender").cloned())
-            .filter_map(|sender| sender.as_str().map(ToOwned::to_owned))
-            .filter_map(|sender| UserId::parse(sender).ok())
-            .map(|user| user.server_name().to_owned()),
-    );
+    if let Some(v) = find_participating_servers(sender_user, &body.room_id)? {
+        servers.extend(v);
+    }
 
     servers.push(
         body.room_id
@@ -108,23 +98,11 @@ pub(crate) async fn join_room_by_id_or_alias_route(
     {
         Ok(room_id) => {
             let mut servers = body.server_name.clone();
-            servers.extend(
-                services()
-                    .rooms
-                    .state_cache
-                    .invite_state(sender_user, &room_id)?
-                    .unwrap_or_default()
-                    .iter()
-                    .filter_map(|event| {
-                        serde_json::from_str(event.json().get()).ok()
-                    })
-                    .filter_map(|event: serde_json::Value| {
-                        event.get("sender").cloned()
-                    })
-                    .filter_map(|sender| sender.as_str().map(ToOwned::to_owned))
-                    .filter_map(|sender| UserId::parse(sender).ok())
-                    .map(|user| user.server_name().to_owned()),
-            );
+
+            if let Some(v) = find_participating_servers(sender_user, &room_id)?
+            {
+                servers.extend(v);
+            }
 
             servers.push(
                 room_id
@@ -497,6 +475,30 @@ pub(crate) async fn joined_members_route(
     Ok(Ra(joined_members::v3::Response {
         joined,
     }))
+}
+
+/// Tries to find servers already participating in this room by
+/// inspecting its stripped state events, if any.
+pub(crate) fn find_participating_servers(
+    sender_user: &UserId,
+    room_id: &RoomId,
+) -> Result<Option<impl Iterator<Item = OwnedServerName>>> {
+    let Some(invite_state) =
+        services().rooms.state_cache.invite_state(sender_user, room_id)?
+    else {
+        return Ok(None);
+    };
+
+    let servers = invite_state
+        .into_iter()
+        .filter_map(|event| event.cast_ref::<Value>().deserialize().ok())
+        .filter_map(|event| {
+            event.get("sender").and_then(Value::as_str).map(str::to_owned)
+        })
+        .filter_map(|event| UserId::parse(event).ok())
+        .map(|user_id| user_id.server_name().to_owned());
+
+    Ok(Some(servers))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1576,19 +1578,9 @@ async fn remote_leave_room(user_id: &UserId, room_id: &RoomId) -> Result<()> {
         "No server available to assist in leaving.",
     ));
 
-    let invite_state =
-        services().rooms.state_cache.invite_state(user_id, room_id)?.ok_or(
-            Error::BadRequest(ErrorKind::BadState, "User is not invited."),
-        )?;
-
-    let servers: HashSet<_> = invite_state
-        .iter()
-        .filter_map(|event| serde_json::from_str(event.json().get()).ok())
-        .filter_map(|event: serde_json::Value| event.get("sender").cloned())
-        .filter_map(|sender| sender.as_str().map(ToOwned::to_owned))
-        .filter_map(|sender| UserId::parse(sender).ok())
-        .map(|user| user.server_name().to_owned())
-        .collect();
+    let servers: HashSet<_> = find_participating_servers(user_id, room_id)?
+        .ok_or(Error::BadRequest(ErrorKind::BadState, "User is not invited."))
+        .map(Iterator::collect)?;
 
     for remote_server in servers {
         let make_leave_response = services()
