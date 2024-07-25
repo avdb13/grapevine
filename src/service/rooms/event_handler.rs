@@ -159,7 +159,7 @@ impl Service {
 
         // 9. Fetch any missing prev events doing all checks listed here
         //    starting at 1. These are timeline events
-        let (sorted_prev_events, mut eventid_info) = self
+        let (sorted_prev_events, mut history) = self
             .fetch_unknown_prev_events(
                 origin,
                 &create_event,
@@ -221,7 +221,7 @@ impl Service {
                 continue;
             }
 
-            if let Some((pdu, json)) = eventid_info.remove(&*prev_id) {
+            if let Some((pdu, json)) = history.remove(&*prev_id) {
                 // Skip old events
                 if pdu.origin_server_ts < first_pdu_in_room.origin_server_ts {
                     continue;
@@ -1462,10 +1462,10 @@ impl Service {
         &self,
         origin: &ServerName,
         create_event: &PduEvent,
+        events: Vec<Arc<EventId>>,
         room_id: &RoomId,
         room_version_id: &RoomVersionId,
         pub_key_map: &RwLock<BTreeMap<String, SigningKeys>>,
-        initial_set: Vec<Arc<EventId>>,
     ) -> Result<(
         Vec<Arc<EventId>>,
         HashMap<
@@ -1473,18 +1473,18 @@ impl Service {
             (Arc<PduEvent>, BTreeMap<String, CanonicalJsonValue>),
         >,
     )> {
-        let mut graph: HashMap<Arc<EventId>, _> = HashMap::new();
-        let mut eventid_info = HashMap::new();
-        let mut todo_outlier_stack: Vec<Arc<EventId>> = initial_set;
-
         let first_pdu_in_room =
             services().rooms.timeline.first_pdu_in_room(room_id)?.ok_or_else(
                 || Error::bad_database("Failed to find first pdu in db."),
             )?;
 
+        let mut graph: HashMap<Arc<EventId>, _> = HashMap::new();
+        let mut history = HashMap::new();
+
+        let mut stack: Vec<Arc<EventId>> = events.clone();
         let mut amount = 0;
 
-        while let Some(prev_event_id) = todo_outlier_stack.pop() {
+        while let Some(prev_event_id) = stack.pop() {
             if let Some((pdu, json_opt)) = self
                 .fetch_and_handle_outliers(
                     origin,
@@ -1519,7 +1519,7 @@ impl Service {
                         amount += 1;
                         for prev_prev in &pdu.prev_events {
                             if !graph.contains_key(prev_prev) {
-                                todo_outlier_stack.push(prev_prev.clone());
+                                stack.push(prev_prev.clone());
                             }
                         }
 
@@ -1532,7 +1532,7 @@ impl Service {
                         graph.insert(prev_event_id.clone(), HashSet::new());
                     }
 
-                    eventid_info.insert(prev_event_id.clone(), (pdu, json));
+                    history.insert(prev_event_id.clone(), (pdu, json));
                 } else {
                     // Get json failed, so this was not fetched over federation
                     graph.insert(prev_event_id.clone(), HashSet::new());
@@ -1551,7 +1551,7 @@ impl Service {
                 Ok((
                     int!(0),
                     MilliSecondsSinceUnixEpoch(
-                        eventid_info.get(event_id).map_or_else(
+                        history.get(event_id).map_or_else(
                             || uint!(0),
                             |info| info.0.origin_server_ts,
                         ),
@@ -1560,7 +1560,7 @@ impl Service {
             })
             .map_err(|_| Error::bad_database("Error sorting prev events"))?;
 
-        Ok((sorted, eventid_info))
+        Ok((sorted, history))
     }
 
     #[tracing::instrument(skip_all)]
