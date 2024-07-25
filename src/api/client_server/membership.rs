@@ -29,7 +29,10 @@ use ruma::{
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
     OwnedUserId, RoomId, RoomVersionId, UserId,
 };
-use serde_json::value::{to_raw_value, RawValue as RawJsonValue, Value};
+use serde_json::{
+    value::{to_raw_value, RawValue as RawJsonValue},
+    Value,
+};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -61,12 +64,9 @@ pub(crate) async fn join_room_by_id_route(
         servers.extend(v);
     }
 
-    servers.push(
-        body.room_id
-            .server_name()
-            .expect("Room IDs should always have a server name")
-            .into(),
-    );
+    if let Some(server_name) = body.room_id.server_name() {
+        servers.push(server_name.to_owned());
+    }
 
     join_room_by_id_helper(
         body.sender_user.as_deref(),
@@ -104,12 +104,9 @@ pub(crate) async fn join_room_by_id_or_alias_route(
                 servers.extend(v);
             }
 
-            servers.push(
-                room_id
-                    .server_name()
-                    .expect("Room IDs should always have a server name")
-                    .into(),
-            );
+            if let Some(server_name) = room_id.server_name() {
+                servers.push(server_name.to_owned());
+            }
 
             (servers, room_id)
         }
