@@ -538,6 +538,60 @@ fn find_join_conditions(
     ))
 }
 
+fn prepare_make_join_template(
+    template: &RawJsonValue,
+    room_version: &RoomVersionId,
+) -> Result<(OwnedEventId, CanonicalJsonObject)> {
+    let mut template: CanonicalJsonObject =
+        serde_json::from_str(template.get()).map_err(|_| {
+            Error::BadServerResponse(
+                "Invalid make_join event json received from server.",
+            )
+        })?;
+
+    // Keeping the PDU's `event_id` field is only allowed for in version `V1`
+    // and `V2`
+    template.remove("event_id");
+
+    let origin = format!("{}", services().globals.server_name());
+    template.insert("origin".to_owned(), CanonicalJsonValue::String(origin));
+
+    let origin_server_ts =
+        utils::millis_since_unix_epoch().try_into().expect("integer overflow");
+    template.insert(
+        "origin_server_ts".to_owned(),
+        CanonicalJsonValue::Integer(origin_server_ts),
+    );
+
+    // We hash and sign before inserting "event_id" in order to create a
+    // compatible reference hash
+    ruma::signatures::hash_and_sign_event(
+        services().globals.server_name().as_str(),
+        services().globals.keypair(),
+        &mut template,
+        &room_version,
+    )
+    .expect("event is valid, we just created it");
+
+    // Generate event id
+    let reference_hash =
+        ruma::signatures::reference_hash(&template, &room_version)
+            .expect("ruma can calculate reference hashes");
+
+    // TODO: do we need this?
+    let event_id = EventId::parse(format!("${reference_hash}"))
+        .expect("ruma's reference hashes are valid event ids");
+
+    // Add event_id back
+    template.insert(
+        "event_id".to_owned(),
+        CanonicalJsonValue::String(event_id.to_string()),
+    );
+
+    // It has enough fields to be called a proper event now
+    Ok((event_id.clone(), template))
+}
+
 #[allow(clippy::too_many_lines)]
 #[tracing::instrument(skip(reason, _third_party_signed))]
 async fn join_room_by_id_helper(
@@ -641,124 +695,40 @@ async fn join_room_by_id_helper(
             "We couldn't do the join locally, maybe federation can help to \
              satisfy the restricted join requirements"
         );
-        let (make_join_response, remote_server) =
+
+        let (response, remote_server) =
             make_join_request(sender_user, room_id, servers).await?;
 
-        let room_version_id = match make_join_response.room_version {
-            Some(room_version_id)
-                if services()
-                    .globals
-                    .supported_room_versions()
-                    .contains(&room_version_id) =>
-            {
-                room_version_id
-            }
-            _ => {
-                return Err(Error::BadServerResponse(
-                    "Room version is not supported",
-                ))
-            }
-        };
-        let mut join_event_stub: CanonicalJsonObject = serde_json::from_str(
-            make_join_response.event.get(),
-        )
-        .map_err(|_| {
-            Error::BadServerResponse(
-                "Invalid make_join event json received from server.",
-            )
-        })?;
-        let join_authorized_via_users_server = join_event_stub
-            .get("content")
-            .map(|s| {
-                s.as_object()?.get("join_authorised_via_users_server")?.as_str()
+        let room_version = response
+            .room_version
+            .filter(|v| {
+                services().globals.supported_room_versions().contains(&v)
             })
-            .and_then(|s| OwnedUserId::try_from(s.unwrap_or_default()).ok());
-        // TODO: Is origin needed?
-        join_event_stub.insert(
-            "origin".to_owned(),
-            CanonicalJsonValue::String(
-                services().globals.server_name().as_str().to_owned(),
-            ),
-        );
-        join_event_stub.insert(
-            "origin_server_ts".to_owned(),
-            CanonicalJsonValue::Integer(
-                utils::millis_since_unix_epoch()
-                    .try_into()
-                    .expect("Timestamp is valid js_int value"),
-            ),
-        );
-        join_event_stub.insert(
-            "content".to_owned(),
-            to_canonical_value(RoomMemberEventContent {
-                membership: MembershipState::Join,
-                displayname: services().users.displayname(sender_user)?,
-                avatar_url: services().users.avatar_url(sender_user)?,
-                is_direct: None,
-                third_party_invite: None,
-                blurhash: services().users.blurhash(sender_user)?,
-                reason,
-                join_authorized_via_users_server,
-            })
-            .expect("event is valid, we just created it"),
-        );
+            .ok_or_else(|| {
+                Error::BadServerResponse("Room version is not supported")
+            })?;
+        let (event_id, pdu_json) =
+            prepare_make_join_template(&response.event, &room_version)?;
 
-        // We don't leave the event id in the pdu because that's only allowed in
-        // v1 or v2 rooms
-        join_event_stub.remove("event_id");
-
-        // In order to create a compatible ref hash (EventID) the `hashes` field
-        // needs to be present
-        ruma::signatures::hash_and_sign_event(
-            services().globals.server_name().as_str(),
-            services().globals.keypair(),
-            &mut join_event_stub,
-            &room_version_id,
-        )
-        .expect("event is valid, we just created it");
-
-        // Generate event id
-        let event_id = format!(
-            "${}",
-            ruma::signatures::reference_hash(
-                &join_event_stub,
-                &room_version_id
-            )
-            .expect("ruma can calculate reference hashes")
-        );
-        let event_id = <&EventId>::try_from(event_id.as_str())
-            .expect("ruma's reference hashes are valid event ids");
-
-        // Add event_id back
-        join_event_stub.insert(
-            "event_id".to_owned(),
-            CanonicalJsonValue::String(event_id.as_str().to_owned()),
-        );
-
-        // It has enough fields to be called a proper event now
-        let join_event = join_event_stub;
-
-        let send_join_response = services()
+        let request =
+            federation::membership::create_join_event::v2::Request::new(
+                room_id.to_owned(),
+                event_id.to_owned(),
+                PduEvent::convert_to_outgoing_federation_event(
+                    pdu_json.clone(),
+                ),
+            );
+        let response = services()
             .sending
-            .send_federation_request(
-                &remote_server,
-                federation::membership::create_join_event::v2::Request {
-                    room_id: room_id.to_owned(),
-                    event_id: event_id.to_owned(),
-                    pdu: PduEvent::convert_to_outgoing_federation_event(
-                        join_event.clone(),
-                    ),
-                    omit_members: false,
-                },
-            )
+            .send_federation_request(&remote_server, request)
             .await?;
 
-        let Some(signed_raw) = send_join_response.room_state.event else {
+        let Some(signed_raw) = response.room_state.event else {
             return Err(error);
         };
 
         let Ok((signed_event_id, signed_value)) =
-            gen_event_id_canonical_json(&signed_raw, &room_version_id)
+            gen_event_id_canonical_json(&signed_raw, &room_version)
         else {
             // Event could not be converted to canonical json
             return Err(Error::BadRequest(
