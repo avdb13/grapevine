@@ -498,6 +498,46 @@ pub(crate) fn find_participating_servers(
     Ok(Some(servers))
 }
 
+fn find_join_conditions(
+    sender_user: &UserId,
+    room_id: &RoomId,
+) -> Result<Option<Vec<AllowRule>>> {
+    let Some(event) = services().rooms.state_accessor.room_state_get(
+        room_id,
+        &StateEventType::RoomJoinRules,
+        "",
+    )?
+    else {
+        return Ok(None);
+    };
+
+    let content: RoomJoinRulesEventContent =
+        serde_json::from_str(event.content.get()).map_err(|e| {
+            warn!("Invalid join rules event: {}", e);
+
+            Error::bad_database("Invalid join rules event in db.")
+        })?;
+
+    let (JoinRule::Restricted(r) | JoinRule::KnockRestricted(r)) =
+        content.join_rule
+    else {
+        return Ok(None);
+    };
+    Ok(Some(
+        r.allow
+            .into_iter()
+            .filter(|r| match r {
+                AllowRule::RoomMembership(m) => services()
+                    .rooms
+                    .state_cache
+                    .is_joined(sender_user, &m.room_id)
+                    .unwrap_or(false),
+                _ => false,
+            })
+            .collect(),
+    ))
+}
+
 #[allow(clippy::too_many_lines)]
 #[tracing::instrument(skip(reason, _third_party_signed))]
 async fn join_room_by_id_helper(
@@ -516,80 +556,40 @@ async fn join_room_by_id_helper(
         .await;
 
     // Ask a remote server if we are not participating in this room
-    if services()
+    let server_in_room = services()
         .rooms
         .state_cache
-        .server_in_room(services().globals.server_name(), room_id)?
-    {
-        info!("We can join locally");
+        .server_in_room(services().globals.server_name(), room_id)?;
 
-        let join_rules_event = services().rooms.state_accessor.room_state_get(
-            room_id,
-            &StateEventType::RoomJoinRules,
-            "",
-        )?;
+    // `AllowRule` currently only supports `RoomMembership`, `joined_room`
+    // refers to the room that satisfied the restriction, if any.
+    let join_conditions = find_join_conditions(sender_user, room_id)?;
 
-        let join_rules_event_content: Option<RoomJoinRulesEventContent> =
-            join_rules_event
-                .as_ref()
-                .map(|join_rules_event| {
-                    serde_json::from_str(join_rules_event.content.get())
-                        .map_err(|error| {
-                            warn!(%error, "Invalid join rules event");
-                            Error::bad_database(
-                                "Invalid join rules event in db.",
-                            )
-                        })
-                })
-                .transpose()?;
+    let join_authorized_via_users_server = match join_conditions.as_ref() {
+        Some(v) => v
+            .iter()
+            .filter_map(|r| match r {
+                AllowRule::RoomMembership(m) => Some(&m.room_id),
+                _ => None,
+            })
+            .find_map(|room_id| {
+                let room_members =
+                    services().rooms.state_cache.room_members(room_id);
 
-        let restriction_rooms = match join_rules_event_content {
-            Some(RoomJoinRulesEventContent {
-                join_rule:
-                    JoinRule::Restricted(restricted)
-                    | JoinRule::KnockRestricted(restricted),
-            }) => restricted
-                .allow
-                .into_iter()
-                .filter_map(|a| match a {
-                    AllowRule::RoomMembership(r) => Some(r.room_id),
-                    _ => None,
-                })
-                .collect(),
-            _ => Vec::new(),
-        };
-
-        let authorized_user =
-            if restriction_rooms.iter().any(|restriction_room_id| {
-                services()
-                    .rooms
-                    .state_cache
-                    .is_joined(sender_user, restriction_room_id)
-                    .unwrap_or(false)
-            }) {
-                let mut auth_user = None;
-                for user in services()
-                    .rooms
-                    .state_cache
-                    .room_members(room_id)
-                    .filter_map(Result::ok)
-                    .collect::<Vec<_>>()
-                {
-                    if user.server_name() == services().globals.server_name()
+                room_members.filter_map(Result::ok).find(|user| {
+                    user.server_name() == services().globals.server_name()
                         && services().rooms.state_accessor.user_can_invite(
                             &room_token,
                             &user,
                             sender_user,
                         )
-                    {
-                        auth_user = Some(user);
-                        break;
-                    }
-                }
-                auth_user
-            } else {
-                None
-            };
+                })
+            }),
+        _ => None,
+    };
+
+    if server_in_room {
+        info!("We can join locally");
 
         let event = RoomMemberEventContent {
             membership: MembershipState::Join,
@@ -599,11 +599,11 @@ async fn join_room_by_id_helper(
             third_party_invite: None,
             blurhash: services().users.blurhash(sender_user)?,
             reason: reason.clone(),
-            join_authorized_via_users_server: authorized_user,
+            join_authorized_via_users_server,
         };
 
         // Try normal join first
-        let error = match services()
+        let result = services()
             .rooms
             .timeline
             .build_and_append_pdu(
@@ -618,21 +618,24 @@ async fn join_room_by_id_helper(
                 sender_user,
                 &room_token,
             )
-            .await
-        {
-            Ok(_event_id) => {
-                return Ok(join_room_by_id::v3::Response::new(
-                    room_id.to_owned(),
-                ))
-            }
-            Err(e) => e,
-        };
+            .await;
 
-        if restriction_rooms.is_empty()
-            && servers.iter().any(|s| *s != services().globals.server_name())
-        {
-            return Err(error);
-        }
+        // The user possibly satisfies a condition to join the room that we are
+        // currently not aware of, so we retry the request over
+        // federation.
+        let is_remote_and_restricted = join_conditions
+            .as_ref()
+            .is_some_and(Vec::is_empty)
+            && servers.iter().any(|s| *s != services().globals.server_name());
+
+        let error = match result {
+            Err(e) if is_remote_and_restricted => e,
+            result => {
+                return result.map(|_| {
+                    join_room_by_id::v3::Response::new(room_id.to_owned())
+                });
+            }
+        };
 
         info!(
             "We couldn't do the join locally, maybe federation can help to \
