@@ -1488,6 +1488,7 @@ impl Service {
                 .ok_or_else(|| {
                     Error::bad_database("Failed to find first pdu in db.")
                 })?;
+            info!(%room_id, pdu = ?first_pdu_in_room, "Found first pdu in db");
 
             let mut amount = 0;
 
@@ -1501,6 +1502,7 @@ impl Service {
                     );
                 }
             }
+            info!(sent_events = events.len(), "Finished queuing PDUs to be fetched");
 
             let fetch_and_handle_outliers = |event_id: Arc<EventId>| async move {
                 let outliers = services()
@@ -1525,17 +1527,21 @@ impl Service {
                 tokio::select! {
                     // We fetched enough events, cancel all tasks and break
                     true = future::ready(services().globals.max_fetch_prev_events() < amount) => {
-                            warn!("Max prev event limit reached!");
+                            warn!(%amount, "Maximum limit for previous event fetching exceeded");
 
                             // tasks.clear();
                             break;
                     },
                     // Attempt to fetch and validate the corresponding PDU for the EventId
                     Some(event_id) = rx.recv() => {
+                        info!(%event_id, "Added outlier PDU to fetch-and-handle queue");
+
                         tasks.push(fetch_and_handle_outliers(event_id));
                     }
                     // Process the PDU received over federation
                     Some((event_id, (pdu, json))) = tasks.select_next_some() => {
+                        info!(%event_id, "Received outlier PDU over federation");
+
                         Self::check_room_id(room_id, &pdu)?;
 
                         let Some(json) =
@@ -1543,6 +1549,8 @@ impl Service {
                         else {
                             // json was empty and fetching it over federation failed, so this should
                             // be a local PDU
+                            info!(%event_id, "Could not find json for outlier PDU");
+
                             graph.insert(event_id.clone(), HashSet::new());
 
                             continue;
@@ -1559,6 +1567,8 @@ impl Service {
                             graph.insert(event_id.clone(), prev_events);
 
                             for event_id in pdu.prev_events.iter().filter(|event_id| !graph.contains_key(*event_id)) {
+                                info!(%event_id, "Added PDU prev_event to fetch-and-handle queue");
+
                                 if let Err(error) = tx.try_send(event_id.clone()) {
                                     warn!(
                                         %event_id,
