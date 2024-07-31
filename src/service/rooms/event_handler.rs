@@ -1557,47 +1557,62 @@ impl Service {
         event: &BTreeMap<String, CanonicalJsonValue>,
         pub_key_map: &RwLock<BTreeMap<String, SigningKeys>>,
     ) -> Result<()> {
-        let signatures = event
-            .get("signatures")
-            .ok_or(Error::BadServerResponse(
-                "No signatures in server response pdu.",
-            ))?
-            .as_object()
-            .ok_or(Error::BadServerResponse(
-                "Invalid signatures object in server response pdu.",
-            ))?;
+        let Some(signatures) =
+            event.get("signatures").and_then(CanonicalJsonValue::as_object)
+        else {
+            return Err(Error::BadServerResponse(
+                "Missing or invalid signatures object in server response pdu.",
+            ));
+        };
+        let signatures: Vec<(_, Vec<_>)> = signatures
+            .iter()
+            .filter_map(|(k, v)| {
+                let CanonicalJsonValue::Object(obj) = v else {
+                    return None;
+                };
+
+                ServerName::parse(k)
+                    .map(|server_name| {
+                        Some((server_name, obj.keys().cloned().collect()))
+                    })
+                    .map_err(|_| {
+                        Error::BadServerResponse(
+                            "invalid server_name in server response pdu",
+                        )
+                    })
+                    .transpose()
+            })
+            .collect::<Result<_>>()?;
 
         // We go through all the signatures we see on the value and fetch the
         // corresponding signing keys
-        for (signature_server, signature) in signatures {
-            let signature_object =
-                signature.as_object().ok_or(Error::BadServerResponse(
-                    "Invalid signatures content object in server response pdu.",
-                ))?;
+        let fetch_signing_keys: FuturesUnordered<_> = signatures
+            .into_iter()
+            .map(|(server_name, keys)| async move {
+                if server_name == *services().globals.server_name() {
+                    return Ok((
+                        server_name.to_string(),
+                        SigningKeys::load_own_keys(),
+                    ));
+                }
 
-            let signature_ids =
-                signature_object.keys().cloned().collect::<Vec<_>>();
+                self.fetch_signing_keys(&server_name, keys, true)
+                    .await
+                    .map(|signing_keys| (server_name.to_string(), signing_keys))
+            })
+            .collect();
 
-            let fetch_res = self
-                .fetch_signing_keys(
-                    signature_server.as_str().try_into().map_err(|_| {
-                        Error::BadServerResponse(
-                            "Invalid servername in signatures of server \
-                             response pdu.",
-                        )
-                    })?,
-                    signature_ids,
-                    true,
-                )
-                .await;
+        let signing_keys = fetch_signing_keys
+            .map(|result| {
+                result.inspect_err(|error| {
+                    warn!(%error, "Failed to fetch signing key");
+                })
+            })
+            .collect::<Vec<_>>()
+            .await;
 
-            let Ok(keys) = fetch_res else {
-                warn!("Failed to fetch signing key");
-                continue;
-            };
-
-            pub_key_map.write().await.insert(signature_server.clone(), keys);
-        }
+        let mut lock = pub_key_map.write().await;
+        lock.extend(signing_keys.into_iter().filter_map(Result::ok));
 
         Ok(())
     }
