@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use futures_util::{stream::FuturesUnordered, Future, StreamExt};
+use futures_util::{stream::FuturesUnordered, Future, StreamExt, TryStreamExt};
 use ruma::{
     api::{
         client::error::ErrorKind,
@@ -163,7 +163,7 @@ impl Service {
             .fetch_unknown_prev_events(
                 origin,
                 &create_event,
-                incoming_pdu.prev_events.clone(),
+                &incoming_pdu.prev_events,
                 room_id,
                 room_version_id,
                 pub_key_map,
@@ -1456,155 +1456,116 @@ impl Service {
         })
     }
 
-    #[tracing::instrument(skip_all)]
     #[allow(clippy::type_complexity)]
-    async fn fetch_unknown_prev_events(
-        &self,
-        origin: &ServerName,
-        create_event: &PduEvent,
-        events: Vec<Arc<EventId>>,
-        room_id: &RoomId,
-        room_version_id: &RoomVersionId,
-        pub_key_map: &RwLock<BTreeMap<String, SigningKeys>>,
-    ) -> Result<(
-        Vec<Arc<EventId>>,
-        HashMap<
-            Arc<EventId>,
-            (Arc<PduEvent>, BTreeMap<String, CanonicalJsonValue>),
-        >,
-    )> {
-        let first_pdu_in_room =
-            services().rooms.timeline.first_pdu_in_room(room_id)?.ok_or_else(
-                || Error::bad_database("Failed to find first pdu in db."),
-            )?;
-
-        let mut graph: HashMap<Arc<EventId>, _> = HashMap::new();
-        let mut history = HashMap::new();
-
-        let mut stack: Vec<Arc<EventId>> = events.clone();
-        let mut amount = 0;
-
-        let (origin, room_id) = (
-            ServerName::parse_arc(origin.as_str()).unwrap(),
-            RoomId::parse_arc(room_id.as_str()).unwrap(),
-        );
-
-        let (create_event, room_version_id, pub_key_map) = (
-            Arc::new(create_event.clone()),
-            Arc::new(room_version_id.clone()),
-            Arc::new(pub_key_map.clone()),
-        );
-
-        async fn fetch_and_handle_outliers(
-            origin: Arc<ServerName>,
-            event_id: Arc<EventId>,
-            create_event: Arc<PduEvent>,
-            room_id: Arc<RoomId>,
-            room_version_id: Arc<RoomVersionId>,
-            pub_key_map: Arc<RwLock<BTreeMap<String, SigningKeys>>>,
-        ) -> Result<
-            Option<(
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn fetch_unknown_prev_events<'a>(
+        &'a self,
+        origin: &'a ServerName,
+        create_event: &'a PduEvent,
+        events: &'a [Arc<EventId>],
+        room_id: &'a RoomId,
+        room_version_id: &'a RoomVersionId,
+        pub_key_map: &'a RwLock<BTreeMap<String, SigningKeys>>,
+    ) -> AsyncRecursiveType<
+        'a,
+        Result<(
+            Vec<Arc<EventId>>,
+            HashMap<
                 Arc<EventId>,
-                Option<(Arc<PduEvent>, CanonicalJsonObject)>,
-            )>,
-        > {
-            let last_outlier = services()
+                (Arc<PduEvent>, BTreeMap<String, CanonicalJsonValue>),
+            >,
+        )>,
+    > {
+        Box::pin(async move {
+            let first_pdu_in_room = services()
                 .rooms
-                .event_handler
-                .fetch_and_handle_outliers(
-                    &*origin,
-                    &[event_id.clone()],
-                    &*create_event,
-                    &*room_id,
-                    &*room_version_id,
-                    &*pub_key_map,
-                )
-                .await
-                .pop();
+                .timeline
+                .first_pdu_in_room(room_id)?
+                .ok_or_else(|| {
+                    Error::bad_database("Failed to find first pdu in db.")
+                })?;
 
-            let Some((pdu, json)) = last_outlier else {
-                return Ok(None);
-            };
+            let mut graph: HashMap<Arc<EventId>, _> = HashMap::new();
+            let mut history = HashMap::new();
 
-            Service::check_room_id(&room_id, &pdu)?;
+            let mut stack: Vec<Arc<EventId>> = events.to_vec();
+            let mut amount = 0;
 
-            let get_outlier_pdu_json =
-                services().rooms.outlier.get_outlier_pdu_json(&event_id)?;
-            let Some(json) = json.or(get_outlier_pdu_json) else {
-                return Ok(Some((event_id.clone(), None)));
-            };
+            let mut tasks = FuturesUnordered::new();
 
-            Ok(Some((event_id, Some((pdu, json)))))
-        }
-
-        while let Some(event_id) = stack.pop() {
-            if amount > services().globals.max_fetch_prev_events() {
-                // Max limit reached
-                warn!("Max prev event limit reached!");
-            }
-
-            let Some((event_id, metadata)) = fetch_and_handle_outliers(
-                origin.clone(),
-                event_id.clone(),
-                create_event.clone(),
-                room_id.clone(),
-                room_version_id.clone(),
-                pub_key_map.clone(),
-            )
-            .await?
-            else {
-                continue;
-            };
-
-            graph.insert(event_id.clone(), HashSet::new());
-
-            let Some((pdu, json)) = metadata else {
-                continue;
-            };
-
-            if first_pdu_in_room.origin_server_ts <= pdu.origin_server_ts {
-                amount += 1;
-
-                graph.insert(
-                    event_id.clone(),
-                    pdu.prev_events.iter().cloned().collect(),
+            while let Some(event_id) = stack.pop() {
+                let f = fetch_and_handle_outliers(
+                    origin,
+                    event_id,
+                    create_event,
+                    room_id,
+                    room_version_id,
+                    pub_key_map,
                 );
 
-                for event in pdu
-                    .prev_events
-                    .iter()
-                    .cloned()
-                    .filter(|k| !graph.contains_key(k))
-                {
-                    stack.push(event.clone());
-                }
-            } else {
-                // Time based check failed
-
-                graph.insert(event_id.clone(), HashSet::new());
+                tasks.push(f);
             }
 
-            history.insert(event_id.clone(), (pdu, json));
-        }
+            while let Some((event_id, metadata)) =
+                tasks.try_next().await.map(Option::flatten).unwrap()
+            {
+                if amount > services().globals.max_fetch_prev_events() {
+                    // Max limit reached
+                    warn!("Max prev event limit reached!");
+                }
 
-        let sorted =
-            state_res::lexicographical_topological_sort(&graph, |event_id| {
-                // This return value is the key used for sorting events,
-                // events are then sorted by power level, time,
-                // and lexically by event_id.
-                Ok((
-                    int!(0),
-                    MilliSecondsSinceUnixEpoch(
-                        history.get(event_id).map_or_else(
-                            || uint!(0),
-                            |info| info.0.origin_server_ts,
+                graph.insert(event_id.clone(), HashSet::new());
+
+                let Some((pdu, json)) = metadata else {
+                    continue;
+                };
+
+                if first_pdu_in_room.origin_server_ts <= pdu.origin_server_ts {
+                    amount += 1;
+
+                    graph.insert(
+                        event_id.clone(),
+                        pdu.prev_events.iter().cloned().collect(),
+                    );
+
+                    for event in pdu
+                        .prev_events
+                        .iter()
+                        .filter(|&k| !graph.contains_key(k))
+                        .cloned()
+                    {
+                        stack.push(event.clone());
+                    }
+                } else {
+                    // Time based check failed
+
+                    graph.insert(event_id.clone(), HashSet::new());
+                }
+
+                history.insert(event_id.clone(), (pdu, json));
+            }
+
+            let sorted = state_res::lexicographical_topological_sort(
+                &graph,
+                |event_id| {
+                    // This return value is the key used for sorting events,
+                    // events are then sorted by power level, time,
+                    // and lexically by event_id.
+                    Ok((
+                        int!(0),
+                        MilliSecondsSinceUnixEpoch(
+                            history.get(event_id).map_or_else(
+                                || uint!(0),
+                                |info| info.0.origin_server_ts,
+                            ),
                         ),
-                    ),
-                ))
-            })
+                    ))
+                },
+            )
             .map_err(|_| Error::bad_database("Error sorting prev events"))?;
 
-        Ok((sorted, history))
+            Ok((sorted, history))
+        })
     }
 
     #[tracing::instrument(skip_all)]
@@ -2257,4 +2218,49 @@ impl Service {
         }
         Ok(())
     }
+}
+
+pub(crate) fn fetch_and_handle_outliers<'a>(
+    origin: &'a ServerName,
+    event_id: Arc<EventId>,
+    create_event: &'a PduEvent,
+    room_id: &'a RoomId,
+    room_version_id: &'a RoomVersionId,
+    pub_key_map: &'a RwLock<BTreeMap<String, SigningKeys>>,
+) -> AsyncRecursiveType<
+    'a,
+    Result<
+        Option<(Arc<EventId>, Option<(Arc<PduEvent>, CanonicalJsonObject)>)>,
+    >,
+> {
+    Box::pin(async move {
+        let last_outlier = services()
+            .rooms
+            .event_handler
+            .fetch_and_handle_outliers(
+                origin,
+                &[event_id.clone()],
+                create_event,
+                room_id,
+                room_version_id,
+                pub_key_map,
+            )
+            .await
+            .pop();
+
+        let Some((pdu, json)) = last_outlier else {
+            return Ok(None);
+        };
+
+        Service::check_room_id(room_id, &pdu)?;
+
+        let get_outlier_pdu_json =
+            services().rooms.outlier.get_outlier_pdu_json(&event_id)?;
+
+        let Some(json) = json.or(get_outlier_pdu_json) else {
+            return Ok(Some((event_id.clone(), None)));
+        };
+
+        Ok(Some((event_id.clone(), Some((pdu, json)))))
+    })
 }
