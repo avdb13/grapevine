@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use futures_util::{stream::FuturesUnordered, Future, StreamExt, TryStreamExt};
+use futures_util::{future, stream::FuturesUnordered, Future, StreamExt};
 use ruma::{
     api::{
         client::error::ErrorKind,
@@ -1477,6 +1477,10 @@ impl Service {
         )>,
     > {
         Box::pin(async move {
+            let mut graph =
+                HashMap::<Arc<EventId>, HashSet<Arc<EventId>>>::new();
+            let mut history = HashMap::new();
+
             let first_pdu_in_room = services()
                 .rooms
                 .timeline
@@ -1485,64 +1489,94 @@ impl Service {
                     Error::bad_database("Failed to find first pdu in db.")
                 })?;
 
-            let mut graph: HashMap<Arc<EventId>, _> = HashMap::new();
-            let mut history = HashMap::new();
-
-            let mut stack: Vec<Arc<EventId>> = events.to_vec();
             let mut amount = 0;
 
-            let mut tasks = FuturesUnordered::new();
-
-            while let Some(event_id) = stack.pop() {
-                let f = fetch_and_handle_outliers(
-                    origin,
-                    event_id,
-                    create_event,
-                    room_id,
-                    room_version_id,
-                    pub_key_map,
-                );
-
-                tasks.push(f);
+            let (tx, mut rx) = tokio::sync::mpsc::channel(128);
+            for event_id in events {
+                if let Err(error) = tx.try_send(event_id.clone()) {
+                    warn!(
+                        %event_id,
+                        %error,
+                        "Failed to send EventId to task-spawning receiver",
+                    );
+                }
             }
 
-            while let Some((event_id, metadata)) =
-                tasks.try_next().await.map(Option::flatten).unwrap()
-            {
-                if amount > services().globals.max_fetch_prev_events() {
-                    // Max limit reached
-                    warn!("Max prev event limit reached!");
-                }
+            let fetch_and_handle_outliers = |event_id: Arc<EventId>| async move {
+                let outliers = services()
+                    .rooms
+                    .event_handler
+                    .fetch_and_handle_outliers(
+                        origin,
+                        &[event_id.clone()],
+                        create_event,
+                        room_id,
+                        room_version_id,
+                        pub_key_map,
+                    )
+                    .await;
 
-                graph.insert(event_id.clone(), HashSet::new());
+                Some(event_id).zip(outliers.into_iter().last())
+            };
+            let mut tasks: FuturesUnordered<_> =
+                events.iter().cloned().map(fetch_and_handle_outliers).collect();
 
-                let Some((pdu, json)) = metadata else {
-                    continue;
-                };
+            loop {
+                tokio::select! {
+                    // We fetched enough events, cancel all tasks and break
+                    true = future::ready(services().globals.max_fetch_prev_events() < amount) => {
+                            warn!("Max prev event limit reached!");
 
-                if first_pdu_in_room.origin_server_ts <= pdu.origin_server_ts {
-                    amount += 1;
-
-                    graph.insert(
-                        event_id.clone(),
-                        pdu.prev_events.iter().cloned().collect(),
-                    );
-
-                    for event in pdu
-                        .prev_events
-                        .iter()
-                        .filter(|&k| !graph.contains_key(k))
-                        .cloned()
-                    {
-                        stack.push(event.clone());
+                            // tasks.clear();
+                            break;
+                    },
+                    // Attempt to fetch and validate the corresponding PDU for the EventId
+                    Some(event_id) = rx.recv() => {
+                        tasks.push(fetch_and_handle_outliers(event_id));
                     }
-                } else {
-                    // Time based check failed
+                    // Process the PDU received over federation
+                    Some((event_id, (pdu, json))) = tasks.select_next_some() => {
+                        Self::check_room_id(room_id, &pdu)?;
 
-                    graph.insert(event_id.clone(), HashSet::new());
+                        let Some(json) =
+                            json.map_or(services().rooms.outlier.get_outlier_pdu_json(&event_id), |json| Ok(Some(json)))?
+                        else {
+                            // json was empty and fetching it over federation failed, so this should
+                            // be a local PDU
+                            graph.insert(event_id.clone(), HashSet::new());
+
+                            continue;
+                        };
+
+                        // Time based check
+                        let valid_timestamp: Option<HashSet<_>> = (first_pdu_in_room.origin_server_ts < pdu.origin_server_ts).then(|| {
+                            pdu.prev_events.iter().cloned().collect()
+                        });
+
+                         if let Some(prev_events) = valid_timestamp {
+                            amount += 1;
+
+                            graph.insert(event_id.clone(), prev_events);
+
+                            for event_id in pdu.prev_events.iter().filter(|event_id| !graph.contains_key(*event_id)) {
+                                if let Err(error) = tx.try_send(event_id.clone()) {
+                                    warn!(
+                                        %event_id,
+                                        %error,
+                                        "Failed to send EventId to task-spawning receiver",
+                                    );
+                                }
+                            }
+                        } else {
+                            graph.insert(event_id.clone(), HashSet::new());
+                        }
+
+                        history.insert(event_id.clone(), (pdu, json));
+                    }
+                    else => {
+                        break
+                    }
                 }
-
-                history.insert(event_id.clone(), (pdu, json));
             }
 
             let sorted = state_res::lexicographical_topological_sort(
@@ -2218,49 +2252,4 @@ impl Service {
         }
         Ok(())
     }
-}
-
-pub(crate) fn fetch_and_handle_outliers<'a>(
-    origin: &'a ServerName,
-    event_id: Arc<EventId>,
-    create_event: &'a PduEvent,
-    room_id: &'a RoomId,
-    room_version_id: &'a RoomVersionId,
-    pub_key_map: &'a RwLock<BTreeMap<String, SigningKeys>>,
-) -> AsyncRecursiveType<
-    'a,
-    Result<
-        Option<(Arc<EventId>, Option<(Arc<PduEvent>, CanonicalJsonObject)>)>,
-    >,
-> {
-    Box::pin(async move {
-        let last_outlier = services()
-            .rooms
-            .event_handler
-            .fetch_and_handle_outliers(
-                origin,
-                &[event_id.clone()],
-                create_event,
-                room_id,
-                room_version_id,
-                pub_key_map,
-            )
-            .await
-            .pop();
-
-        let Some((pdu, json)) = last_outlier else {
-            return Ok(None);
-        };
-
-        Service::check_room_id(room_id, &pdu)?;
-
-        let get_outlier_pdu_json =
-            services().rooms.outlier.get_outlier_pdu_json(&event_id)?;
-
-        let Some(json) = json.or(get_outlier_pdu_json) else {
-            return Ok(Some((event_id.clone(), None)));
-        };
-
-        Ok(Some((event_id.clone(), Some((pdu, json)))))
-    })
 }
