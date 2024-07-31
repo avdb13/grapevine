@@ -8,7 +8,8 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use futures_util::{future, stream::FuturesUnordered, Future, StreamExt};
+use futures_util::{stream::FuturesUnordered, Future, StreamExt};
+use rand::seq::IteratorRandom;
 use ruma::{
     api::{
         client::error::ErrorKind,
@@ -1490,26 +1491,27 @@ impl Service {
                 })?;
             info!(%room_id, pdu = ?first_pdu_in_room, "Found first pdu in db");
 
+            let mut tasks = FuturesUnordered::new();
+            let (tx, mut rx) = tokio::sync::mpsc::channel(128);
             let mut amount = 0;
 
-            let (tx, mut rx) = tokio::sync::mpsc::channel(128);
             for event_id in events {
-                if let Err(error) = tx.try_send(event_id.clone()) {
+                if let Err(error) = tx.send_timeout(event_id.clone(), Duration::from_secs(1)).await {
                     warn!(
                         %event_id,
                         %error,
-                        "Failed to send EventId to task-spawning receiver",
+                        "Failed to add prev_event to fetching queue",
                     );
                 }
             }
-            info!(sent_events = events.len(), "Finished queuing PDUs to be fetched");
+            info!(queue = ?events, "Finished queuing PDUs to be fetched");
 
-            let fetch_and_handle_outliers = |event_id: Arc<EventId>| async move {
+            let fetch_and_handle_outliers = |origin: OwnedServerName, event_id: Arc<EventId>| async move {
                 let outliers = services()
                     .rooms
                     .event_handler
                     .fetch_and_handle_outliers(
-                        origin,
+                        &origin,
                         &[event_id.clone()],
                         create_event,
                         room_id,
@@ -1520,38 +1522,44 @@ impl Service {
 
                 Some(event_id).zip(outliers.into_iter().last())
             };
-            let mut tasks: FuturesUnordered<_> =
-                events.iter().cloned().map(fetch_and_handle_outliers).collect();
 
             loop {
                 tokio::select! {
-                    // We fetched enough events, cancel all tasks and break
-                    true = future::ready(services().globals.max_fetch_prev_events() < amount) => {
-                            warn!(%amount, "Maximum limit for previous event fetching exceeded");
-
-                            // tasks.clear();
-                            break;
-                    },
                     // Attempt to fetch and validate the corresponding PDU for the EventId
                     Some(event_id) = rx.recv() => {
                         info!(%event_id, "Added outlier PDU to fetch-and-handle queue");
 
-                        tasks.push(fetch_and_handle_outliers(event_id));
+
+                        if graph.insert(event_id.clone(), HashSet::new()).is_none() {
+                                let mut servers = services().rooms.state_cache.room_servers(room_id).filter_map(Result::ok)
+                                    .choose_multiple(&mut rand::thread_rng(), 3);
+                                servers.push(origin.to_owned());
+
+                                for server in servers {
+                                    tasks.push(fetch_and_handle_outliers(server, event_id.clone()));
+                                }
+                        }
+
                     }
                     // Process the PDU received over federation
-                    Some((event_id, (pdu, json))) = tasks.select_next_some() => {
-                        info!(%event_id, "Received outlier PDU over federation");
+                    next = tasks.next() => {
+                        if services().globals.max_fetch_prev_events() < amount {
+                            warn!(%amount, "Maximum limit for previous event fetching exceeded");
 
+                            break;
+                        }
+                        let Some((event_id, (pdu, json))) = next.flatten() else {
+                            continue;
+                        };
+
+                        info!(%event_id, "Received outlier PDU over federation");
                         Self::check_room_id(room_id, &pdu)?;
 
-                        let Some(json) =
-                            json.map_or(services().rooms.outlier.get_outlier_pdu_json(&event_id), |json| Ok(Some(json)))?
-                        else {
-                            // json was empty and fetching it over federation failed, so this should
-                            // be a local PDU
-                            info!(%event_id, "Could not find json for outlier PDU");
+                        graph.insert(event_id.clone(), HashSet::new());
 
-                            graph.insert(event_id.clone(), HashSet::new());
+                        let get_outlier_pdu_json = services().rooms.outlier.get_outlier_pdu_json(&event_id)?;
+                        let Some(json) = json.or(get_outlier_pdu_json) else {
+                            info!(%event_id, "Could not find json for outlier PDU");
 
                             continue;
                         };
@@ -1564,21 +1572,18 @@ impl Service {
                          if let Some(prev_events) = valid_timestamp {
                             amount += 1;
 
-                            graph.insert(event_id.clone(), prev_events);
+                            graph.insert(event_id.clone(), prev_events.clone());
 
-                            for event_id in pdu.prev_events.iter().filter(|event_id| !graph.contains_key(*event_id)) {
-                                info!(%event_id, "Added PDU prev_event to fetch-and-handle queue");
-
-                                if let Err(error) = tx.try_send(event_id.clone()) {
+                            info!(?prev_events, "Adding prev_events to fetching queue");
+                            for event_id in prev_events.iter().filter(|event_id| !graph.contains_key(*event_id)) {
+                                if let Err(error) = tx.send_timeout(event_id.clone(), Duration::from_secs(1)).await {
                                     warn!(
                                         %event_id,
                                         %error,
-                                        "Failed to send EventId to task-spawning receiver",
+                                        "Failed to add prev_event to fetching queue",
                                     );
                                 }
                             }
-                        } else {
-                            graph.insert(event_id.clone(), HashSet::new());
                         }
 
                         history.insert(event_id.clone(), (pdu, json));
