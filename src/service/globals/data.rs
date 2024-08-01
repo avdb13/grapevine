@@ -8,7 +8,8 @@ use ruma::{
     api::federation::discovery::{OldVerifyKey, ServerSigningKeys, VerifyKey},
     serde::Base64,
     signatures::Ed25519KeyPair,
-    DeviceId, MilliSecondsSinceUnixEpoch, ServerName, UserId,
+    DeviceId, MilliSecondsSinceUnixEpoch, OwnedServerName,
+    OwnedServerSigningKeyId, ServerName, UserId,
 };
 use serde::Deserialize;
 
@@ -45,6 +46,35 @@ impl SigningKeys {
         );
 
         keys
+    }
+
+    pub(crate) fn into_server_keys(
+        self,
+        server_name: OwnedServerName,
+        signatures: BTreeMap<
+            OwnedServerName,
+            BTreeMap<OwnedServerSigningKeyId, String>,
+        >,
+    ) -> ServerSigningKeys {
+        let SigningKeys {
+            verify_keys,
+            old_verify_keys,
+            valid_until_ts,
+        } = self;
+
+        ServerSigningKeys {
+            server_name,
+            signatures,
+            verify_keys: verify_keys
+                .into_iter()
+                .filter_map(|(id, key)| id.parse().ok().zip(Some(key)))
+                .collect(),
+            old_verify_keys: old_verify_keys
+                .into_iter()
+                .filter_map(|(id, key)| id.parse().ok().zip(Some(key)))
+                .collect(),
+            valid_until_ts,
+        }
     }
 }
 

@@ -467,6 +467,8 @@ fn routes(config: &Config) -> Router {
         router
             .ruma_route(s2s::get_server_version_route)
             .route("/_matrix/key/v2/server", get(s2s::get_server_keys_route))
+            .ruma_route(s2s::get_remote_server_keys_route)
+            .ruma_route(s2s::get_remote_server_keys_batch_route)
             .route(
                 "/_matrix/key/v2/server/:key_id",
                 get(s2s::get_server_keys_deprecated_route),

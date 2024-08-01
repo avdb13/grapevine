@@ -6,7 +6,7 @@ use std::{
     mem,
     net::{IpAddr, SocketAddr},
     sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    time::Instant,
 };
 
 use axum::{response::IntoResponse, Json};
@@ -21,8 +21,8 @@ use ruma::{
             device::get_devices::{self, v1::UserDevice},
             directory::{get_public_rooms, get_public_rooms_filtered},
             discovery::{
+                get_remote_server_keys, get_remote_server_keys_batch,
                 get_server_keys, get_server_version, ServerSigningKeys,
-                VerifyKey,
             },
             event::{
                 get_event, get_missing_events, get_room_state,
@@ -53,13 +53,12 @@ use ruma::{
         },
         StateEventType, TimelineEventType,
     },
-    serde::{Base64, JsonObject, Raw},
+    serde::{JsonObject, Raw},
     server_util::authorization::XMatrix,
     to_device::DeviceIdOrAllDevices,
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedServerSigningKeyId, OwnedSigningKeyId, OwnedUserId, RoomId,
-    ServerName,
+    OwnedSigningKeyId, OwnedUserId, RoomId, ServerName,
 };
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
@@ -68,9 +67,12 @@ use tracing::{debug, error, field, warn};
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     observability::{FoundIn, Lookup, METRICS},
-    service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils,
-    utils::dbg_truncate_str,
+    service::{
+        globals::SigningKeys,
+        pdu::{gen_event_id_canonical_json, PduBuilder},
+    },
+    services,
+    utils::{self, dbg_truncate_str},
     Ar, Error, PduEvent, Ra, Result,
 };
 
@@ -567,46 +569,30 @@ pub(crate) async fn get_server_version_route(
 // Response type for this endpoint is Json because we need to calculate a
 // signature for the response
 pub(crate) async fn get_server_keys_route() -> Result<impl IntoResponse> {
-    let mut verify_keys: BTreeMap<OwnedServerSigningKeyId, VerifyKey> =
-        BTreeMap::new();
-    verify_keys.insert(
-        format!("ed25519:{}", services().globals.keypair().version())
-            .try_into()
-            .expect("found invalid server signing keys in DB"),
-        VerifyKey {
-            key: Base64::new(
-                services().globals.keypair().public_key().to_vec(),
+    let server_name = services().globals.server_name();
+    let server_keys = SigningKeys::load_own_keys()
+        .into_server_keys(server_name.to_owned(), BTreeMap::new());
+
+    let body: Vec<u8> = http::Response::into_body(
+        OutgoingResponse::try_into_http_response(
+            get_server_keys::v2::Response::new(
+                Raw::new(&server_keys).expect("static conversion, no errors"),
             ),
-        },
+        )
+        .expect("static conversion, no errors"),
     );
-    let mut response = serde_json::from_slice(
-        get_server_keys::v2::Response {
-            server_key: Raw::new(&ServerSigningKeys {
-                server_name: services().globals.server_name().to_owned(),
-                verify_keys,
-                old_verify_keys: BTreeMap::new(),
-                signatures: BTreeMap::new(),
-                valid_until_ts: MilliSecondsSinceUnixEpoch::from_system_time(
-                    SystemTime::now() + Duration::from_secs(86400 * 7),
-                )
-                .expect("time is valid"),
-            })
-            .expect("static conversion, no errors"),
-        }
-        .try_into_http_response::<Vec<u8>>()
-        .unwrap()
-        .body(),
-    )
-    .unwrap();
+
+    let mut json = serde_json::from_slice(body.as_slice())
+        .expect("static conversion, no errors");
 
     ruma::signatures::sign_json(
         services().globals.server_name().as_str(),
         services().globals.keypair(),
-        &mut response,
+        &mut json,
     )
     .unwrap();
 
-    Ok(Json(response))
+    Ok(Json(json))
 }
 
 /// # `GET /_matrix/key/v2/server/{keyId}`
@@ -618,6 +604,128 @@ pub(crate) async fn get_server_keys_route() -> Result<impl IntoResponse> {
 /// forever.
 pub(crate) async fn get_server_keys_deprecated_route() -> impl IntoResponse {
     get_server_keys_route().await
+}
+
+/// # `POST /_matrix/key/v2/query`
+/// Query for signing keys from multiple servers in a batch format.
+pub(crate) async fn get_remote_server_keys_batch_route(
+    body: Ar<get_remote_server_keys_batch::v2::Request>,
+) -> Result<impl IntoResponse> {
+    let server_keys =
+        body.server_keys.iter().map(|(server_name, server_criteria)| {
+            if let Some(ServerSigningKeys {
+                verify_keys,
+                old_verify_keys,
+                valid_until_ts,
+                ..
+            }) = services().globals.signing_keys_for(server_name)?.map(
+                |signing_keys| {
+                    signing_keys.into_server_keys(
+                        server_name.to_owned(),
+                        BTreeMap::new(),
+                    )
+                },
+            ) {
+                let verify_keys = verify_keys
+                    .into_iter()
+                    .filter(|(k, _)| {
+                        server_criteria.is_empty()
+                            || server_criteria.get(k).is_some_and(|criteria| {
+                                criteria
+                                    .minimum_valid_until_ts
+                                    .map_or(true, |ts| ts <= valid_until_ts)
+                            })
+                    })
+                    .collect();
+                let old_verify_keys = old_verify_keys
+                    .into_iter()
+                    .filter(|(k, v)| {
+                        server_criteria.is_empty()
+                            || server_criteria.get(k).is_some_and(|criteria| {
+                                criteria
+                                    .minimum_valid_until_ts
+                                    .map_or(true, |ts| ts <= v.expired_ts)
+                            })
+                    })
+                    .collect();
+                let server_keys = ServerSigningKeys {
+                    server_name: server_name.to_owned(),
+                    signatures: BTreeMap::new(),
+                    valid_until_ts,
+                    verify_keys,
+                    old_verify_keys,
+                };
+
+                Some(Raw::new(&server_keys).map_err(|_| {
+                    Error::BadRequest(
+                        ErrorKind::InvalidParam,
+                        "Could not convert event to canonical json.",
+                    )
+                }))
+                .transpose()
+            } else {
+                Ok(None)
+            }
+        });
+
+    let result =
+        server_keys.filter_map(Result::transpose).collect::<Result<_>>()?;
+    let response = get_remote_server_keys_batch::v2::Response::new(result);
+
+    let body: Vec<u8> = OutgoingResponse::try_into_http_response(response)
+        .map(http::Response::into_body)
+        .expect("static conversion, no errors");
+
+    let mut json =
+        serde_json::from_slice(&body).expect("static conversion, no errors");
+    ruma::signatures::sign_json(
+        services().globals.server_name().as_str(),
+        services().globals.keypair(),
+        &mut json,
+    )
+    .expect("static conversion, no errors");
+
+    Ok(Json(json))
+}
+
+/// # `GET /_matrix/key/v2/query/{serverName}`
+///
+/// Query for signing keys through a notary server.
+pub(crate) async fn get_remote_server_keys_route(
+    body: Ar<get_remote_server_keys::v2::Request>,
+) -> Result<impl IntoResponse> {
+    let server_name = services().globals.server_name();
+    let signing_keys =
+        services().globals.signing_keys_for(&body.server_name)?;
+
+    let server_keys = signing_keys.into_iter().map(|signing_keys| {
+        signing_keys.into_server_keys(server_name.to_owned(), BTreeMap::new())
+    });
+    let mut json = std::iter::once((
+        "server_keys".to_owned(),
+        CanonicalJsonValue::Array(
+            server_keys
+                .map(|server_keys| {
+                    serde_json::to_value(&server_keys)
+                        .expect("static conversion, no errors")
+                })
+                .map(|value| {
+                    CanonicalJsonValue::try_from(value)
+                        .expect("static conversion, no errors")
+                })
+                .collect(),
+        ),
+    ))
+    .collect();
+
+    ruma::signatures::sign_json(
+        services().globals.server_name().as_str(),
+        services().globals.keypair(),
+        &mut json,
+    )
+    .unwrap();
+
+    Ok(Json(json))
 }
 
 /// # `POST /_matrix/federation/v1/publicRooms`
