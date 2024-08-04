@@ -14,7 +14,8 @@ use ruma::{
         push_rules::PushRulesEvent,
         room::{
             create::RoomCreateEventContent, encrypted::Relation,
-            member::MembershipState, power_levels::RoomPowerLevelsEventContent,
+            member::MembershipState, message::RoomMessageEventContent,
+            power_levels::RoomPowerLevelsEventContent,
             redaction::RoomRedactionEventContent,
         },
         GlobalAccountDataEventType, StateEventType, TimelineEventType,
@@ -448,20 +449,21 @@ impl Service {
                     #[derive(Deserialize)]
                     struct ExtractMembership {
                         membership: MembershipState,
+                        reason: Option<String>,
                     }
 
                     // if the state_key fails
                     let target_user_id = UserId::parse(state_key.clone())
                         .expect("This state_key was previously validated");
 
-                    let content = serde_json::from_str::<ExtractMembership>(
-                        pdu.content.get(),
-                    )
-                    .map_err(|_| {
-                        Error::bad_database("Invalid content in pdu.")
-                    })?;
+                    let ExtractMembership {
+                        membership,
+                        reason,
+                    } = serde_json::from_str(pdu.content.get()).map_err(
+                        |_| Error::bad_database("Invalid content in pdu."),
+                    )?;
 
-                    let invite_state = match content.membership {
+                    let invite_state = match membership {
                         MembershipState::Invite => {
                             let state = services()
                                 .rooms
@@ -472,13 +474,36 @@ impl Service {
                         _ => None,
                     };
 
+                    if membership == MembershipState::Ban {
+                        let (room, user) = (&pdu.room_id, &target_user_id);
+
+                        info!(
+                            %user,
+                            %room,
+                            reason,
+                            "User has been banned from room"
+                        );
+
+                        let reason = match reason.filter(|s| !s.is_empty()) {
+                            Some(s) => format!(": {s}"),
+                            None => String::new(),
+                        };
+
+                        services().admin.send_message(
+                            RoomMessageEventContent::notice_plain(format!(
+                                "User {user} has been banned from room \
+                                 {room}{reason}",
+                            )),
+                        );
+                    }
+
                     // Update our membership info, we do this here incase a user
                     // is invited and immediately leaves we
                     // need the DB to record the invite event for auth
                     services().rooms.state_cache.update_membership(
                         &pdu.room_id,
                         &target_user_id,
-                        content.membership,
+                        membership,
                         &pdu.sender,
                         invite_state,
                         true,
