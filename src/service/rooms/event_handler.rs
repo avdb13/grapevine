@@ -1589,30 +1589,23 @@ impl Service {
         let fetch_signing_keys: FuturesUnordered<_> = signatures
             .into_iter()
             .map(|(server_name, keys)| async move {
-                if server_name == *services().globals.server_name() {
-                    return Ok((
-                        server_name.to_string(),
-                        SigningKeys::load_own_keys(),
-                    ));
-                }
-
                 self.fetch_signing_keys(&server_name, keys, true)
                     .await
                     .map(|signing_keys| (server_name.to_string(), signing_keys))
             })
             .collect();
 
-        let signing_keys = fetch_signing_keys
-            .map(|result| {
-                result.inspect_err(|error| {
+        let signing_keys: Vec<_> = fetch_signing_keys
+            .map(|res| {
+                res.inspect_err(|error| {
                     warn!(%error, "Failed to fetch signing key");
                 })
             })
-            .collect::<Vec<_>>()
+            .collect()
             .await;
 
-        let mut lock = pub_key_map.write().await;
-        lock.extend(signing_keys.into_iter().filter_map(Result::ok));
+        let signing_keys = signing_keys.into_iter().filter_map(Result::ok);
+        pub_key_map.write().await.extend(signing_keys);
 
         Ok(())
     }
@@ -1921,6 +1914,10 @@ impl Service {
         // getting keys for validating requests, as per MSC4029
         query_via_trusted_servers: bool,
     ) -> Result<SigningKeys> {
+        if origin == services().globals.server_name() {
+            return Ok(SigningKeys::load_own_keys());
+        }
+
         let contains_all_ids = |keys: &SigningKeys| {
             signature_ids.iter().all(|id| {
                 keys.verify_keys
