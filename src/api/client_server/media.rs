@@ -804,6 +804,13 @@ async fn get_content_thumbnail_route_ruma(
         Error::BadRequest(ErrorKind::InvalidParam, "Height is invalid.")
     })?;
 
+    let make_response = |file, content_type| {
+        authenticated_media_client::get_content_thumbnail::v1::Response {
+            file,
+            content_type,
+        }
+    };
+
     if let Some(FileMeta {
         content_type,
         file,
@@ -811,13 +818,10 @@ async fn get_content_thumbnail_route_ruma(
     }) =
         services().media.get_thumbnail(mxc.to_string(), width, height).await?
     {
-        Ok(authenticated_media_client::get_content_thumbnail::v1::Response {
-            file,
-            content_type,
-        })
-    } else if &*body.server_name != services().globals.server_name()
-        && allow_remote
-    {
+        return Ok(make_response(file, content_type));
+    }
+
+    if &*body.server_name != services().globals.server_name() && allow_remote {
         let get_thumbnail_response = get_remote_thumbnail(
             &body.server_name,
             authenticated_media_fed::get_content_thumbnail::v1::Request {
@@ -832,25 +836,50 @@ async fn get_content_thumbnail_route_ruma(
                 animated: Some(false),
             },
         )
-        .await?;
+        .await;
 
-        services()
+        match get_thumbnail_response {
+            Ok(resp) => {
+                services()
+                    .media
+                    .upload_thumbnail(
+                        mxc.to_string(),
+                        None,
+                        resp.content.content_type.as_deref(),
+                        width,
+                        height,
+                        &resp.content.file,
+                    )
+                    .await?;
+
+                return Ok(make_response(
+                    resp.content.file,
+                    resp.content.content_type,
+                ));
+            }
+            Err(error) => warn!(
+                %error,
+                "Failed to fetch thumbnail via federation, trying to fetch \
+                 original media and create thumbnail ourselves"
+            ),
+        }
+
+        get_remote_content(&mxc).await?;
+
+        if let Some(FileMeta {
+            content_type,
+            file,
+            ..
+        }) = services()
             .media
-            .upload_thumbnail(
-                mxc.to_string(),
-                None,
-                get_thumbnail_response.content.content_type.as_deref(),
-                width,
-                height,
-                &get_thumbnail_response.content.file,
-            )
-            .await?;
+            .get_thumbnail(mxc.to_string(), width, height)
+            .await?
+        {
+            return Ok(make_response(file, content_type));
+        }
 
-        Ok(authenticated_media_client::get_content_thumbnail::v1::Response {
-            file: get_thumbnail_response.content.file,
-            content_type: get_thumbnail_response.content.content_type,
-        })
-    } else {
-        Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
+        error!("Source media doesn't exist even after fetching it from remote");
     }
+
+    Err(Error::BadRequest(ErrorKind::NotYetUploaded, "Media not found."))
 }

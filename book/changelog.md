@@ -125,6 +125,9 @@ This will be the first release of Grapevine since it was forked from Conduit
 10. **BREAKING:** Reorganize config into sections.
     ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))
     * Details on how to migrate can be found in the merge request's description.
+11. Try to generate thumbnails for remote media ourselves if the federation
+    thumbnail request fails.
+    ([!58](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/58))
 
 ### Fixed
 
