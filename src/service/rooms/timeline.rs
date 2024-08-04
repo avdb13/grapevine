@@ -14,7 +14,8 @@ use ruma::{
         push_rules::PushRulesEvent,
         room::{
             create::RoomCreateEventContent, encrypted::Relation,
-            member::MembershipState, power_levels::RoomPowerLevelsEventContent,
+            member::MembershipState, message::RoomMessageEventContent,
+            power_levels::RoomPowerLevelsEventContent,
             redaction::RoomRedactionEventContent,
         },
         GlobalAccountDataEventType, StateEventType, TimelineEventType,
@@ -460,6 +461,7 @@ impl Service {
                     #[derive(Deserialize)]
                     struct ExtractMembership {
                         membership: MembershipState,
+                        reason: Option<String>,
                     }
 
                     // if the state_key fails
@@ -480,6 +482,29 @@ impl Service {
                                 .state
                                 .calculate_invite_state(pdu)?;
                             Some(state)
+                        }
+                        MembershipState::Ban => {
+                            let (room, user) = (&pdu.room_id, &target_user_id);
+
+                            let reason = match content.reason.as_deref() {
+                                Some(reason) if !reason.is_empty() => {
+                                    format!(": {reason}")
+                                }
+                                _ => String::new(),
+                            };
+
+                            info!(
+                                "User {user} has been banned from room \
+                                 {room}{reason}",
+                            );
+                            services().admin.send_message(
+                                RoomMessageEventContent::notice_plain(format!(
+                                    "User {user} has been banned from room \
+                                     {room}{reason}",
+                                )),
+                            );
+
+                            None
                         }
                         _ => None,
                     };
