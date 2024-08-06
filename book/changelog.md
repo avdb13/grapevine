@@ -158,6 +158,8 @@ This will be the first release of Grapevine since it was forked from Conduit
 12. Fix bug where unexpected keys were deleted from `m.direct` account data
     events when joining an upgraded room.
     ([!53](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/53))
+13. Fix bug which allowed unchecked PDUs to be part of an event's auth chain.
+    ([!64](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/64))
 
 ### Added
 

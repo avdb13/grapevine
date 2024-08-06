@@ -222,11 +222,6 @@ impl Service {
             }
 
             if let Some((pdu, json)) = eventid_info.remove(&*prev_id) {
-                // Skip old events
-                if pdu.origin_server_ts < first_pdu_in_room.origin_server_ts {
-                    continue;
-                }
-
                 let start_time = Instant::now();
                 services()
                     .globals
@@ -1472,8 +1467,9 @@ impl Service {
 
         let mut amount = 0;
 
+        // we only wanna insert events into the graph if:
         while let Some(prev_event_id) = todo_outlier_stack.pop() {
-            if let Some((pdu, json_opt)) = self
+            let Some((pdu, json)) = self
                 .fetch_and_handle_outliers(
                     origin,
                     &[prev_event_id.clone()],
@@ -1484,51 +1480,48 @@ impl Service {
                 )
                 .await
                 .pop()
-            {
-                Self::check_room_id(room_id, &pdu)?;
+            else {
+                continue;
+            };
 
-                if amount > services().globals.max_fetch_prev_events() {
-                    // Max limit reached
-                    warn!("Max prev event limit reached!");
-                    graph.insert(prev_event_id.clone(), HashSet::new());
-                    continue;
-                }
+            // 1. we did not reach the maximum limit for fetching prev events
+            //    yet
+            if services().globals.max_fetch_prev_events() < amount {
+                warn!("Max prev event limit reached!");
 
-                if let Some(json) = json_opt.or_else(|| {
-                    services()
-                        .rooms
-                        .outlier
-                        .get_outlier_pdu_json(&prev_event_id)
-                        .ok()
-                        .flatten()
-                }) {
-                    if pdu.origin_server_ts > first_pdu_in_room.origin_server_ts
-                    {
-                        amount += 1;
-                        for prev_prev in &pdu.prev_events {
-                            if !graph.contains_key(prev_prev) {
-                                todo_outlier_stack.push(prev_prev.clone());
-                            }
-                        }
-
-                        graph.insert(
-                            prev_event_id.clone(),
-                            pdu.prev_events.iter().cloned().collect(),
-                        );
-                    } else {
-                        // Time based check failed
-                        graph.insert(prev_event_id.clone(), HashSet::new());
-                    }
-
-                    eventid_info.insert(prev_event_id.clone(), (pdu, json));
-                } else {
-                    // Get json failed, so this was not fetched over federation
-                    graph.insert(prev_event_id.clone(), HashSet::new());
-                }
-            } else {
-                // Fetch and handle failed
-                graph.insert(prev_event_id.clone(), HashSet::new());
+                continue;
             }
+
+            // 2. the event passed the room ID check
+            Self::check_room_id(room_id, &pdu)?;
+
+            // 3. the event passed the timestamp check
+            if pdu.origin_server_ts < first_pdu_in_room.origin_server_ts {
+                continue;
+            }
+
+            let db_json = services()
+                .rooms
+                .outlier
+                .get_outlier_pdu_json(&prev_event_id)?;
+
+            // 4. we were able to fetch the json contents of the event.
+            let Some(json) = json.or(db_json) else {
+                // Get json failed, so this was not fetched over federation
+                continue;
+            };
+
+            amount += 1;
+
+            let prev_events: HashSet<_> =
+                pdu.prev_events.iter().cloned().collect();
+
+            for id in prev_events.iter().filter(|id| !graph.contains_key(*id)) {
+                todo_outlier_stack.push(id.clone());
+            }
+
+            graph.insert(prev_event_id.clone(), prev_events);
+            eventid_info.insert(prev_event_id.clone(), (pdu, json));
         }
 
         let sorted =
