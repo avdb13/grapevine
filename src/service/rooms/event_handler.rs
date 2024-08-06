@@ -44,7 +44,7 @@ use super::state_compressor::CompressedStateEvent;
 use crate::{
     service::{globals::SigningKeys, pdu},
     services,
-    utils::debug_slice_truncated,
+    utils::{self, debug_slice_truncated},
     Error, PduEvent, Result,
 };
 
@@ -145,7 +145,7 @@ impl Service {
                 pub_key_map,
             )
             .await?;
-        Self::check_room_id(room_id, &incoming_pdu)?;
+        utils::check_room_id(room_id, &incoming_pdu)?;
 
         // 8. if not timeline event: stop
         if !is_timeline_event {
@@ -452,7 +452,7 @@ impl Service {
             )
             .map_err(|_| Error::bad_database("Event is not a valid PDU."))?;
 
-            Self::check_room_id(room_id, &incoming_pdu)?;
+            utils::check_room_id(room_id, &incoming_pdu)?;
 
             if !auth_events_known {
                 // 4. fetch any missing auth events doing all checks listed here
@@ -495,7 +495,7 @@ impl Service {
                     continue;
                 };
 
-                Self::check_room_id(room_id, &auth_event)?;
+                utils::check_room_id(room_id, &auth_event)?;
 
                 match auth_events.entry((
                     auth_event.kind.to_string().into(),
@@ -1492,7 +1492,7 @@ impl Service {
                 .await
                 .pop()
             {
-                Self::check_room_id(room_id, &pdu)?;
+                utils::check_room_id(room_id, &pdu)?;
 
                 if amount > services().globals.max_fetch_prev_events() {
                     // Max limit reached
@@ -2174,22 +2174,5 @@ impl Service {
 
         warn!("Failed to find all public keys");
         Err(Error::BadServerResponse("Failed to find public key for server"))
-    }
-
-    #[tracing::instrument(skip_all)]
-    fn check_room_id(room_id: &RoomId, pdu: &PduEvent) -> Result<()> {
-        if pdu.room_id != room_id {
-            warn!(
-                event_id = %pdu.event_id,
-                expected_room_id = %pdu.room_id,
-                actual_room_id = %room_id,
-                "Event has wrong room ID",
-            );
-            return Err(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Event has wrong room id",
-            ));
-        }
-        Ok(())
     }
 }

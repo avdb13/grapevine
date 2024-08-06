@@ -13,8 +13,12 @@ use cmp::Ordering;
 use rand::{prelude::*, rngs::OsRng};
 use ring::digest;
 use ruma::{
-    canonical_json::try_from_json_map, CanonicalJsonError, CanonicalJsonObject,
+    api::client::error::ErrorKind, canonical_json::try_from_json_map,
+    CanonicalJsonError, CanonicalJsonObject, RoomId,
 };
+use tracing::warn;
+
+use crate::PduEvent;
 
 // Hopefully we have a better chat protocol in 530 years
 #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
@@ -185,6 +189,28 @@ pub(crate) fn deserialize_from_str<
         }
     }
     deserializer.deserialize_str(Visitor(std::marker::PhantomData))
+}
+
+#[tracing::instrument(skip_all)]
+pub(crate) fn check_room_id(
+    room_id: &RoomId,
+    pdu: &PduEvent,
+) -> crate::Result<()> {
+    if pdu.room_id != room_id {
+        warn!(
+            event_id = %pdu.event_id,
+            expected_room_id = %pdu.room_id,
+            actual_room_id = %room_id,
+            "Event has wrong room ID",
+        );
+
+        return Err(crate::Error::BadRequest(
+            ErrorKind::InvalidParam,
+            "Event has wrong room id",
+        ));
+    }
+
+    Ok(())
 }
 
 /// Debug-formats the given slice, but only up to the first `max_len` elements.

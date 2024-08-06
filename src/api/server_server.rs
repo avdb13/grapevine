@@ -5,6 +5,7 @@ use std::{
     fmt::Debug,
     mem,
     net::{IpAddr, SocketAddr},
+    ops::Deref,
     sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
@@ -69,8 +70,8 @@ use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     observability::{FoundIn, Lookup, METRICS},
     service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils,
-    utils::dbg_truncate_str,
+    services,
+    utils::{self, dbg_truncate_str},
     Ar, Error, PduEvent, Ra, Result,
 };
 
@@ -1172,35 +1173,19 @@ pub(crate) async fn get_missing_events_route(
     while i < queued_events.len()
         && events.len() < body.limit.try_into().unwrap_or(usize::MAX)
     {
-        if let Some(pdu) =
-            services().rooms.timeline.get_pdu_json(&queued_events[i])?
-        {
-            let room_id_str =
-                pdu.get("room_id").and_then(|val| val.as_str()).ok_or_else(
-                    || Error::bad_database("Invalid event in database"),
-                )?;
+        let event_id = &queued_events[i];
 
-            let event_room_id =
-                <&RoomId>::try_from(room_id_str).map_err(|_| {
-                    Error::bad_database(
-                        "Invalid room id field in event in database",
-                    )
+        if let Some(pdu_json) =
+            services().rooms.timeline.get_pdu_json(event_id)?
+        {
+            let pdu = PduEvent::from_id_val(event_id, pdu_json.clone())
+                .map_err(|_| {
+                    Error::BadServerResponse("Invalid event in database.")
                 })?;
 
-            if event_room_id != body.room_id {
-                warn!(
-                    event_id = %queued_events[i],
-                    expected_room_id = %body.room_id,
-                    actual_room_id = %event_room_id,
-                    "Evil event detected"
-                );
-                return Err(Error::BadRequest(
-                    ErrorKind::InvalidParam,
-                    "Evil event detected",
-                ));
-            }
+            utils::check_room_id(&body.room_id, &pdu)?;
 
-            if body.earliest_events.contains(&queued_events[i]) {
+            if body.earliest_events.contains(event_id) {
                 i += 1;
                 continue;
             }
@@ -1208,30 +1193,18 @@ pub(crate) async fn get_missing_events_route(
             if !services().rooms.state_accessor.server_can_see_event(
                 sender_servername,
                 &body.room_id,
-                &queued_events[i],
+                event_id,
             )? {
                 i += 1;
                 continue;
             }
 
-            queued_events.extend_from_slice(
-                &serde_json::from_value::<Vec<OwnedEventId>>(
-                    serde_json::to_value(
-                        pdu.get("prev_events").cloned().ok_or_else(|| {
-                            Error::bad_database(
-                                "Event in db has no prev_events field.",
-                            )
-                        })?,
-                    )
-                    .expect("canonical json is valid json value"),
-                )
-                .map_err(|_| {
-                    Error::bad_database(
-                        "Invalid prev_events content in pdu in db.",
-                    )
-                })?,
-            );
-            events.push(PduEvent::convert_to_outgoing_federation_event(pdu));
+            let prev_events =
+                pdu.prev_events.iter().map(Arc::deref).map(EventId::to_owned);
+            queued_events.extend(prev_events);
+
+            events
+                .push(PduEvent::convert_to_outgoing_federation_event(pdu_json));
         }
         i += 1;
     }
