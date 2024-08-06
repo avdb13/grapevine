@@ -1024,14 +1024,23 @@ pub(crate) async fn get_event_route(
         body.sender_servername.as_ref().expect("server is authenticated");
     let event_id = &body.event_id;
 
-    let pdu = pdu_visibility_helper(server_name, event_id).and_then(|pdu| {
-        pdu.map(PduEvent::convert_to_outgoing_federation_event).ok_or_else(
-            || {
-                warn!(event_id = %body.event_id, "Event not found");
-                Error::BadRequest(ErrorKind::NotFound, "Event not found.")
-            },
-        )
-    })?;
+    let pdu = pdu_visibility_helper(server_name, event_id).and_then(
+        |pdu_visibility| match pdu_visibility {
+            (pdu, true, true) => {
+                pdu.map(PduEvent::convert_to_outgoing_federation_event).ok_or(
+                    Error::BadRequest(ErrorKind::NotFound, "Event not found."),
+                )
+            }
+            (_, false, _) => Err(Error::BadRequest(
+                ErrorKind::forbidden(),
+                "Server is not in room.",
+            )),
+            (_, _, false) => Err(Error::BadRequest(
+                ErrorKind::forbidden(),
+                "Server is not allowed to see event.",
+            )),
+        },
+    )?;
 
     Ok(Ra(get_event::v1::Response {
         origin: services().globals.server_name().to_owned(),
@@ -1073,17 +1082,17 @@ pub(crate) async fn get_backfill_route(
         .pdus_until(user_id!("@doesntmatter:grapevine"), &body.room_id, until)?
         .take(limit.try_into().unwrap());
 
-    let pdus: Vec<_> = all_events
-        .filter_map(|result| {
-            result.ok().and_then(|(_, pdu)| {
-                let event_id = &pdu.event_id;
-                let pdu = pdu_visibility_helper(server_name, event_id);
-
-                Some(
-                    pdu.transpose()?
-                        .map(PduEvent::convert_to_outgoing_federation_event),
-                )
-            })
+    let pdus = all_events.filter_map(Result::ok);
+    let pdus = pdus
+        .filter_map(|(_, pdu)| {
+            match pdu_visibility_helper(server_name, &pdu.event_id) {
+                Ok((pdu, ..)) => {
+                    Ok(pdu.map(PduEvent::convert_to_outgoing_federation_event))
+                        .transpose()
+                }
+                // only
+                Err(error) => Some(Err(error)),
+            }
         })
         .collect::<Result<_>>()?;
 
@@ -1970,13 +1979,10 @@ pub(crate) async fn claim_keys_route(
 pub(crate) fn pdu_visibility_helper(
     server_name: &ServerName,
     event_id: &EventId,
-) -> Result<Option<CanonicalJsonObject>> {
-    let event =
-        services().rooms.timeline.get_pdu_json(event_id)?.ok_or_else(|| {
-            warn!(event_id = %event_id, "Event not found");
-
-            Error::BadRequest(ErrorKind::NotFound, "Event not found.")
-        })?;
+) -> Result<(Option<CanonicalJsonObject>, bool, bool)> {
+    let Some(event) = services().rooms.timeline.get_pdu_json(event_id)? else {
+        return Ok((None, true, true));
+    };
 
     let Some(room_id_value) =
         event.get("room_id").and_then(CanonicalJsonValue::as_str)
@@ -1998,9 +2004,10 @@ pub(crate) fn pdu_visibility_helper(
         services().globals.config.federation.redact_unauthorized_events;
 
     if !redact_unauthorized_events {
-        return Ok(
-            Some(event).filter(|_| server_in_room && server_can_see_event)
-        );
+        let event =
+            Some(event).filter(|_| server_in_room && server_can_see_event);
+
+        return Ok((event, server_in_room, server_can_see_event));
     }
 
     let room_version_id = services().rooms.state.get_room_version(&room_id)?;
@@ -2013,7 +2020,7 @@ pub(crate) fn pdu_visibility_helper(
                 )
             })?;
 
-    Ok(Some(redaction))
+    Ok((Some(redaction), server_in_room, server_can_see_event))
 }
 
 #[cfg(test)]
