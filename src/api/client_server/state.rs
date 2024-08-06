@@ -10,11 +10,21 @@ use ruma::{
         AnyStateEventContent, StateEventType,
     },
     serde::Raw,
+    state_res::Event,
     EventId, RoomId, UserId,
 };
+use serde::Deserialize;
 use tracing::log::warn;
 
 use crate::{service::pdu::PduBuilder, services, Ar, Error, Ra, Result};
+
+#[derive(Default, Deserialize)]
+#[serde(tag = "format", rename = "lowercase")]
+enum Format {
+    Event,
+    #[default]
+    Content,
+}
 
 /// # `PUT /_matrix/client/r0/rooms/{roomId}/state/{eventType}/{stateKey}`
 ///
@@ -124,7 +134,9 @@ pub(crate) async fn get_state_events_route(
 ///
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
+/// - We extract the query here
 pub(crate) async fn get_state_events_for_key_route(
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
     body: Ar<get_state_events_for_key::v3::Request>,
 ) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -152,9 +164,24 @@ pub(crate) async fn get_state_events_for_key_route(
             Error::BadRequest(ErrorKind::NotFound, "State event not found.")
         })?;
 
+    let query: Option<Format> =
+        query.as_deref().map(serde_html_form::from_str).transpose().map_err(
+            |_| {
+                Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "Unknown state event format",
+                )
+            },
+        )?;
+
+    let event = match query {
+        Some(Format::Event) => event.to_state_event().into_json(),
+        _ => event.content().to_owned(),
+    };
+
     Ok(Ra(get_state_events_for_key::v3::Response {
-        content: serde_json::from_str(event.content.get()).map_err(|_| {
-            Error::bad_database("Invalid event content in database")
+        content: serde_json::from_str(event.get()).map_err(|_| {
+            Error::bad_database("Invalid state event in database")
         })?,
     }))
 }
@@ -166,6 +193,7 @@ pub(crate) async fn get_state_events_for_key_route(
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
 pub(crate) async fn get_state_events_for_empty_key_route(
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
     body: Ar<get_state_events_for_key::v3::Request>,
 ) -> Result<Ra<get_state_events_for_key::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
@@ -193,9 +221,24 @@ pub(crate) async fn get_state_events_for_empty_key_route(
             Error::BadRequest(ErrorKind::NotFound, "State event not found.")
         })?;
 
+    let query: Option<Format> =
+        query.as_deref().map(serde_html_form::from_str).transpose().map_err(
+            |_| {
+                Error::BadRequest(
+                    ErrorKind::InvalidParam,
+                    "Unknown state event format",
+                )
+            },
+        )?;
+
+    let event = match query {
+        Some(Format::Event) => event.to_state_event().into_json(),
+        _ => event.content().to_owned(),
+    };
+
     Ok(get_state_events_for_key::v3::Response {
-        content: serde_json::from_str(event.content.get()).map_err(|_| {
-            Error::bad_database("Invalid event content in database")
+        content: serde_json::from_str(event.get()).map_err(|_| {
+            Error::bad_database("Invalid state event in database")
         })?,
     }
     .into())
