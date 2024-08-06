@@ -193,55 +193,13 @@ pub(crate) async fn get_state_events_for_key_route(
 /// - If not joined: Only works if current room history visibility is world
 ///   readable
 pub(crate) async fn get_state_events_for_empty_key_route(
-    axum::extract::RawQuery(query): axum::extract::RawQuery,
-    body: Ar<get_state_events_for_key::v3::Request>,
+    raw_query: axum::extract::RawQuery,
+    mut body: Ar<get_state_events_for_key::v3::Request>,
 ) -> Result<Ra<get_state_events_for_key::v3::Response>> {
-    let sender_user = body.sender_user.as_ref().expect("user is authenticated");
+    // TODO: necessary?
+    body.body.state_key = String::new();
 
-    if !services()
-        .rooms
-        .state_accessor
-        .user_can_see_state_events(sender_user, &body.room_id)?
-    {
-        return Err(Error::BadRequest(
-            ErrorKind::forbidden(),
-            "You don't have permission to view the room state.",
-        ));
-    }
-
-    let event = services()
-        .rooms
-        .state_accessor
-        .room_state_get(&body.room_id, &body.event_type, "")?
-        .ok_or_else(|| {
-            warn!(
-                "State event {:?} not found in room {:?}",
-                &body.event_type, &body.room_id
-            );
-            Error::BadRequest(ErrorKind::NotFound, "State event not found.")
-        })?;
-
-    let query: Option<Format> =
-        query.as_deref().map(serde_html_form::from_str).transpose().map_err(
-            |_| {
-                Error::BadRequest(
-                    ErrorKind::InvalidParam,
-                    "Unknown state event format",
-                )
-            },
-        )?;
-
-    let event = match query {
-        Some(Format::Event) => event.to_state_event().into_json(),
-        _ => event.content().to_owned(),
-    };
-
-    Ok(get_state_events_for_key::v3::Response {
-        content: serde_json::from_str(event.get()).map_err(|_| {
-            Error::bad_database("Invalid state event in database")
-        })?,
-    }
-    .into())
+    get_state_events_for_key_route(raw_query, body).await
 }
 
 async fn send_state_event_for_key_helper(
