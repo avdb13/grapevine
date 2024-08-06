@@ -569,13 +569,13 @@ fn prepare_make_join_template(
         services().globals.server_name().as_str(),
         services().globals.keypair(),
         &mut template,
-        &room_version,
+        room_version,
     )
     .expect("event is valid, we just created it");
 
     // Generate event id
     let reference_hash =
-        ruma::signatures::reference_hash(&template, &room_version)
+        ruma::signatures::reference_hash(&template, room_version)
             .expect("ruma can calculate reference hashes");
 
     // TODO: do we need this?
@@ -634,7 +634,7 @@ async fn join_room_by_id_helper(
                     user.server_name() == services().globals.server_name()
                         && services().rooms.state_accessor.user_can_invite(
                             &room_token,
-                            &user,
+                            user,
                             sender_user,
                         )
                 })
@@ -702,7 +702,7 @@ async fn join_room_by_id_helper(
         let room_version = response
             .room_version
             .filter(|v| {
-                services().globals.supported_room_versions().contains(&v)
+                services().globals.supported_room_versions().contains(v)
             })
             .ok_or_else(|| {
                 Error::BadServerResponse("Room version is not supported")
@@ -713,7 +713,7 @@ async fn join_room_by_id_helper(
         let request =
             federation::membership::create_join_event::v2::Request::new(
                 room_id.to_owned(),
-                event_id.to_owned(),
+                event_id.clone(),
                 PduEvent::convert_to_outgoing_federation_event(
                     pdu_json.clone(),
                 ),
