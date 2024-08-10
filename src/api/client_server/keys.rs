@@ -413,8 +413,10 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
                     min_elapsed_duration = Duration::from_secs(60 * 60 * 24);
                 }
 
-                if time.elapsed() < min_elapsed_duration {
-                    debug!(%server, "Backing off from server");
+                if let Some(remaining) =
+                    min_elapsed_duration.checked_sub(time.elapsed())
+                {
+                    debug!(%server, %tries, ?remaining, "Backing off from server");
                     return (
                         server,
                         Err(Error::BadServerResponse(
