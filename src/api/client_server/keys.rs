@@ -430,6 +430,8 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
             for (user_id, keys) in vec {
                 device_keys_input_fed.insert(user_id.to_owned(), keys.clone());
             }
+            // TODO: switch .and_then(|result| result) to .flatten() when stable
+            // <https://github.com/rust-lang/rust/issues/70142>
             (
                 server,
                 tokio::time::timeout(
@@ -443,8 +445,6 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
                 )
                 .await
                 .map_err(|_e| Error::BadServerResponse("Query took too long"))
-                // TODO: switch to .flatten() when stable
-                // <https://github.com/rust-lang/rust/issues/70142>
                 .and_then(|result| result),
             )
         })
