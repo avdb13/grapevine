@@ -440,48 +440,55 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
                     ),
                 )
                 .await
-                .map_err(|_e| Error::BadServerResponse("Query took too long")),
+                .map_err(|_e| Error::BadServerResponse("Query took too long"))
+                // TODO: switch to .flatten() when stable
+                // <https://github.com/rust-lang/rust/issues/70142>
+                .and_then(|result| result),
             )
         })
         .collect();
 
     while let Some((server, response)) = futures.next().await {
-        if let Ok(Ok(response)) = response {
-            for (user, masterkey) in response.master_keys {
-                let (master_key_id, mut master_key) =
-                    services().users.parse_master_key(&user, &masterkey)?;
-
-                if let Some(our_master_key) = services().users.get_key(
-                    &master_key_id,
-                    sender_user,
-                    &user,
-                    &allowed_signatures,
-                )? {
-                    let (_, our_master_key) = services()
-                        .users
-                        .parse_master_key(&user, &our_master_key)?;
-                    master_key.signatures.extend(our_master_key.signatures);
-                }
-                let json = serde_json::to_value(master_key)
-                    .expect("to_value always works");
-                let raw = serde_json::from_value(json)
-                    .expect("Raw::from_value always works");
-                services().users.add_cross_signing_keys(
-                    &user, &raw, &None, &None,
-                    // Dont notify. A notification would trigger another key
-                    // request resulting in an endless loop
-                    false,
-                )?;
-                master_keys.insert(user, raw);
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                back_off(server.to_owned()).await;
+                debug!(%server, %error, "remote device key query failed");
+                failures.insert(server.to_string(), json!({}));
+                continue;
             }
+        };
 
-            self_signing_keys.extend(response.self_signing_keys);
-            device_keys.extend(response.device_keys);
-        } else {
-            back_off(server.to_owned()).await;
+        for (user, masterkey) in response.master_keys {
+            let (master_key_id, mut master_key) =
+                services().users.parse_master_key(&user, &masterkey)?;
 
-            failures.insert(server.to_string(), json!({}));
+            if let Some(our_master_key) = services().users.get_key(
+                &master_key_id,
+                sender_user,
+                &user,
+                &allowed_signatures,
+            )? {
+                let (_, our_master_key) = services()
+                    .users
+                    .parse_master_key(&user, &our_master_key)?;
+                master_key.signatures.extend(our_master_key.signatures);
+            }
+            let json = serde_json::to_value(master_key)
+                .expect("to_value always works");
+            let raw = serde_json::from_value(json)
+                .expect("Raw::from_value always works");
+            services().users.add_cross_signing_keys(
+                &user, &raw, &None, &None,
+                // Dont notify. A notification would trigger another key
+                // request resulting in an endless loop
+                false,
+            )?;
+            master_keys.insert(user, raw);
         }
+
+        self_signing_keys.extend(response.self_signing_keys);
+        device_keys.extend(response.device_keys);
     }
 
     Ok(get_keys::v3::Response {
