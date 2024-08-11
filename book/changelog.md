@@ -71,6 +71,8 @@ This will be the first release of Grapevine since it was forked from Conduit
    ([d41f0fb](https://gitlab.computer.surgery/matrix/grapevine-fork/-/commit/d41f0fbf72dae6562358173f425d23bb0e174ca2))
 6. Remove Docker packaging.
    ([!48](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/48))
+7. **BREAKING:** Remove unstable room versions.
+   ([!59](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/59))
 
 ### Changed
 
