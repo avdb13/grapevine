@@ -148,6 +148,11 @@ This will be the first release of Grapevine since it was forked from Conduit
    ([!35 (3551a6e)](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/35/diffs?commit_id=3551a6ef7a29219b9b30f50a7e8c92b92debcdcf))
 10. Only process admin commands if the admin bot is in the admin room.
     ([!43](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/43))
+11. Remove buggy backoff implementation for remote device key queries that
+    failed to reset the backoff delay after a successful request. This caused
+    an increasing rate of key query failures (and therefore UTD messages) over
+    time until a restart.
+    ([!70](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/70))
 
 ### Added
 
@@ -190,3 +195,6 @@ This will be the first release of Grapevine since it was forked from Conduit
       output.
     * `observability.logs.timestamp`: Whether timestamps should be included in
       the logs.
+13. Attempt to detect offline remote servers and back off all federation
+    requests to them.
+    ([!70](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/70))
