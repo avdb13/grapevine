@@ -18,6 +18,7 @@ pub(crate) mod pdu;
 pub(crate) mod pusher;
 pub(crate) mod rooms;
 pub(crate) mod sending;
+pub(crate) mod server_backoff;
 pub(crate) mod transaction_ids;
 pub(crate) mod uiaa;
 pub(crate) mod users;
@@ -34,6 +35,7 @@ pub(crate) struct Services {
     pub(crate) globals: globals::Service,
     pub(crate) key_backups: key_backups::Service,
     pub(crate) media: media::Service,
+    pub(crate) server_backoff: Arc<server_backoff::Service>,
     pub(crate) sending: Arc<sending::Service>,
 }
 
@@ -148,6 +150,7 @@ impl Services {
             media: media::Service {
                 db,
             },
+            server_backoff: server_backoff::Service::build(),
             sending: sending::Service::build(db, &config),
 
             globals: globals::Service::load(db, config, reload_handles)?,
