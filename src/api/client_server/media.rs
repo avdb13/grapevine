@@ -178,6 +178,23 @@ pub(crate) async fn create_content_route(
     }))
 }
 
+/// Whether or not to allow remote content to be loaded
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AllowRemote {
+    Yes,
+    No,
+}
+
+impl From<bool> for AllowRemote {
+    fn from(allow: bool) -> Self {
+        if allow {
+            Self::Yes
+        } else {
+            Self::No
+        }
+    }
+}
+
 struct RemoteResponse {
     #[allow(unused)]
     metadata: authenticated_media_fed::ContentMetadata,
@@ -387,7 +404,7 @@ pub(crate) async fn get_content_legacy_route(
         }
     }
 
-    let allow_remote = body.allow_remote;
+    let allow_remote = body.allow_remote.into();
 
     get_content_route_ruma(body.map_body(convert_request), allow_remote)
         .await
@@ -411,7 +428,7 @@ pub(crate) async fn get_content_legacy_route(
 pub(crate) async fn get_content_route(
     body: Ar<authenticated_media_client::get_content::v1::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_route_ruma(body, true).await.map(|x| {
+    get_content_route_ruma(body, AllowRemote::Yes).await.map(|x| {
         let mut r = Ra(x).into_response();
 
         set_header_or_panic(
@@ -426,7 +443,7 @@ pub(crate) async fn get_content_route(
 
 async fn get_content_route_ruma(
     body: Ar<authenticated_media_client::get_content::v1::Request>,
-    allow_remote: bool,
+    allow_remote: AllowRemote,
 ) -> Result<authenticated_media_client::get_content::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
@@ -447,7 +464,7 @@ async fn get_content_route_ruma(
             content_type,
         })
     } else if &*body.server_name != services().globals.server_name()
-        && allow_remote
+        && allow_remote == AllowRemote::Yes
     {
         let remote_response = get_remote_content(&mxc).await?;
         Ok(authenticated_media_client::get_content::v1::Response {
@@ -511,7 +528,7 @@ pub(crate) async fn get_content_as_filename_legacy_route(
         }
     }
 
-    let allow_remote = body.allow_remote;
+    let allow_remote = body.allow_remote.into();
     get_content_as_filename_route_ruma(
         body.map_body(convert_request),
         allow_remote,
@@ -537,7 +554,7 @@ pub(crate) async fn get_content_as_filename_legacy_route(
 pub(crate) async fn get_content_as_filename_route(
     body: Ar<authenticated_media_client::get_content_as_filename::v1::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_as_filename_route_ruma(body, true).await.map(|x| {
+    get_content_as_filename_route_ruma(body, AllowRemote::Yes).await.map(|x| {
         let mut r = Ra(x).into_response();
 
         set_header_or_panic(
@@ -550,9 +567,9 @@ pub(crate) async fn get_content_as_filename_route(
     })
 }
 
-pub(crate) async fn get_content_as_filename_route_ruma(
+async fn get_content_as_filename_route_ruma(
     body: Ar<authenticated_media_client::get_content_as_filename::v1::Request>,
-    allow_remote: bool,
+    allow_remote: AllowRemote,
 ) -> Result<authenticated_media_client::get_content_as_filename::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
@@ -573,7 +590,7 @@ pub(crate) async fn get_content_as_filename_route_ruma(
             content_type,
         })
     } else if &*body.server_name != services().globals.server_name()
-        && allow_remote
+        && allow_remote == AllowRemote::Yes
     {
         let remote_response = get_remote_content(&mxc).await?;
 
@@ -660,7 +677,7 @@ pub(crate) async fn get_content_thumbnail_legacy_route(
         }
     }
 
-    let allow_remote = body.allow_remote;
+    let allow_remote = body.allow_remote.into();
 
     get_content_thumbnail_route_ruma(
         body.map_body(convert_request),
@@ -683,7 +700,7 @@ pub(crate) async fn get_content_thumbnail_legacy_route(
 pub(crate) async fn get_content_thumbnail_route(
     body: Ar<authenticated_media_client::get_content_thumbnail::v1::Request>,
 ) -> Result<axum::response::Response> {
-    get_content_thumbnail_route_ruma(body, true).await.map(|x| {
+    get_content_thumbnail_route_ruma(body, AllowRemote::Yes).await.map(|x| {
         let mut r = Ra(x).into_response();
 
         fix_thumbnail_headers(&mut r);
@@ -798,7 +815,7 @@ pub(crate) async fn get_remote_thumbnail(
 
 async fn get_content_thumbnail_route_ruma(
     body: Ar<authenticated_media_client::get_content_thumbnail::v1::Request>,
-    allow_remote: bool,
+    allow_remote: AllowRemote,
 ) -> Result<authenticated_media_client::get_content_thumbnail::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
     let width = body.width.try_into().map_err(|_| {
@@ -827,7 +844,9 @@ async fn get_content_thumbnail_route_ruma(
         return Ok(make_response(file, content_type));
     }
 
-    if &*body.server_name != services().globals.server_name() && allow_remote {
+    if &*body.server_name != services().globals.server_name()
+        && allow_remote == AllowRemote::Yes
+    {
         let get_thumbnail_response = get_remote_thumbnail(
             &body.server_name,
             authenticated_media_fed::get_content_thumbnail::v1::Request {
