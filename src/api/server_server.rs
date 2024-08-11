@@ -2046,11 +2046,13 @@ pub(crate) async fn media_download_route(
     body: Ar<authenticated_media::get_content::v1::Request>,
 ) -> Result<Ra<authenticated_media::get_content::v1::Response>> {
     let mxc = MxcData::new(services().globals.server_name(), &body.media_id)?;
-    let Some(crate::service::media::FileMeta {
-        content_disposition,
-        content_type,
+    let Some((
+        crate::service::media::FileMeta {
+            content_disposition,
+            content_type,
+        },
         file,
-    }) = services().media.get(mxc.to_string()).await?
+    )) = services().media.get(mxc.to_string()).await?
     else {
         return Err(Error::BadRequest(
             ErrorKind::NotYetUploaded,
@@ -2091,11 +2093,13 @@ pub(crate) async fn media_thumbnail_route(
         Error::BadRequest(ErrorKind::InvalidParam, "Height is invalid.")
     })?;
 
-    let Some(crate::service::media::FileMeta {
-        content_type,
+    let Some((
+        crate::service::media::FileMeta {
+            content_type,
+            ..
+        },
         file,
-        ..
-    }) = services().media.get_thumbnail(mxc.to_string(), width, height).await?
+    )) = services().media.get_thumbnail(mxc.to_string(), width, height).await?
     else {
         return Err(Error::BadRequest(
             ErrorKind::NotYetUploaded,

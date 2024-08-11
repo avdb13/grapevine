@@ -430,11 +430,13 @@ async fn get_content_route_ruma(
 ) -> Result<authenticated_media_client::get_content::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
-    if let Some(FileMeta {
-        content_type,
+    if let Some((
+        FileMeta {
+            content_type,
+            ..
+        },
         file,
-        ..
-    }) = services().media.get(mxc.to_string()).await?
+    )) = services().media.get(mxc.to_string()).await?
     {
         Ok(authenticated_media_client::get_content::v1::Response {
             file,
@@ -554,11 +556,13 @@ pub(crate) async fn get_content_as_filename_route_ruma(
 ) -> Result<authenticated_media_client::get_content_as_filename::v1::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
 
-    if let Some(FileMeta {
-        content_type,
+    if let Some((
+        FileMeta {
+            content_type,
+            ..
+        },
         file,
-        ..
-    }) = services().media.get(mxc.to_string()).await?
+    )) = services().media.get(mxc.to_string()).await?
     {
         Ok(authenticated_media_client::get_content_as_filename::v1::Response {
             file,
@@ -811,11 +815,13 @@ async fn get_content_thumbnail_route_ruma(
         }
     };
 
-    if let Some(FileMeta {
-        content_type,
+    if let Some((
+        FileMeta {
+            content_type,
+            ..
+        },
         file,
-        ..
-    }) =
+    )) =
         services().media.get_thumbnail(mxc.to_string(), width, height).await?
     {
         return Ok(make_response(file, content_type));
@@ -866,11 +872,13 @@ async fn get_content_thumbnail_route_ruma(
 
         get_remote_content(&mxc).await?;
 
-        if let Some(FileMeta {
-            content_type,
+        if let Some((
+            FileMeta {
+                content_type,
+                ..
+            },
             file,
-            ..
-        }) = services()
+        )) = services()
             .media
             .get_thumbnail(mxc.to_string(), width, height)
             .await?

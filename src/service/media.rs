@@ -21,9 +21,7 @@ pub(crate) struct FileMeta {
     // only the filename instead of the entire `Content-Disposition` header.
     #[allow(dead_code)]
     pub(crate) content_disposition: Option<String>,
-
     pub(crate) content_type: Option<String>,
-    pub(crate) file: Vec<u8>,
 }
 
 pub(crate) struct Service {
@@ -84,7 +82,10 @@ impl Service {
 
     /// Downloads a file.
     #[tracing::instrument(skip(self))]
-    pub(crate) async fn get(&self, mxc: String) -> Result<Option<FileMeta>> {
+    pub(crate) async fn get(
+        &self,
+        mxc: String,
+    ) -> Result<Option<(FileMeta, Vec<u8>)>> {
         if let Ok((content_disposition, content_type, key)) =
             self.db.search_file_metadata(mxc, 0, 0)
         {
@@ -96,11 +97,13 @@ impl Service {
 
             file.read_to_end(&mut file_data).await?;
 
-            Ok(Some(FileMeta {
-                content_disposition,
-                content_type,
-                file: file_data,
-            }))
+            Ok(Some((
+                FileMeta {
+                    content_disposition,
+                    content_type,
+                },
+                file_data,
+            )))
         } else {
             Ok(None)
         }
@@ -224,7 +227,7 @@ impl Service {
         mxc: String,
         width: u32,
         height: u32,
-    ) -> Result<Option<FileMeta>> {
+    ) -> Result<Option<(FileMeta, Vec<u8>)>> {
         // 0, 0 because that's the original file
         let (width, height, crop) =
             Self::thumbnail_properties(width, height).unwrap_or((0, 0, false));
@@ -237,11 +240,13 @@ impl Service {
             let mut file = Vec::new();
             File::open(path).await?.read_to_end(&mut file).await?;
 
-            return Ok(Some(FileMeta {
-                content_disposition,
-                content_type,
-                file: file.clone(),
-            }));
+            return Ok(Some((
+                FileMeta {
+                    content_disposition,
+                    content_type,
+                },
+                file.clone(),
+            )));
         }
 
         let Ok((content_disposition, content_type, key)) =
@@ -271,11 +276,13 @@ impl Service {
 
         let Some(thumbnail_bytes) = thumbnail_result? else {
             debug!("Returning source image as-is");
-            return Ok(Some(FileMeta {
-                content_disposition,
-                content_type,
+            return Ok(Some((
+                FileMeta {
+                    content_disposition,
+                    content_type,
+                },
                 file,
-            }));
+            )));
         };
 
         debug!("Saving created thumbnail");
@@ -294,10 +301,12 @@ impl Service {
         let mut f = File::create(path).await?;
         f.write_all(&thumbnail_bytes).await?;
 
-        Ok(Some(FileMeta {
-            content_disposition,
-            content_type,
-            file: thumbnail_bytes.clone(),
-        }))
+        Ok(Some((
+            FileMeta {
+                content_disposition,
+                content_type,
+            },
+            thumbnail_bytes.clone(),
+        )))
     }
 }
