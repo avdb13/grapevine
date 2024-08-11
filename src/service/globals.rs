@@ -35,6 +35,7 @@ use trust_dns_resolver::TokioAsyncResolver;
 use crate::{
     api::server_server::FedDest,
     observability::FilterReloadHandles,
+    service::media::MediaFileKey,
     services,
     utils::on_demand_hashmap::{OnDemandHashMap, TokenSet},
     Config, Error, Result,
@@ -506,11 +507,11 @@ impl Service {
         r
     }
 
-    pub(crate) fn get_media_file(&self, key: &[u8]) -> PathBuf {
+    pub(crate) fn get_media_file(&self, key: &MediaFileKey) -> PathBuf {
         let mut r = PathBuf::new();
         r.push(self.config.database.path.clone());
         r.push("media");
-        r.push(general_purpose::URL_SAFE_NO_PAD.encode(key));
+        r.push(general_purpose::URL_SAFE_NO_PAD.encode(key.as_bytes()));
         r
     }
 

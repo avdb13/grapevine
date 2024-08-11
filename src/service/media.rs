@@ -24,6 +24,19 @@ pub(crate) struct FileMeta {
     pub(crate) content_type: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct MediaFileKey(Vec<u8>);
+
+impl MediaFileKey {
+    pub(crate) fn new(key: Vec<u8>) -> Self {
+        Self(key)
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 pub(crate) struct Service {
     pub(crate) db: &'static dyn Data,
 }

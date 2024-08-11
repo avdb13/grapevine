@@ -25,9 +25,10 @@ use ruma::{
 use tracing::{debug, error, info, info_span, warn, Instrument};
 
 use crate::{
-    config::DatabaseBackend, observability::FilterReloadHandles,
-    service::rooms::timeline::PduCount, services, utils, Config, Error,
-    PduEvent, Result, Services, SERVICES,
+    config::DatabaseBackend,
+    observability::FilterReloadHandles,
+    service::{media::MediaFileKey, rooms::timeline::PduCount},
+    services, utils, Config, Error, PduEvent, Result, Services, SERVICES,
 };
 
 pub(crate) struct KeyValueDatabase {
@@ -606,6 +607,7 @@ impl KeyValueDatabase {
             if services().globals.database_version()? < 3 {
                 // Move media to filesystem
                 for (key, content) in db.mediaid_file.iter() {
+                    let key = MediaFileKey::new(key);
                     if content.is_empty() {
                         continue;
                     }
@@ -613,7 +615,7 @@ impl KeyValueDatabase {
                     let path = services().globals.get_media_file(&key);
                     let mut file = fs::File::create(path)?;
                     file.write_all(&content)?;
-                    db.mediaid_file.insert(&key, &[])?;
+                    db.mediaid_file.insert(key.as_bytes(), &[])?;
                 }
 
                 services().globals.bump_database_version(3)?;

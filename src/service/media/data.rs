@@ -1,3 +1,4 @@
+use super::MediaFileKey;
 use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
@@ -8,7 +9,7 @@ pub(crate) trait Data: Send + Sync {
         height: u32,
         content_disposition: Option<&str>,
         content_type: Option<&str>,
-    ) -> Result<Vec<u8>>;
+    ) -> Result<MediaFileKey>;
 
     /// Returns `content_disposition`, `content_type` and the `metadata` key.
     fn search_file_metadata(
@@ -16,5 +17,5 @@ pub(crate) trait Data: Send + Sync {
         mxc: String,
         width: u32,
         height: u32,
-    ) -> Result<(Option<String>, Option<String>, Vec<u8>)>;
+    ) -> Result<(Option<String>, Option<String>, MediaFileKey)>;
 }

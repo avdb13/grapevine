@@ -1,6 +1,10 @@
 use ruma::api::client::error::ErrorKind;
 
-use crate::{database::KeyValueDatabase, service, utils, Error, Result};
+use crate::{
+    database::KeyValueDatabase,
+    service::{self, media::MediaFileKey},
+    utils, Error, Result,
+};
 
 impl service::media::Data for KeyValueDatabase {
     fn create_file_metadata(
@@ -10,7 +14,7 @@ impl service::media::Data for KeyValueDatabase {
         height: u32,
         content_disposition: Option<&str>,
         content_type: Option<&str>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<MediaFileKey> {
         let mut key = mxc.as_bytes().to_vec();
         key.push(0xFF);
         key.extend_from_slice(&width.to_be_bytes());
@@ -27,7 +31,9 @@ impl service::media::Data for KeyValueDatabase {
             content_type.as_ref().map(|c| c.as_bytes()).unwrap_or_default(),
         );
 
-        self.mediaid_file.insert(&key, &[])?;
+        let key = MediaFileKey::new(key);
+
+        self.mediaid_file.insert(key.as_bytes(), &[])?;
 
         Ok(key)
     }
@@ -37,7 +43,7 @@ impl service::media::Data for KeyValueDatabase {
         mxc: String,
         width: u32,
         height: u32,
-    ) -> Result<(Option<String>, Option<String>, Vec<u8>)> {
+    ) -> Result<(Option<String>, Option<String>, MediaFileKey)> {
         let mut prefix = mxc.as_bytes().to_vec();
         prefix.push(0xFF);
         prefix.extend_from_slice(&width.to_be_bytes());
@@ -49,7 +55,9 @@ impl service::media::Data for KeyValueDatabase {
                 Error::BadRequest(ErrorKind::NotFound, "Media not found"),
             )?;
 
-        let mut parts = key.rsplit(|&b| b == 0xFF);
+        let key = MediaFileKey::new(key);
+
+        let mut parts = key.as_bytes().rsplit(|&b| b == 0xFF);
 
         let content_type = parts
             .next()
