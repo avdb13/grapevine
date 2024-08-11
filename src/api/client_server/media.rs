@@ -167,7 +167,7 @@ pub(crate) async fn create_content_route(
                     filename: Some(filename),
                 })
                 .as_ref(),
-            body.content_type.as_deref(),
+            body.content_type.clone(),
             &body.file,
         )
         .await?;
@@ -333,7 +333,7 @@ pub(crate) async fn get_remote_content(
         .create(
             mxc.to_string(),
             response.content.content_disposition.as_ref(),
-            response.content.content_type.as_deref(),
+            response.content.content_type.clone(),
             &response.content.file,
         )
         .await?;
@@ -851,7 +851,7 @@ async fn get_content_thumbnail_route_ruma(
                     .upload_thumbnail(
                         mxc.to_string(),
                         None,
-                        resp.content.content_type.as_deref(),
+                        resp.content.content_type.clone(),
                         width,
                         height,
                         &resp.content.file,

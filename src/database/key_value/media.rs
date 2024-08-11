@@ -2,7 +2,10 @@ use ruma::api::client::error::ErrorKind;
 
 use crate::{
     database::KeyValueDatabase,
-    service::{self, media::MediaFileKey},
+    service::{
+        self,
+        media::{FileMeta, MediaFileKey},
+    },
     utils, Error, Result,
 };
 
@@ -12,8 +15,7 @@ impl service::media::Data for KeyValueDatabase {
         mxc: String,
         width: u32,
         height: u32,
-        content_disposition: Option<&str>,
-        content_type: Option<&str>,
+        meta: &FileMeta,
     ) -> Result<MediaFileKey> {
         let mut key = mxc.as_bytes().to_vec();
         key.push(0xFF);
@@ -21,14 +23,17 @@ impl service::media::Data for KeyValueDatabase {
         key.extend_from_slice(&height.to_be_bytes());
         key.push(0xFF);
         key.extend_from_slice(
-            content_disposition
+            meta.content_disposition
                 .as_ref()
-                .map(|f| f.as_bytes())
+                .map(String::as_bytes)
                 .unwrap_or_default(),
         );
         key.push(0xFF);
         key.extend_from_slice(
-            content_type.as_ref().map(|c| c.as_bytes()).unwrap_or_default(),
+            meta.content_type
+                .as_ref()
+                .map(String::as_bytes)
+                .unwrap_or_default(),
         );
 
         let key = MediaFileKey::new(key);
@@ -43,7 +48,7 @@ impl service::media::Data for KeyValueDatabase {
         mxc: String,
         width: u32,
         height: u32,
-    ) -> Result<(Option<String>, Option<String>, MediaFileKey)> {
+    ) -> Result<(FileMeta, MediaFileKey)> {
         let mut prefix = mxc.as_bytes().to_vec();
         prefix.push(0xFF);
         prefix.extend_from_slice(&width.to_be_bytes());
@@ -86,6 +91,12 @@ impl service::media::Data for KeyValueDatabase {
                 },
             )?)
         };
-        Ok((content_disposition, content_type, key))
+        Ok((
+            FileMeta {
+                content_disposition,
+                content_type,
+            },
+            key,
+        ))
     }
 }
