@@ -1,6 +1,6 @@
 use std::{
-    collections::{hash_map, BTreeMap, HashMap, HashSet},
-    time::{Duration, Instant},
+    collections::{BTreeMap, HashMap, HashSet},
+    time::Duration,
 };
 
 use futures_util::{stream::FuturesUnordered, StreamExt};
@@ -20,7 +20,6 @@ use ruma::{
     DeviceKeyAlgorithm, OwnedDeviceId, OwnedUserId, UserId,
 };
 use serde_json::json;
-use tracing::debug;
 
 use super::SESSION_ID_LENGTH;
 use crate::{services, utils, Ar, Error, Ra, Result};
@@ -385,45 +384,9 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
 
     let mut failures = BTreeMap::new();
 
-    let back_off = |id| async {
-        match services().globals.bad_query_ratelimiter.write().await.entry(id) {
-            hash_map::Entry::Vacant(e) => {
-                e.insert((Instant::now(), 1));
-            }
-            hash_map::Entry::Occupied(mut e) => {
-                *e.get_mut() = (Instant::now(), e.get().1 + 1);
-            }
-        }
-    };
-
     let mut futures: FuturesUnordered<_> = get_over_federation
         .into_iter()
         .map(|(server, vec)| async move {
-            if let Some((time, tries)) = services()
-                .globals
-                .bad_query_ratelimiter
-                .read()
-                .await
-                .get(server)
-            {
-                // Exponential backoff
-                let mut min_elapsed_duration =
-                    Duration::from_secs(30) * (*tries) * (*tries);
-                if min_elapsed_duration > Duration::from_secs(60 * 60 * 24) {
-                    min_elapsed_duration = Duration::from_secs(60 * 60 * 24);
-                }
-
-                if time.elapsed() < min_elapsed_duration {
-                    debug!(%server, "Backing off from server");
-                    return (
-                        server,
-                        Err(Error::BadServerResponse(
-                            "bad query, still backing off",
-                        )),
-                    );
-                }
-            }
-
             let mut device_keys_input_fed = BTreeMap::new();
             for (user_id, keys) in vec {
                 device_keys_input_fed.insert(user_id.to_owned(), keys.clone());
@@ -478,8 +441,6 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
             self_signing_keys.extend(response.self_signing_keys);
             device_keys.extend(response.device_keys);
         } else {
-            back_off(server.to_owned()).await;
-
             failures.insert(server.to_string(), json!({}));
         }
     }
