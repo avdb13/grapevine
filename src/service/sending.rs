@@ -14,6 +14,7 @@ use futures_util::{stream::FuturesUnordered, StreamExt};
 use ruma::{
     api::{
         appservice::{self, Registration},
+        client::error::ErrorKind,
         federation::{
             self,
             transactions::edu::{
@@ -674,6 +675,10 @@ impl Service {
         debug!("Waiting for permit");
         let permit = self.maximum_requests.acquire().await;
         debug!("Got permit");
+
+        let backoff_guard =
+            services().server_backoff.server_ready(destination)?;
+
         let response = tokio::time::timeout(
             Duration::from_secs(2 * 60),
             server_server::send_request(destination, request, true),
@@ -682,8 +687,34 @@ impl Service {
         .map_err(|_| {
             warn!("Timeout waiting for server response");
             Error::BadServerResponse("Timeout waiting for server response")
-        })?;
+        })
+        .and_then(|result| result);
         drop(permit);
+
+        match &response {
+            Err(Error::Federation(_, error)) => {
+                match error.error_kind() {
+                    Some(ErrorKind::Unknown) => {
+                        backoff_guard.hard_failure();
+                    }
+                    Some(_) => {
+                        // Other errors may occur during normal operation with
+                        // a healthy server, so don't increment the failure
+                        // counter.
+                        backoff_guard.soft_failure();
+                    }
+                    None => {
+                        // The error wasn't in the expected format for matrix
+                        // API responses. This almost
+                        // certainly indicates the server
+                        // is unhealthy or offline.
+                        backoff_guard.hard_failure();
+                    }
+                }
+            }
+            Err(_) => backoff_guard.hard_failure(),
+            Ok(_) => backoff_guard.success(),
+        }
 
         response
     }
