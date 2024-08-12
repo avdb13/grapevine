@@ -147,10 +147,14 @@ xdg = "2.5.2"
 nix = { version = "0.29", features = ["resource"] }
 
 [features]
-default = ["rocksdb", "sqlite", "systemd"]
+default = ["admin-api", "rocksdb", "sqlite", "systemd"]
 
 # Keep sorted
+admin-api = ["client", "server"]
 jemalloc = ["dep:tikv-jemallocator"]
 rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite", "dep:parking_lot", "tokio/signal"]
 systemd = ["dep:sd-notify"]
+
+client = []
+server = []
