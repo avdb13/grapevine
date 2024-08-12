@@ -11,11 +11,15 @@ use std::{
 
 use axum::{response::IntoResponse, Json};
 use axum_extra::headers::{Authorization, HeaderMapExt};
+use futures_util::FutureExt;
 use get_profile_information::v1::ProfileField;
 use ruma::{
     api::{
         client::error::{Error as RumaError, ErrorKind},
         federation::{
+            authenticated_media::{
+                get_content, Content, ContentMetadata, FileOrLocation,
+            },
             authorization::get_event_authorization,
             backfill::get_backfill,
             device::get_devices::{self, v1::UserDevice},
@@ -41,8 +45,8 @@ use ruma::{
                 send_transaction_message,
             },
         },
-        EndpointError, IncomingResponse, MatrixVersion, OutgoingRequest,
-        OutgoingResponse, SendAccessToken,
+        EndpointError, IncomingRequest, IncomingResponse, MatrixVersion,
+        OutgoingRequest, OutgoingResponse, SendAccessToken,
     },
     directory::{Filter, RoomNetwork},
     events::{
@@ -57,20 +61,26 @@ use ruma::{
     server_util::authorization::XMatrix,
     to_device::DeviceIdOrAllDevices,
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
-    MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedServerSigningKeyId, OwnedSigningKeyId, OwnedUserId, RoomId,
-    ServerName,
+    MilliSecondsSinceUnixEpoch, MxcUri, OwnedEventId, OwnedMxcUri, OwnedRoomId,
+    OwnedServerName, OwnedServerSigningKeyId, OwnedSigningKeyId, OwnedUserId,
+    RoomId, ServerName,
 };
 use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
 use tracing::{debug, error, field, warn};
 
 use crate::{
-    api::client_server::{self, claim_keys_helper, get_keys_helper},
+    api::client_server::{
+        self, claim_keys_helper, content_disposition_for, get_keys_helper,
+        INLINE_CONTENT_TYPES,
+    },
     observability::{FoundIn, Lookup, METRICS},
-    service::pdu::{gen_event_id_canonical_json, PduBuilder},
-    services, utils,
-    utils::dbg_truncate_str,
+    service::{
+        media::FileMeta,
+        pdu::{gen_event_id_canonical_json, PduBuilder},
+    },
+    services,
+    utils::{self, dbg_truncate_str},
     Ar, Error, PduEvent, Ra, Result,
 };
 
@@ -2011,6 +2021,65 @@ pub(crate) async fn claim_keys_route(
     Ok(Ra(claim_keys::v1::Response {
         one_time_keys: result.one_time_keys,
     }))
+}
+
+/// # `GET /_matrix/federation/*/media/download/{mediaId}`
+pub(crate) async fn get_content_route(
+    body: Ar<get_content::v1::Request>,
+) -> Result<Ra<get_content::v1::Response>> {
+    let get_content::v1::Request {
+        media_id,
+        timeout_ms,
+    } = &body.body;
+    let server = services().globals.server_name();
+
+    crate::api::client_server::get_content_route()
+
+    let mxc = format!("mxc://{server}/{media_id}").into();
+    MxcUri::validate(mxc).map_err(|_| {
+        Error::BadRequest(ErrorKind::InvalidParam, "Invalid MXC URI.")
+    })?;
+
+    let fut = services().media.get(mxc);
+    tokio::pin!(fut);
+
+    if let Ok(Some(FileMeta {
+        content_disposition,
+        content_type,
+        file,
+    })) = fut.as_mut().now_or_never().transpose().map(Option::flatten)
+    {
+        let file_or_location = FileOrLocation::Location(());
+
+        content_type
+            .filter(|kind| INLINE_CONTENT_TYPES.contains(kind))
+            .map(|_| {
+                FileOrLocation::File(Content {
+                    file,
+                    content_type,
+                    content_disposition,
+                })
+            })
+            .unwrap_or_else(|| {});
+
+        FileOrLocation::Location(());
+        return Ok(Ra(get_content::v1::Response::new(
+            ContentMetadata::new(),
+            content,
+        )));
+    }
+
+    match result.expect("pending future is infallible") {
+        Ok(None) => {}
+        // Err(Error::Io {
+        //     source: tokio::io::Error,
+        // }) if source.kind() == tokio::io::ErrorKind::NotFound => {}
+        Err(_) => {}
+    }
+
+    body.timeout_ms;
+
+    Ok(Ra(get_content::v1::Response::new(metadata, content)))
 }
 
 #[cfg(test)]

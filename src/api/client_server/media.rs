@@ -22,7 +22,7 @@ const MXC_LENGTH: usize = 32;
 /// `Content-Type`s that can be rendered inline in a browser without risking XSS
 ///
 /// Cargo-culted from Synapse. Note that SVG can contain inline JavaScript.
-static INLINE_CONTENT_TYPES: Set<&str> = phf_set! {
+pub(crate) static INLINE_CONTENT_TYPES: Set<&str> = phf_set! {
     // Keep sorted
     "application/json",
     "application/ld+json",

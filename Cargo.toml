@@ -120,7 +120,7 @@ regex = "1.10.4"
 reqwest = { version = "0.12.4", default-features = false, features = ["http2", "rustls-tls-native-roots", "socks"] }
 ring = "0.17.8"
 rocksdb = { package = "rust-rocksdb", version = "0.26.0", features = ["lz4", "multi-threaded-cf", "zstd"], optional = true }
-ruma = { git = "https://github.com/ruma/ruma", branch = "main", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "server-util", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
+ruma = { git = "https://github.com/ruma/ruma", rev = "e815eb760336c1c8500496c14dcfea1ea8f03b7f", features = ["compat", "rand", "appservice-api-c", "client-api", "federation-api", "push-gateway-api-c", "server-util", "state-res", "unstable-msc2448", "unstable-msc3575", "unstable-exhaustive-types", "ring-compat", "unstable-unspecified" ] }
 rusqlite = { version = "0.31.0", optional = true, features = ["bundled"] }
 sd-notify = { version = "0.4.1", optional = true }
 serde = { version = "1.0.202", features = ["rc"] }
