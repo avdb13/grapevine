@@ -11,6 +11,9 @@ before_script:
   # Enable nix-command and flakes
   - if command -v nix > /dev/null; then echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf; fi
 
+  # Disable IFD, to ensure we are able to build without it
+  - if command -v nix > /dev/null; then echo "allow-import-from-derivation = false" >> /etc/nix/nix.conf; fi
+
   # Add our own binary cache
   - if command -v nix > /dev/null && [ -n "$ATTIC_ENDPOINT" ] && [ -n "$ATTIC_CACHE" ]; then echo "extra-substituters = $ATTIC_ENDPOINT/$ATTIC_CACHE" >> /etc/nix/nix.conf; fi
   - if command -v nix > /dev/null && [ -n "$ATTIC_PUBLIC_KEY" ]; then echo "extra-trusted-public-keys = $ATTIC_PUBLIC_KEY" >> /etc/nix/nix.conf; fi
