@@ -200,3 +200,5 @@ This will be the first release of Grapevine since it was forked from Conduit
       output.
     * `observability.logs.timestamp`: Whether timestamps should be included in
       the logs.
+13. Support building nix packages without IFD
+    ([!73](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/73))
