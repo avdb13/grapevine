@@ -71,12 +71,10 @@ let
   } // buildDepsOnlyEnv;
 
   commonAttrs = {
-    inherit
-      (craneLib.crateNameFromCargoToml {
-        cargoToml = "${inputs.self}/Cargo.toml";
-      })
-      pname
-      version;
+    # Reading from cargoManifest directly instead of using
+    # createNameFromCargoToml to avoid IFD
+    pname = cargoManifest.package.name;
+    version = cargoManifest.package.version;
 
     src = let filter = inputs.nix-filter.lib; in filter {
       root = inputs.self;

@@ -8,6 +8,12 @@
     flake-utils.url = "github:numtide/flake-utils?ref=main";
     nix-filter.url = "github:numtide/nix-filter?ref=main";
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
+
+    rust-manifest = {
+      # Keep version in sync with rust-toolchain.toml
+      url = "https://static.rust-lang.org/dist/channel-rust-1.78.0.toml";
+      flake = false;
+    };
   };
 
   outputs = inputs:
@@ -29,16 +35,27 @@
         shell = self.callPackage ./nix/shell.nix {};
 
         # The Rust toolchain to use
-        toolchain = inputs
-          .fenix
-          .packages
-          .${pkgs.pkgsBuildHost.system}
-          .fromToolchainFile {
-            file = ./rust-toolchain.toml;
-
-            # See also `rust-toolchain.toml`
-            sha256 = "sha256-opUgs6ckUQCyDxcB9Wy51pqhd0MPGHUVbwRKKPGiwZU=";
-          };
+        # Using fromManifestFile and parsing the toolchain file with importTOML
+        # instead of fromToolchainFile to avoid IFD
+        toolchain = let
+          toolchainFile = pkgs.lib.importTOML ./rust-toolchain.toml;
+          defaultProfileComponents = [
+            "rustc"
+            "cargo"
+            "rust-docs"
+            "rustfmt"
+            "clippy"
+          ];
+          components = defaultProfileComponents ++
+            toolchainFile.toolchain.components;
+          targets = toolchainFile.toolchain.targets;
+          fenix = inputs.fenix.packages.${pkgs.pkgsBuildHost.system};
+        in
+          fenix.combine (builtins.map
+            (target:
+              (fenix.targets.${target}.fromManifestFile inputs.rust-manifest)
+              .withComponents components)
+            targets);
       });
     in
     inputs.flake-utils.lib.eachDefaultSystem (system:
