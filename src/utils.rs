@@ -1,5 +1,6 @@
 pub(crate) mod error;
 pub(crate) mod on_demand_hashmap;
+pub(crate) mod query;
 
 use std::{
     borrow::Cow,

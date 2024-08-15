@@ -280,7 +280,7 @@ pub(crate) async fn register_route(
     if body.appservice_info.is_none() && !is_guest {
         services().admin.send_message(RoomMessageEventContent::notice_plain(
             format!("New user {user_id} registered on this server."),
-        ));
+        ), None);
     }
 
     // If this is the first real user, grant them admin privileges
@@ -379,7 +379,7 @@ pub(crate) async fn change_password_route(
     info!(user_id = %sender_user, "User changed their password");
     services().admin.send_message(RoomMessageEventContent::notice_plain(
         format!("User {sender_user} changed their password."),
-    ));
+    ), None);
 
     Ok(Ra(change_password::v3::Response {}))
 }
@@ -459,7 +459,7 @@ pub(crate) async fn deactivate_route(
     info!(user_id = %sender_user, "User deactivated their account");
     services().admin.send_message(RoomMessageEventContent::notice_plain(
         format!("User {sender_user} deactivated their account."),
-    ));
+    ), None);
 
     Ok(Ra(deactivate::v3::Response {
         id_server_unbind_result: ThirdPartyIdRemovalStatus::NoSupport,

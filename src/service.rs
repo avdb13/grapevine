@@ -214,3 +214,12 @@ roomid_spacechunk_cache: {roomid_spacechunk_cache}"
         }
     }
 }
+
+
+enum Cache {
+    LazyLoading,
+    ServerVisibility,
+    UserVisibility,
+    StateInfo,
+    SpaceChunks,
+}

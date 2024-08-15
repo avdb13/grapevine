@@ -532,7 +532,9 @@ impl Service {
                                 .is_joined(admin_bot, &admin_room)
                                 .unwrap_or(false)
                         {
-                            services().admin.process_message(body);
+                            services()
+                                .admin
+                                .process_message(body, pdu.event_id.clone());
                         }
                     }
                 }

@@ -1,11 +1,9 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::Arc};
 
-use clap::ValueEnum;
+use clap::{Parser, ValueEnum};
 use regex::Regex;
 use ruma::{
-    api::appservice::Registration,
     events::{
-        push_rules::{PushRulesEvent, PushRulesEventContent},
         relation::InReplyTo,
         room::{
             canonical_alias::RoomCanonicalAliasEventContent,
@@ -23,24 +21,40 @@ use ruma::{
         },
         TimelineEventType,
     },
-    signatures::verify_json,
-    EventId, MilliSecondsSinceUnixEpoch, OwnedRoomId, RoomId, RoomVersionId,
-    ServerName, UserId,
+    EventId, OwnedRoomId, RoomId, RoomVersionId, ServerName, UserId,
 };
 use serde_json::value::to_raw_value;
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, Mutex};
 use tracing::warn;
 
-use self::command::Command;
 use super::pdu::PduBuilder;
-use crate::{
-    api::client_server::{leave_all_rooms, AUTO_GEN_PASSWORD_LENGTH},
-    services,
-    utils::{self, dbg_truncate_str},
-    Error, PduEvent, Result,
-};
+use crate::{services, utils::dbg_truncate_str, Error, Result};
 
-mod command;
+mod appservices;
+mod federation;
+mod rooms;
+mod server;
+mod users;
+
+#[derive(Debug, Parser)]
+#[command(name = "!admin", version = env!("CARGO_PKG_VERSION"))]
+pub(crate) enum Command {
+    #[command(subcommand)]
+    /// Commands for managing the server
+    Server(server::Command),
+
+    #[command(subcommand)]
+    /// Commands for managing rooms
+    Rooms(rooms::Command),
+
+    #[command(subcommand)]
+    /// Commands for managing local users
+    Users(users::Command),
+
+    #[command(subcommand)]
+    /// Commands for managing appservices
+    Appservices(appservices::Command),
+}
 
 #[derive(Debug)]
 pub(crate) enum AdminRoomEvent {
@@ -51,13 +65,6 @@ pub(crate) enum AdminRoomEvent {
 pub(crate) struct Service {
     pub(crate) sender: mpsc::UnboundedSender<AdminRoomEvent>,
     receiver: Mutex<mpsc::UnboundedReceiver<AdminRoomEvent>>,
-}
-
-#[derive(Debug, Clone, ValueEnum)]
-enum TracingBackend {
-    Log,
-    Flame,
-    Traces,
 }
 
 impl Service {
@@ -156,7 +163,7 @@ impl Service {
         {
             message_content.relates_to = Some(Relation::Reply {
                 in_reply_to,
-            })
+            });
         }
 
         self.sender.send(AdminRoomEvent::SendMessage(message_content)).unwrap();
@@ -214,7 +221,7 @@ impl Service {
         }
     }
 
-    // Parse chat messages from the admin room into an AdminCommand object
+    // Parse chat messages from the admin room into an Command object
     #[tracing::instrument(
         skip(command_line),
         fields(
@@ -242,742 +249,17 @@ impl Service {
             argv[1] = &command_with_dashes;
         }
 
-        AdminCommand::try_parse_from(argv).map_err(|error| error.to_string())
+        Parser::try_parse_from(argv).map_err(|error| error.to_string())
     }
 
     #[allow(clippy::too_many_lines)]
     #[tracing::instrument(skip(self, body))]
     async fn process_admin_command(
         &self,
-        command: AdminCommand,
+        command: Command,
         body: Vec<&str>,
     ) -> Result<RoomMessageEventContent> {
-        let reply_message_content = match command {
-            AdminCommand::RegisterAppservice => {
-                if body.len() > 2
-                    && body[0].trim() == "```"
-                    && body.last().unwrap().trim() == "```"
-                {
-                    let appservice_config = body[1..body.len() - 1].join("\n");
-                    let parsed_config = serde_yaml::from_str::<Registration>(
-                        &appservice_config,
-                    );
-                    match parsed_config {
-                        Ok(yaml) => match services()
-                            .appservice
-                            .register_appservice(yaml)
-                            .await
-                        {
-                            Ok(id) => RoomMessageEventContent::text_plain(
-                                format!("Appservice registered with ID: {id}."),
-                            ),
-                            Err(e) => RoomMessageEventContent::text_plain(
-                                format!("Failed to register appservice: {e}"),
-                            ),
-                        },
-                        Err(e) => RoomMessageEventContent::text_plain(format!(
-                            "Could not parse appservice config: {e}"
-                        )),
-                    }
-                } else {
-                    RoomMessageEventContent::text_plain(
-                        "Expected code block in command body. Add --help for \
-                         details.",
-                    )
-                }
-            }
-            AdminCommand::UnregisterAppservice {
-                appservice_identifier,
-            } => match services()
-                .appservice
-                .unregister_appservice(&appservice_identifier)
-                .await
-            {
-                Ok(()) => RoomMessageEventContent::text_plain(
-                    "Appservice unregistered.",
-                ),
-                Err(e) => RoomMessageEventContent::text_plain(format!(
-                    "Failed to unregister appservice: {e}"
-                )),
-            },
-            AdminCommand::ListAppservices => {
-                let appservices = services().appservice.iter_ids().await;
-                let output = format!(
-                    "Appservices ({}): {}",
-                    appservices.len(),
-                    appservices.join(", ")
-                );
-                RoomMessageEventContent::text_plain(output)
-            }
-            AdminCommand::ListRooms => {
-                let room_ids = services().rooms.metadata.iter_ids();
-                let output = format!(
-                    "Rooms:\n{}",
-                    room_ids
-                        .filter_map(std::result::Result::ok)
-                        .map(|id| format!(
-                            "{id}\tMembers: {}",
-                            &services()
-                                .rooms
-                                .state_cache
-                                .room_joined_count(&id)
-                                .ok()
-                                .flatten()
-                                .unwrap_or(0)
-                        ))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                );
-                RoomMessageEventContent::text_plain(output)
-            }
-            AdminCommand::ListLocalUsers => match services()
-                .users
-                .list_local_users()
-            {
-                Ok(users) => {
-                    let mut msg: String = format!(
-                        "Found {} local user account(s):\n",
-                        users.len()
-                    );
-                    msg += &users.join("\n");
-                    RoomMessageEventContent::text_plain(&msg)
-                }
-                Err(e) => RoomMessageEventContent::text_plain(e.to_string()),
-            },
-            AdminCommand::IncomingFederation => {
-                let map =
-                    services().globals.roomid_federationhandletime.read().await;
-                let mut msg: String =
-                    format!("Handling {} incoming pdus:\n", map.len());
-
-                for (r, (e, i)) in map.iter() {
-                    let elapsed = i.elapsed();
-                    writeln!(
-                        msg,
-                        "{r} {e}: {}m{}s",
-                        elapsed.as_secs() / 60,
-                        elapsed.as_secs() % 60
-                    )
-                    .expect("write to in-memory buffer should succeed");
-                }
-                RoomMessageEventContent::text_plain(&msg)
-            }
-            AdminCommand::GetAuthChain {
-                event_id,
-            } => {
-                let event_id = Arc::<EventId>::from(event_id);
-                if let Some(event) =
-                    services().rooms.timeline.get_pdu_json(&event_id)?
-                {
-                    let room_id_str = event
-                        .get("room_id")
-                        .and_then(|val| val.as_str())
-                        .ok_or_else(|| {
-                            Error::bad_database("Invalid event in database")
-                        })?;
-
-                    let room_id =
-                        <&RoomId>::try_from(room_id_str).map_err(|_| {
-                            Error::bad_database(
-                                "Invalid room id field in event in database",
-                            )
-                        })?;
-                    let start = Instant::now();
-                    let count = services()
-                        .rooms
-                        .auth_chain
-                        .get_auth_chain(room_id, vec![event_id])
-                        .await?
-                        .count();
-                    let elapsed = start.elapsed();
-                    RoomMessageEventContent::text_plain(format!(
-                        "Loaded auth chain with length {count} in {elapsed:?}"
-                    ))
-                } else {
-                    RoomMessageEventContent::text_plain("Event not found.")
-                }
-            }
-            AdminCommand::ParsePdu => {
-                if body.len() > 2
-                    && body[0].trim() == "```"
-                    && body.last().unwrap().trim() == "```"
-                {
-                    let string = body[1..body.len() - 1].join("\n");
-                    match serde_json::from_str(&string) {
-                        Ok(value) => {
-                            match ruma::signatures::reference_hash(
-                                &value,
-                                &RoomVersionId::V6,
-                            ) {
-                                Ok(hash) => {
-                                    let event_id =
-                                        EventId::parse(format!("${hash}"));
-
-                                    match serde_json::from_value::<PduEvent>(
-                                        serde_json::to_value(value)
-                                            .expect("value is json"),
-                                    ) {
-                                        Ok(pdu) => {
-                                            RoomMessageEventContent::text_plain(
-                                                format!(
-                                                    "EventId: {event_id:?}\\
-                                                     n{pdu:#?}"
-                                                ),
-                                            )
-                                        }
-                                        Err(e) => {
-                                            RoomMessageEventContent::text_plain(
-                                                format!(
-                                                    "EventId: {event_id:?}\\
-                                                     nCould not parse event: \
-                                                     {e}"
-                                                ),
-                                            )
-                                        }
-                                    }
-                                }
-                                Err(e) => RoomMessageEventContent::text_plain(
-                                    format!("Could not parse PDU JSON: {e:?}"),
-                                ),
-                            }
-                        }
-                        Err(e) => RoomMessageEventContent::text_plain(format!(
-                            "Invalid json in command body: {e}"
-                        )),
-                    }
-                } else {
-                    RoomMessageEventContent::text_plain(
-                        "Expected code block in command body.",
-                    )
-                }
-            }
-            AdminCommand::GetPdu {
-                event_id,
-            } => {
-                let mut outlier = false;
-                let mut pdu_json = services()
-                    .rooms
-                    .timeline
-                    .get_non_outlier_pdu_json(&event_id)?;
-                if pdu_json.is_none() {
-                    outlier = true;
-                    pdu_json =
-                        services().rooms.timeline.get_pdu_json(&event_id)?;
-                }
-                match pdu_json {
-                    Some(json) => {
-                        let json_text = serde_json::to_string_pretty(&json)
-                            .expect("canonical json is valid json");
-                        RoomMessageEventContent::text_html(
-                            format!(
-                                "{}\n```json\n{}\n```",
-                                if outlier {
-                                    "PDU is outlier"
-                                } else {
-                                    "PDU was accepted"
-                                },
-                                json_text
-                            ),
-                            format!(
-                                "<p>{}</p>\n<pre><code \
-                                 class=\"language-json\">{}\n</code></pre>\n",
-                                if outlier {
-                                    "PDU is outlier"
-                                } else {
-                                    "PDU was accepted"
-                                },
-                                html_escape::encode_safe(&json_text)
-                            ),
-                        )
-                    }
-                    None => {
-                        RoomMessageEventContent::text_plain("PDU not found.")
-                    }
-                }
-            }
-            AdminCommand::MemoryUsage => {
-                let response1 = services().memory_usage().await;
-                let response2 = services().globals.db.memory_usage();
-
-                RoomMessageEventContent::text_plain(format!(
-                    "Services:\n{response1}\n\nDatabase:\n{response2}"
-                ))
-            }
-            AdminCommand::ClearDatabaseCaches {
-                amount,
-            } => {
-                services().globals.db.clear_caches(amount);
-
-                RoomMessageEventContent::text_plain("Done.")
-            }
-            AdminCommand::ClearServiceCaches {
-                amount,
-            } => {
-                services().clear_caches(amount).await;
-
-                RoomMessageEventContent::text_plain("Done.")
-            }
-            AdminCommand::ResetPassword {
-                username,
-            } => {
-                let user_id = match UserId::parse_with_server_name(
-                    username.as_str().to_lowercase(),
-                    services().globals.server_name(),
-                ) {
-                    Ok(id) => id,
-                    Err(e) => {
-                        return Ok(RoomMessageEventContent::text_plain(
-                            format!(
-                                "The supplied username is not a valid \
-                                 username: {e}"
-                            ),
-                        ))
-                    }
-                };
-
-                // Checks if user is local
-                if user_id.server_name() != services().globals.server_name() {
-                    return Ok(RoomMessageEventContent::text_plain(
-                        "The specified user is not from this server!",
-                    ));
-                };
-
-                // Check if the specified user is valid
-                if !services().users.exists(&user_id)?
-                    || user_id == services().globals.admin_bot_user_id
-                {
-                    return Ok(RoomMessageEventContent::text_plain(
-                        "The specified user does not exist!",
-                    ));
-                }
-
-                let new_password =
-                    utils::random_string(AUTO_GEN_PASSWORD_LENGTH);
-
-                match services()
-                    .users
-                    .set_password(&user_id, Some(new_password.as_str()))
-                {
-                    Ok(()) => RoomMessageEventContent::text_plain(format!(
-                        "Successfully reset the password for user {user_id}: \
-                         {new_password}"
-                    )),
-                    Err(e) => RoomMessageEventContent::text_plain(format!(
-                        "Couldn't reset the password for user {user_id}: {e}"
-                    )),
-                }
-            }
-            AdminCommand::CreateUser {
-                username,
-                password,
-            } => {
-                let password = password.unwrap_or_else(|| {
-                    utils::random_string(AUTO_GEN_PASSWORD_LENGTH)
-                });
-                // Validate user id
-                let user_id = match UserId::parse_with_server_name(
-                    username.as_str().to_lowercase(),
-                    services().globals.server_name(),
-                ) {
-                    Ok(id) => id,
-                    Err(e) => {
-                        return Ok(RoomMessageEventContent::text_plain(
-                            format!(
-                                "The supplied username is not a valid \
-                                 username: {e}"
-                            ),
-                        ))
-                    }
-                };
-                if user_id.is_historical() {
-                    return Ok(RoomMessageEventContent::text_plain(format!(
-                        "Userid {user_id} is not allowed due to historical"
-                    )));
-                }
-                if services().users.exists(&user_id)? {
-                    return Ok(RoomMessageEventContent::text_plain(format!(
-                        "Userid {user_id} already exists"
-                    )));
-                }
-                // Create user
-                services().users.create(&user_id, Some(password.as_str()))?;
-
-                // Default to pretty displayname
-                let displayname = user_id.localpart().to_owned();
-
-                services()
-                    .users
-                    .set_displayname(&user_id, Some(displayname))?;
-
-                // Initial account data
-                services().account_data.update(
-                    None,
-                    &user_id,
-                    ruma::events::GlobalAccountDataEventType::PushRules
-                        .to_string()
-                        .into(),
-                    &serde_json::to_value(PushRulesEvent {
-                        content: PushRulesEventContent {
-                            global: ruma::push::Ruleset::server_default(
-                                &user_id,
-                            ),
-                        },
-                    })
-                    .expect("to json value always works"),
-                )?;
-
-                // we dont add a device since we're not the user, just the
-                // creator
-
-                // Inhibit login does not work for guests
-                RoomMessageEventContent::text_plain(format!(
-                    "Created user with user_id: {user_id} and password: \
-                     {password}"
-                ))
-            }
-            AdminCommand::DisableRoom {
-                room_id,
-            } => {
-                services().rooms.metadata.disable_room(&room_id, true)?;
-                RoomMessageEventContent::text_plain("Room disabled.")
-            }
-            AdminCommand::EnableRoom {
-                room_id,
-            } => {
-                services().rooms.metadata.disable_room(&room_id, false)?;
-                RoomMessageEventContent::text_plain("Room enabled.")
-            }
-            AdminCommand::DeactivateUser {
-                leave_rooms,
-                user_id,
-            } => {
-                let user_id = Arc::<UserId>::from(user_id);
-                if !services().users.exists(&user_id)? {
-                    RoomMessageEventContent::text_plain(format!(
-                        "User {user_id} doesn't exist on this server"
-                    ))
-                } else if user_id.server_name()
-                    != services().globals.server_name()
-                {
-                    RoomMessageEventContent::text_plain(format!(
-                        "User {user_id} is not from this server"
-                    ))
-                } else {
-                    RoomMessageEventContent::text_plain(format!(
-                        "Making {user_id} leave all rooms before \
-                         deactivation..."
-                    ));
-
-                    services().users.deactivate_account(&user_id)?;
-
-                    if leave_rooms {
-                        leave_all_rooms(&user_id).await?;
-                    }
-
-                    RoomMessageEventContent::text_plain(format!(
-                        "User {user_id} has been deactivated"
-                    ))
-                }
-            }
-            AdminCommand::DeactivateAll {
-                leave_rooms,
-                force,
-            } => {
-                if body.len() > 2
-                    && body[0].trim() == "```"
-                    && body.last().unwrap().trim() == "```"
-                {
-                    let users = body
-                        .clone()
-                        .drain(1..body.len() - 1)
-                        .collect::<Vec<_>>();
-
-                    let mut user_ids = Vec::new();
-                    let mut remote_ids = Vec::new();
-                    let mut non_existant_ids = Vec::new();
-                    let mut invalid_users = Vec::new();
-
-                    for &user in &users {
-                        match <&UserId>::try_from(user) {
-                            Ok(user_id) => {
-                                if user_id.server_name()
-                                    != services().globals.server_name()
-                                {
-                                    remote_ids.push(user_id);
-                                } else if !services().users.exists(user_id)? {
-                                    non_existant_ids.push(user_id);
-                                } else {
-                                    user_ids.push(user_id);
-                                }
-                            }
-                            Err(_) => {
-                                invalid_users.push(user);
-                            }
-                        }
-                    }
-
-                    let mut markdown_message = String::new();
-                    let mut html_message = String::new();
-                    if !invalid_users.is_empty() {
-                        markdown_message.push_str(
-                            "The following user ids are not valid:\n```\n",
-                        );
-                        html_message.push_str(
-                            "The following user ids are not valid:\n<pre>\n",
-                        );
-                        for invalid_user in invalid_users {
-                            writeln!(markdown_message, "{invalid_user}")
-                                .expect(
-                                    "write to in-memory buffer should succeed",
-                                );
-                            writeln!(html_message, "{invalid_user}").expect(
-                                "write to in-memory buffer should succeed",
-                            );
-                        }
-                        markdown_message.push_str("```\n\n");
-                        html_message.push_str("</pre>\n\n");
-                    }
-                    if !remote_ids.is_empty() {
-                        markdown_message.push_str(
-                            "The following users are not from this \
-                             server:\n```\n",
-                        );
-                        html_message.push_str(
-                            "The following users are not from this \
-                             server:\n<pre>\n",
-                        );
-                        for remote_id in remote_ids {
-                            writeln!(markdown_message, "{remote_id}").expect(
-                                "write to in-memory buffer should succeed",
-                            );
-                            writeln!(html_message, "{remote_id}").expect(
-                                "write to in-memory buffer should succeed",
-                            );
-                        }
-                        markdown_message.push_str("```\n\n");
-                        html_message.push_str("</pre>\n\n");
-                    }
-                    if !non_existant_ids.is_empty() {
-                        markdown_message.push_str(
-                            "The following users do not exist:\n```\n",
-                        );
-                        html_message.push_str(
-                            "The following users do not exist:\n<pre>\n",
-                        );
-                        for non_existant_id in non_existant_ids {
-                            writeln!(markdown_message, "{non_existant_id}")
-                                .expect(
-                                    "write to in-memory buffer should succeed",
-                                );
-                            writeln!(html_message, "{non_existant_id}").expect(
-                                "write to in-memory buffer should succeed",
-                            );
-                        }
-                        markdown_message.push_str("```\n\n");
-                        html_message.push_str("</pre>\n\n");
-                    }
-                    if !markdown_message.is_empty() {
-                        return Ok(RoomMessageEventContent::text_html(
-                            markdown_message,
-                            html_message,
-                        ));
-                    }
-
-                    let mut deactivation_count = 0;
-                    let mut admins = Vec::new();
-
-                    if !force {
-                        user_ids.retain(|&user_id| {
-                            match services().users.is_admin(user_id) {
-                                Ok(is_admin) => {
-                                    if is_admin {
-                                        admins.push(user_id.localpart());
-                                        false
-                                    } else {
-                                        true
-                                    }
-                                }
-                                Err(_) => false,
-                            }
-                        });
-                    }
-
-                    for &user_id in &user_ids {
-                        if services().users.deactivate_account(user_id).is_ok()
-                        {
-                            deactivation_count += 1;
-                        }
-                    }
-
-                    if leave_rooms {
-                        for &user_id in &user_ids {
-                            if let Err(error) = leave_all_rooms(user_id).await {
-                                warn!(%user_id, %error, "failed to leave one or more rooms");
-                            }
-                        }
-                    }
-
-                    if admins.is_empty() {
-                        RoomMessageEventContent::text_plain(format!(
-                            "Deactivated {deactivation_count} accounts."
-                        ))
-                    } else {
-                        RoomMessageEventContent::text_plain(format!(
-                            "Deactivated {} accounts.\nSkipped admin \
-                             accounts: {:?}. Use --force to deactivate admin \
-                             accounts",
-                            deactivation_count,
-                            admins.join(", ")
-                        ))
-                    }
-                } else {
-                    RoomMessageEventContent::text_plain(
-                        "Expected code block in command body. Add --help for \
-                         details.",
-                    )
-                }
-            }
-            AdminCommand::SignJson => {
-                if body.len() > 2
-                    && body[0].trim() == "```"
-                    && body.last().unwrap().trim() == "```"
-                {
-                    let string = body[1..body.len() - 1].join("\n");
-                    match serde_json::from_str(&string) {
-                        Ok(mut value) => {
-                            ruma::signatures::sign_json(
-                                services().globals.server_name().as_str(),
-                                services().globals.keypair(),
-                                &mut value,
-                            )
-                            .expect("our request json is what ruma expects");
-                            let json_text =
-                                serde_json::to_string_pretty(&value)
-                                    .expect("canonical json is valid json");
-                            RoomMessageEventContent::text_plain(json_text)
-                        }
-                        Err(e) => RoomMessageEventContent::text_plain(format!(
-                            "Invalid json: {e}"
-                        )),
-                    }
-                } else {
-                    RoomMessageEventContent::text_plain(
-                        "Expected code block in command body. Add --help for \
-                         details.",
-                    )
-                }
-            }
-            AdminCommand::VerifyJson => {
-                if body.len() > 2
-                    && body[0].trim() == "```"
-                    && body.last().unwrap().trim() == "```"
-                {
-                    let string = body[1..body.len() - 1].join("\n");
-                    match serde_json::from_str(&string) {
-                        Ok(value) => {
-                            let pub_key_map = RwLock::new(BTreeMap::new());
-
-                            services()
-                                .rooms
-                                .event_handler
-                                // Generally we shouldn't be checking against
-                                // expired keys unless required, so in the admin
-                                // room it might be best to not allow expired
-                                // keys
-                                .fetch_required_signing_keys(
-                                    &value,
-                                    &pub_key_map
-                                )
-                                .await?;
-
-                            let mut expired_key_map = BTreeMap::new();
-                            let mut valid_key_map = BTreeMap::new();
-
-                            for (server, keys) in pub_key_map.into_inner() {
-                                if keys.valid_until_ts
-                                    > MilliSecondsSinceUnixEpoch::now()
-                                {
-                                    valid_key_map.insert(
-                                        server,
-                                        keys.verify_keys
-                                            .into_iter()
-                                            .map(|(id, key)| (id, key.key))
-                                            .collect(),
-                                    );
-                                } else {
-                                    expired_key_map.insert(
-                                        server,
-                                        keys.verify_keys
-                                            .into_iter()
-                                            .map(|(id, key)| (id, key.key))
-                                            .collect(),
-                                    );
-                                }
-                            }
-
-                            if verify_json(&valid_key_map, &value).is_ok() {
-                                RoomMessageEventContent::text_plain(
-                                    "Signature correct",
-                                )
-                            } else if let Err(e) =
-                                verify_json(&expired_key_map, &value)
-                            {
-                                RoomMessageEventContent::text_plain(format!(
-                                    "Signature verification failed: {e}"
-                                ))
-                            } else {
-                                RoomMessageEventContent::text_plain(
-                                    "Signature correct (with expired keys)",
-                                )
-                            }
-                        }
-                        Err(e) => RoomMessageEventContent::text_plain(format!(
-                            "Invalid json: {e}"
-                        )),
-                    }
-                } else {
-                    RoomMessageEventContent::text_plain(
-                        "Expected code block in command body. Add --help for \
-                         details.",
-                    )
-                }
-            }
-            AdminCommand::SetTracingFilter {
-                backend,
-                filter,
-            } => {
-                let handles = &services().globals.reload_handles;
-                let handle = match backend {
-                    TracingBackend::Log => &handles.log,
-                    TracingBackend::Flame => &handles.flame,
-                    TracingBackend::Traces => &handles.traces,
-                };
-                let Some(handle) = handle else {
-                    return Ok(RoomMessageEventContent::text_plain(
-                        "Backend is disabled",
-                    ));
-                };
-                let filter = match filter.parse() {
-                    Ok(filter) => filter,
-                    Err(e) => {
-                        return Ok(RoomMessageEventContent::text_plain(
-                            format!("Invalid filter string: {e}"),
-                        ));
-                    }
-                };
-                if let Err(e) = handle.reload(filter) {
-                    return Ok(RoomMessageEventContent::text_plain(format!(
-                        "Failed to reload filter: {e}"
-                    )));
-                };
-
-                return Ok(RoomMessageEventContent::text_plain(
-                    "Filter reloaded",
-                ));
-            }
-        };
-
-        Ok(reply_message_content)
+        todo!()
     }
 
     // Utility to turn clap's `--help` text to HTML.
@@ -1437,10 +719,9 @@ mod test {
     }
 
     fn get_help_inner(input: &str) {
-        let error =
-            AdminCommand::try_parse_from(["argv[0] doesn't matter", input])
-                .unwrap_err()
-                .to_string();
+        let error = Command::try_parse_from(["argv[0] doesn't matter", input])
+            .unwrap_err()
+            .to_string();
 
         // Search for a handful of keywords that suggest the help printed
         // properly
@@ -1448,4 +729,11 @@ mod test {
         assert!(error.contains("Commands:"));
         assert!(error.contains("Options:"));
     }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum TracingBackend {
+    Log,
+    Flame,
+    Traces,
 }

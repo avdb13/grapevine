@@ -337,9 +337,10 @@ fn search() -> Result<PathBuf, error::ConfigSearch> {
 }
 
 /// Load the configuration from the given path or XDG Base Directories
-pub(crate) async fn load<P>(path: Option<P>) -> Result<Config, error::Config>
+pub(crate) async fn load<C, P>(path: Option<P>) -> Result<C, error::Config>
 where
     P: AsRef<Path>,
+    C: for<'de> Deserialize<'de>,
 {
     use error::Config as Error;
 

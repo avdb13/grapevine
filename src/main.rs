@@ -41,7 +41,7 @@ use tower_http::{
 use tracing::{debug, error, info, info_span, warn, Instrument};
 
 mod api;
-mod args;
+pub mod args;
 mod config;
 mod database;
 mod error;

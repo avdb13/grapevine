@@ -1162,6 +1162,7 @@ impl KeyValueDatabase {
                              Please unset it as soon as you finish admin \
                              account recovery!",
                         ),
+                        None,
                     );
                 }
             }

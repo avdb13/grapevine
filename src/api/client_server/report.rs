@@ -35,19 +35,21 @@ pub(crate) async fn report_event_route(
         ));
     };
 
-    services().admin.send_message(message::RoomMessageEventContent::text_html(
-        format!(
-            "Report received from: {}\n\nEvent ID: {:?}\nRoom ID: {:?}\nSent \
-             By: {:?}\n\nReport Score: {:?}\nReport Reason: {:?}",
-            sender_user,
-            pdu.event_id,
-            pdu.room_id,
-            pdu.sender,
-            body.score,
-            body.reason
-        ),
-        format!(
-            r#"
+    services().admin.send_message(
+        message::RoomMessageEventContent::text_html(
+            format!(
+                "Report received from: {}\n\nEvent ID: {:?}\nRoom ID: \
+                 {:?}\nSent By: {:?}\n\nReport Score: {:?}\nReport Reason: \
+                 {:?}",
+                sender_user,
+                pdu.event_id,
+                pdu.room_id,
+                pdu.sender,
+                body.score,
+                body.reason
+            ),
+            format!(
+                r#"
             <details>
                 <summary>
                     Report received from:
@@ -82,14 +84,16 @@ pub(crate) async fn report_event_route(
                 </ul>
             </details>
             "#,
-            sender_user,
-            pdu.event_id,
-            pdu.room_id,
-            pdu.sender,
-            body.score,
-            html_escape::encode_safe(body.reason.as_deref().unwrap_or(""))
+                sender_user,
+                pdu.event_id,
+                pdu.room_id,
+                pdu.sender,
+                body.score,
+                html_escape::encode_safe(body.reason.as_deref().unwrap_or(""))
+            ),
         ),
-    ));
+        None,
+    );
 
     Ok(Ra(report_content::v3::Response {}))
 }
