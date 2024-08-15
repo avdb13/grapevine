@@ -84,9 +84,12 @@ pub(crate) async fn get_keys_route(
 ) -> Result<Ra<get_keys::v3::Response>> {
     let sender_user = body.sender_user.as_ref().expect("user is authenticated");
 
-    let response = get_keys_helper(Some(sender_user), &body.device_keys, |u| {
-        u == sender_user
-    })
+    let response = get_keys_helper(
+        Some(sender_user),
+        &body.device_keys,
+        body.timeout.as_ref(),
+        |u| u == sender_user,
+    )
     .await?;
 
     Ok(Ra(response))
@@ -288,6 +291,7 @@ pub(crate) async fn get_key_changes_route(
 pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
     sender_user: Option<&UserId>,
     device_keys_input: &BTreeMap<OwnedUserId, Vec<OwnedDeviceId>>,
+    timeout: Option<&Duration>,
     allowed_signatures: F,
 ) -> Result<get_keys::v3::Response> {
     let mut master_keys = BTreeMap::new();
@@ -427,6 +431,8 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
             }
 
             let mut device_keys_input_fed = BTreeMap::new();
+            let timeout = timeout.copied().unwrap_or(Duration::from_secs(25));
+
             for (user_id, keys) in vec {
                 device_keys_input_fed.insert(user_id.to_owned(), keys.clone());
             }
@@ -435,7 +441,7 @@ pub(crate) async fn get_keys_helper<F: Fn(&UserId) -> bool>(
             (
                 server,
                 tokio::time::timeout(
-                    Duration::from_secs(25),
+                    timeout,
                     services().sending.send_federation_request(
                         server,
                         federation::keys::get_keys::v1::Request {

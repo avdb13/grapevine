@@ -1977,7 +1977,7 @@ pub(crate) async fn get_keys_route(
         ));
     }
 
-    let result = get_keys_helper(None, &body.device_keys, |u| {
+    let result = get_keys_helper(None, &body.device_keys, None, |u| {
         Some(u.server_name()) == body.sender_servername.as_deref()
     })
     .await?;
