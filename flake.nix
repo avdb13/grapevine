@@ -60,7 +60,14 @@
     in
     inputs.flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = inputs.nixpkgs.legacyPackages.${system};
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+
+          # Some users find it useful to set this on their Nixpkgs instance and
+          # we want to support that use case, so we set it here too to help us
+          # test/ensure that this works.
+          config.allowAliases = false;
+        };
       in
       {
         packages = {
@@ -79,6 +86,11 @@
                       crossSystem = {
                         config = crossSystem;
                       };
+
+                      # Some users find it useful to set this on their Nixpkgs
+                      # instance and we want to support that use case, so we set
+                      # it here too to help us test/ensure that this works.
+                      config.allowAliases = false;
                     }).pkgsStatic;
                 in
                 [
