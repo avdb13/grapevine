@@ -49,7 +49,7 @@
           components = defaultProfileComponents ++
             toolchainFile.toolchain.components;
           targets = toolchainFile.toolchain.targets;
-          fenix = inputs.fenix.packages.${pkgs.pkgsBuildHost.system};
+          fenix = inputs.fenix.packages.${pkgs.stdenv.buildPlatform.system};
         in
           fenix.combine (builtins.map
             (target:

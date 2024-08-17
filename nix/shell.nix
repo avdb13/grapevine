@@ -1,5 +1,6 @@
 # Keep sorted
-{ default
+{ buildPlatform
+, default
 , engage
 , inputs
 , jq
@@ -7,7 +8,6 @@
 , markdownlint-cli
 , mdbook
 , mkShell
-, system
 , toolchain
 }:
 
@@ -25,7 +25,7 @@ mkShell {
     #
     # This needs to come before `toolchain` in this list, otherwise
     # `$PATH` will have stable rustfmt instead.
-    inputs.fenix.packages.${system}.latest.rustfmt
+    inputs.fenix.packages.${buildPlatform.system}.latest.rustfmt
 
     # Keep sorted
     engage

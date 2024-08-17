@@ -18,11 +18,11 @@ in
   options.services.grapevine = {
     enable = lib.mkEnableOption "grapevine";
     package = lib.mkPackageOption
-      inputs.self.packages.${pkgs.system}
+      inputs.self.packages.${pkgs.hostPlatform.system}
       "grapevine"
       {
         default = "default";
-        pkgsText = "inputs.grapevine.packages.\${pkgs.system}";
+        pkgsText = "inputs.grapevine.packages.\${pkgs.hostPlatform.system}";
       };
 
     settings = lib.mkOption {
