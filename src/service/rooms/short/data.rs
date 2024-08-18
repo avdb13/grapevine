@@ -35,5 +35,7 @@ pub(crate) trait Data: Send + Sync {
 
     fn get_shortroomid(&self, room_id: &RoomId) -> Result<Option<u64>>;
 
+    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()>;
+
     fn get_or_create_shortroomid(&self, room_id: &RoomId) -> Result<u64>;
 }

@@ -275,6 +275,10 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .transpose()
     }
 
+    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()> {
+        self.roomid_shortroomid.remove(room_id.as_bytes())
+    }
+
     fn get_or_create_shortroomid(&self, room_id: &RoomId) -> Result<u64> {
         Ok(
             if let Some(short) =
