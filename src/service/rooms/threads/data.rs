@@ -24,4 +24,5 @@ pub(crate) trait Data: Send + Sync {
         &self,
         root_id: &[u8],
     ) -> Result<Option<Vec<OwnedUserId>>>;
+    fn reset_participants(&self, root_id: &[u8]) -> Result<()>;
 }

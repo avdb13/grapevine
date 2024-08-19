@@ -104,4 +104,8 @@ impl service::rooms::threads::Data for KeyValueDatabase {
             Ok(None)
         }
     }
+
+    fn reset_participants(&self, root_id: &[u8]) -> Result<()> {
+        self.threadid_userids.remove(root_id)
+    }
 }

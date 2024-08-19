@@ -54,6 +54,17 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
         Ok(())
     }
 
+    fn readreceipts_reset(&self, room_id: &RoomId) -> Result<()> {
+        let mut prefix = room_id.as_bytes().to_vec();
+        prefix.push(0xFF);
+
+        for (key, _) in self.readreceiptid_readreceipt.scan_prefix(prefix) {
+            self.readreceiptid_readreceipt.remove(&key)?;
+        }
+
+        Ok(())
+    }
+
     #[tracing::instrument(skip(self))]
     #[allow(clippy::type_complexity)]
     fn readreceipts_since<'a>(
@@ -162,6 +173,16 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
         })
     }
 
+    #[tracing::instrument(skip(self))]
+    fn private_read_reset(&self, room_id: &RoomId) -> Result<()> {
+        let mut key = room_id.as_bytes().to_vec();
+        key.push(0xFF);
+
+        self.roomuserid_privateread.remove(&key)?;
+
+        self.roomuserid_lastprivatereadupdate.remove(&key)
+    }
+
     fn last_privateread_update(
         &self,
         user_id: &UserId,
@@ -183,5 +204,18 @@ impl service::rooms::edus::read_receipt::Data for KeyValueDatabase {
             })
             .transpose()?
             .unwrap_or(0))
+    }
+
+    fn last_privateread_reset(&self, room_id: &RoomId) -> Result<()> {
+        let mut prefix = room_id.as_bytes().to_vec();
+        prefix.push(0xFF);
+
+        for (key, _) in
+            self.roomuserid_lastprivatereadupdate.scan_prefix(prefix)
+        {
+            self.roomuserid_lastprivatereadupdate.remove(&key)?;
+        }
+
+        Ok(())
     }
 }

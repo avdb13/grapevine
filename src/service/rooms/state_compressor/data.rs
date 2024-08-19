@@ -16,4 +16,5 @@ pub(crate) trait Data: Send + Sync {
         shortstatehash: u64,
         diff: StateDiff,
     ) -> Result<()>;
+    fn remove_statediff(&self, shortstatehash: u64) -> Result<()>;
 }

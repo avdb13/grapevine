@@ -33,6 +33,13 @@ impl service::rooms::state::Data for KeyValueDatabase {
         Ok(())
     }
 
+    fn remove_room_state(
+        &self,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
+    ) -> Result<()> {
+        self.roomid_shortstatehash.remove(room_id.as_bytes())
+    }
+
     fn set_event_state(
         &self,
         shorteventid: u64,
@@ -43,6 +50,10 @@ impl service::rooms::state::Data for KeyValueDatabase {
             &shortstatehash.to_be_bytes(),
         )?;
         Ok(())
+    }
+
+    fn remove_event_state(&self, shorteventid: u64) -> Result<()> {
+        self.shorteventid_shortstatehash.remove(&shorteventid.to_be_bytes())
     }
 
     fn get_forward_extremities(

@@ -15,4 +15,6 @@ pub(crate) trait Data: Send + Sync {
         event_id: &EventId,
         pdu: &CanonicalJsonObject,
     ) -> Result<()>;
+
+    fn remove_pdu_outlier(&self, event_id: &EventId) -> Result<()>;
 }

@@ -104,6 +104,7 @@ pub(crate) enum Lookup {
     ShortToEventId,
     ShortToStateKey,
     StateInfo,
+    EventIdToShort,
     StateKeyToShort,
     VisibilityForServer,
     VisibilityForUser,

@@ -1,3 +1,8 @@
+use ruma::{OwnedRoomId, RoomId};
+
+use super::globals::marker;
+use crate::{utils::on_demand_hashmap::KeyToken, Result};
+
 pub(crate) mod alias;
 pub(crate) mod auth_chain;
 pub(crate) mod directory;
@@ -19,7 +24,9 @@ pub(crate) mod timeline;
 pub(crate) mod user;
 
 pub(crate) trait Data:
-    alias::Data
+    Send
+    + Sync
+    + alias::Data
     + auth_chain::Data
     + directory::Data
     + edus::Data
@@ -37,6 +44,12 @@ pub(crate) trait Data:
     + threads::Data
     + user::Data
 {
+    #[allow(dead_code)]
+    fn purge(
+        &self,
+        room_id: &RoomId,
+        room_token: &KeyToken<OwnedRoomId, marker::State>,
+    ) -> Result<()>;
 }
 
 pub(crate) struct Service {

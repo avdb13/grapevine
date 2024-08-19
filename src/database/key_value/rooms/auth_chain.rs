@@ -55,6 +55,18 @@ impl service::rooms::auth_chain::Data for KeyValueDatabase {
         Ok(None)
     }
 
+    #[tracing::instrument(skip(self, key))]
+    fn remove_cached_eventid_authchain(&self, key: &[u64]) -> Result<()> {
+        if key.len() == 1 {
+            self.shorteventid_authchain.remove(&key[0].to_be_bytes())?;
+        }
+
+        let mut cache = self.auth_chain_cache.lock().unwrap();
+        cache.remove(key);
+
+        Ok(())
+    }
+
     fn cache_auth_chain(
         &self,
         key: Vec<u64>,

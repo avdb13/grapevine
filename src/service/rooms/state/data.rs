@@ -17,12 +17,19 @@ pub(crate) trait Data: Send + Sync {
         new_shortstatehash: u64,
     ) -> Result<()>;
 
+    fn remove_room_state(
+        &self,
+        room_id: &KeyToken<OwnedRoomId, marker::State>,
+    ) -> Result<()>;
+
     /// Associates a state with an event.
     fn set_event_state(
         &self,
         shorteventid: u64,
         shortstatehash: u64,
     ) -> Result<()>;
+
+    fn remove_event_state(&self, shorteventid: u64) -> Result<()>;
 
     /// Returns all events we would send as the `prev_events` of the next event.
     fn get_forward_extremities(

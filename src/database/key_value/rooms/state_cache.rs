@@ -101,6 +101,23 @@ impl service::rooms::state_cache::Data for KeyValueDatabase {
         Ok(())
     }
 
+    fn clear_markers(&self, user_id: &UserId, room_id: &RoomId) -> Result<()> {
+        self.mark_as_left(user_id, room_id)?;
+
+        let mut roomuser_id = room_id.as_bytes().to_vec();
+        roomuser_id.push(0xFF);
+        roomuser_id.extend_from_slice(user_id.as_bytes());
+
+        let mut userroom_id = user_id.as_bytes().to_vec();
+        userroom_id.push(0xFF);
+        userroom_id.extend_from_slice(room_id.as_bytes());
+
+        self.userroomid_leftstate.remove(&userroom_id)?;
+        self.roomuserid_leftcount.remove(&roomuser_id)?;
+
+        Ok(())
+    }
+
     fn update_joined_count(&self, room_id: &RoomId) -> Result<()> {
         let mut joinedcount = 0_u64;
         let mut invitedcount = 0_u64;

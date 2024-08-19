@@ -23,6 +23,8 @@ pub(crate) trait Data: Send + Sync {
     ) -> Result<()>;
     fn mark_as_left(&self, user_id: &UserId, room_id: &RoomId) -> Result<()>;
 
+    fn clear_markers(&self, user_id: &UserId, room_id: &RoomId) -> Result<()>;
+
     fn update_joined_count(&self, room_id: &RoomId) -> Result<()>;
 
     fn get_our_real_users(

@@ -27,4 +27,9 @@ impl service::rooms::outlier::Data for KeyValueDatabase {
             &serde_json::to_vec(&pdu).expect("CanonicalJsonObject is valid"),
         )
     }
+
+    #[tracing::instrument(skip(self))]
+    fn remove_pdu_outlier(&self, event_id: &EventId) -> Result<()> {
+        self.eventid_outlierpdu.remove(event_id.as_bytes())
+    }
 }

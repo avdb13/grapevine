@@ -5,7 +5,11 @@ use ruma::{events::StateEventType, EventId, RoomId};
 use crate::Result;
 
 pub(crate) trait Data: Send + Sync {
+    fn get_shorteventid(&self, event_id: &EventId) -> Result<Option<u64>>;
+
     fn get_or_create_shorteventid(&self, event_id: &EventId) -> Result<u64>;
+
+    fn remove_shorteventid(&self, event_id: &EventId) -> Result<()>;
 
     fn get_shortstatekey(
         &self,
@@ -35,7 +39,7 @@ pub(crate) trait Data: Send + Sync {
 
     fn get_shortroomid(&self, room_id: &RoomId) -> Result<Option<u64>>;
 
-    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()>;
-
     fn get_or_create_shortroomid(&self, room_id: &RoomId) -> Result<u64>;
+
+    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()>;
 }

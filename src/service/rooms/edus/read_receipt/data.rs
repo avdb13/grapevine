@@ -13,6 +13,9 @@ pub(crate) trait Data: Send + Sync {
         event: ReceiptEvent,
     ) -> Result<()>;
 
+    /// Removes all read receipts for this room.
+    fn readreceipts_reset(&self, room_id: &RoomId) -> Result<()>;
+
     /// Returns an iterator over the most recent read receipts in a room that
     /// happened after the event with id `since`.
     #[allow(clippy::type_complexity)]
@@ -47,6 +50,11 @@ pub(crate) trait Data: Send + Sync {
         user_id: &UserId,
     ) -> Result<Option<u64>>;
 
+    /// Removes all private read markers for this room.
+    // TODO: Implement MSC2285
+    #[allow(dead_code)]
+    fn private_read_reset(&self, room_id: &RoomId) -> Result<()>;
+
     /// Returns the count of the last typing update in this room.
     // TODO: Implement MSC2285
     #[allow(dead_code)]
@@ -55,4 +63,9 @@ pub(crate) trait Data: Send + Sync {
         user_id: &UserId,
         room_id: &RoomId,
     ) -> Result<u64>;
+
+    /// Removes the count of the last typing update for this room.
+    // TODO: Implement MSC2285
+    #[allow(dead_code)]
+    fn last_privateread_reset(&self, room_id: &RoomId) -> Result<()>;
 }

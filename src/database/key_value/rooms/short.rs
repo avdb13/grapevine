@@ -10,6 +10,41 @@ use crate::{
 
 impl service::rooms::short::Data for KeyValueDatabase {
     #[tracing::instrument(skip(self))]
+    fn get_shorteventid(&self, event_id: &EventId) -> Result<Option<u64>> {
+        let lookup = Lookup::EventIdToShort;
+
+        if let Some(short) =
+            self.eventidshort_cache.lock().unwrap().get_mut(event_id)
+        {
+            METRICS.record_lookup(lookup, FoundIn::Cache);
+            return Ok(Some(*short));
+        }
+
+        let short = self
+            .eventid_shorteventid
+            .get(event_id.as_bytes())?
+            .map(|shorteventid| {
+                utils::u64_from_bytes(&shorteventid).map_err(|_| {
+                    Error::bad_database("Invalid shorteventid in db.")
+                })
+            })
+            .transpose()?;
+
+        if let Some(s) = short {
+            METRICS.record_lookup(lookup, FoundIn::Database);
+
+            self.eventidshort_cache
+                .lock()
+                .unwrap()
+                .insert(event_id.to_owned(), s);
+        } else {
+            METRICS.record_lookup(lookup, FoundIn::Nothing);
+        }
+
+        Ok(short)
+    }
+
+    #[tracing::instrument(skip(self))]
     fn get_or_create_shorteventid(&self, event_id: &EventId) -> Result<u64> {
         let lookup = Lookup::CreateEventIdToShort;
 
@@ -45,6 +80,12 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .insert(event_id.to_owned(), short);
 
         Ok(short)
+    }
+
+    fn remove_shorteventid(&self, event_id: &EventId) -> Result<()> {
+        self.eventidshort_cache.lock().unwrap().remove(event_id);
+
+        self.eventid_shorteventid.remove(event_id.as_bytes())
     }
 
     #[tracing::instrument(skip(self), fields(cache_result))]
@@ -275,10 +316,6 @@ impl service::rooms::short::Data for KeyValueDatabase {
             .transpose()
     }
 
-    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()> {
-        self.roomid_shortroomid.remove(room_id.as_bytes())
-    }
-
     fn get_or_create_shortroomid(&self, room_id: &RoomId) -> Result<u64> {
         Ok(
             if let Some(short) =
@@ -294,5 +331,9 @@ impl service::rooms::short::Data for KeyValueDatabase {
                 short
             },
         )
+    }
+
+    fn remove_shortroomid(&self, room_id: &RoomId) -> Result<()> {
+        self.roomid_shortroomid.remove(room_id.as_bytes())
     }
 }

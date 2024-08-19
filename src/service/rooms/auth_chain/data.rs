@@ -7,6 +7,10 @@ pub(crate) trait Data: Send + Sync {
         &self,
         shorteventid: &[u64],
     ) -> Result<Option<Arc<HashSet<u64>>>>;
+    fn remove_cached_eventid_authchain(
+        &self,
+        shorteventid: &[u64],
+    ) -> Result<()>;
     fn cache_auth_chain(
         &self,
         shorteventid: Vec<u64>,
