@@ -7,7 +7,7 @@ use std::{
 
 use once_cell::sync::Lazy;
 use ruma::{OwnedServerName, RoomVersionId};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use crate::error;
 
@@ -250,6 +250,7 @@ pub(crate) struct FederationConfig {
     pub(crate) trusted_servers: Vec<OwnedServerName>,
     pub(crate) max_fetch_prev_events: u16,
     pub(crate) max_concurrent_requests: u16,
+    pub(crate) backoff: BackoffConfig,
 }
 
 impl Default for FederationConfig {
@@ -261,6 +262,44 @@ impl Default for FederationConfig {
             ],
             max_fetch_prev_events: 100,
             max_concurrent_requests: 100,
+            backoff: BackoffConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub(crate) struct BackoffConfig {
+    /// Minimum number of consecutive failures for a server before starting to
+    /// delay requests.
+    pub(crate) failure_threshold: u8,
+
+    /// Initial delay between requests in seconds, after the number of
+    /// consecutive failures to a server first exceeds the threshold.
+    pub(crate) base_delay: u32,
+
+    /// Factor to increase delay by after each additional consecutive failure.
+    pub(crate) multiplier: f64,
+
+    /// Maximum delay between requests to a server in seconds.
+    pub(crate) max_delay: u32,
+
+    /// Range of random multipliers to request delay.
+    #[serde(deserialize_with = "deserialize_jitter_range")]
+    pub(crate) jitter_range: std::ops::Range<f64>,
+}
+
+// TODO: are these reasonable parameters? The 24h max delay was pulled from
+// the previous backoff logic for device keys, but it seems quite high
+// to me.
+impl Default for BackoffConfig {
+    fn default() -> Self {
+        Self {
+            failure_threshold: 5,
+            base_delay: 5,
+            multiplier: 1.5,
+            max_delay: 60 * 60 * 24,
+            jitter_range: 0.5..1.5,
         }
     }
 }
@@ -325,6 +364,24 @@ fn default_tracing_filter() -> EnvFilterClone {
 // I know, it's a great name
 pub(crate) fn default_default_room_version() -> RoomVersionId {
     RoomVersionId::V10
+}
+
+fn deserialize_jitter_range<'de, D>(
+    deserializer: D,
+) -> Result<std::ops::Range<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    let Some((a, b)) = s.split_once("..") else {
+        return Err(serde::de::Error::custom(crate::Error::bad_config(
+            "invalid jitter range",
+        )));
+    };
+
+    a.parse()
+        .and_then(|a| b.parse().map(|b| a..b))
+        .map_err(serde::de::Error::custom)
 }
 
 /// Search default locations for a configuration file

@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    ops::Range,
     sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
@@ -9,7 +8,7 @@ use rand::{thread_rng, Rng};
 use ruma::{OwnedServerName, ServerName};
 use tracing::debug;
 
-use crate::{Error, Result};
+use crate::{services, Error, Result};
 
 /// Service to handle backing off requests to offline servers.
 ///
@@ -38,26 +37,6 @@ use crate::{Error, Result};
 pub(crate) struct Service {
     servers: RwLock<HashMap<OwnedServerName, Arc<RwLock<BackoffState>>>>,
 }
-
-// After the first 5 consecutive failed requests, increase delay exponentially
-// from 5s to 24h over the next 24 failures.
-
-// TODO: consider making these configurable
-// TODO: are these reasonable parameters? The 24h max delay was pulled from the
-// previous backoff logic for device keys, but it seems quite high to me.
-
-/// Minimum number of consecutive failures for a server before starting to delay
-/// requests.
-const FAILURE_THRESHOLD: u8 = 5;
-/// Initial delay between requests after the number of consecutive failures
-/// to a server first exceeds [`FAILURE_THRESHOLD`].
-const BASE_DELAY: Duration = Duration::from_secs(5);
-/// Factor to increase delay by after each additional consecutive failure.
-const MULTIPLIER: f64 = 1.5;
-/// Maximum delay between requests to a server.
-const MAX_DELAY: Duration = Duration::from_secs(60 * 60 * 24);
-/// Range of random multipliers to request delay.
-const JITTER_RANGE: Range<f64> = 0.5..1.5;
 
 /// Guard to record the result of an attempted request to a server.
 ///
@@ -151,18 +130,20 @@ impl BackoffState {
     /// Returns the remaining time before ready to attempt another request to
     /// this server.
     fn remaining_delay(&self) -> Option<Duration> {
+        let config = &services().globals.config.federation.backoff;
+
         if let Some(last_failure) = self.last_failure {
-            if self.failure_count > FAILURE_THRESHOLD {
+            if self.failure_count > config.failure_threshold {
                 let excess_failure_count =
-                    self.failure_count - FAILURE_THRESHOLD;
+                    self.failure_count - config.failure_threshold;
                 // Converting to float is fine because we don't expect max_delay
                 // to be large enough that the loss of precision matters. The
                 // largest typical value is 24h, with a precision of 0.01ns.
-                let base_delay_secs = BASE_DELAY.as_secs_f64();
-                let max_delay_secs = MAX_DELAY.as_secs_f64();
-                let delay_secs = max_delay_secs.max(
-                    base_delay_secs
-                        * MULTIPLIER.powi(i32::from(excess_failure_count)),
+                let delay_secs = f64::from(config.max_delay).max(
+                    f64::from(config.base_delay)
+                        * config
+                            .multiplier
+                            .powi(i32::from(excess_failure_count)),
                 ) * self.jitter_coeff;
                 let delay = Duration::from_secs_f64(delay_secs);
                 delay.checked_sub(last_failure.elapsed())
@@ -186,11 +167,15 @@ impl BackoffGuard {
     /// Examples of failures in this category are a timeout, a 500 status, or
     /// a 404 from an endpoint that is not specced to return 404.
     pub(crate) fn hard_failure(self) {
+        let config = &services().globals.config.federation.backoff;
+
         let mut state = self.backoff.write().unwrap();
         state.last_failure = Some(Instant::now());
+
         if state.last_failure == self.last_failure {
             state.failure_count = state.failure_count.saturating_add(1);
-            state.jitter_coeff = thread_rng().gen_range(JITTER_RANGE);
+            state.jitter_coeff =
+                thread_rng().gen_range(config.jitter_range.clone());
         }
     }
 
