@@ -16,8 +16,9 @@ use ruma::{
         },
         federation,
     },
+    encryption::CrossSigningKey,
     serde::Raw,
-    DeviceKeyAlgorithm, OwnedDeviceId, OwnedUserId, UserId,
+    DeviceKeyAlgorithm, OwnedDeviceId, OwnedDeviceKeyId, OwnedUserId, UserId,
 };
 use serde_json::json;
 use tracing::debug;
@@ -107,7 +108,11 @@ pub(crate) async fn claim_keys_route(
 ///
 /// Uploads end-to-end key information for the sender user.
 ///
-/// - Requires UIAA to verify password
+/// Requires UIAA by default, unless one the following conditions are met:
+/// - The user has no existing cross-signing master key.
+/// - An existing cross-signing master key exactly matches the provided
+///   cross-signing master key, and additionally provided keys also match
+///   previously stored keys.
 pub(crate) async fn upload_signing_keys_route(
     body: Ar<upload_signing_keys::v3::Request>,
 ) -> Result<Ra<upload_signing_keys::v3::Response>> {
@@ -126,7 +131,9 @@ pub(crate) async fn upload_signing_keys_route(
         auth_error: None,
     };
 
-    if let Some(auth) = &body.auth {
+    if let Ok(true) = upload_should_bypass_uia(sender_user, &body) {
+        // UIA bypass
+    } else if let Some(auth) = &body.auth {
         let (worked, uiaainfo) = services().uiaa.try_auth(
             sender_user,
             sender_device,
@@ -594,4 +601,49 @@ pub(crate) async fn claim_keys_helper(
         failures,
         one_time_keys,
     })
+}
+
+#[allow(clippy::type_complexity)]
+fn deserialize_signing_key(
+    key: &Option<Raw<CrossSigningKey>>,
+) -> Result<
+    Option<(
+        BTreeMap<OwnedDeviceKeyId, String>,
+        BTreeMap<OwnedUserId, BTreeMap<OwnedDeviceKeyId, String>>,
+    )>,
+> {
+    let result =
+        key.as_ref().map(Raw::deserialize).transpose().map_err(|_| {
+            Error::BadRequest(ErrorKind::InvalidParam, "Invalid key JSON")
+        })?;
+
+    Ok(result.map(|key| (key.keys, key.signatures)))
+}
+
+fn upload_should_bypass_uia(
+    sender_user: &UserId,
+    body: &upload_signing_keys::v3::Request,
+) -> Result<bool> {
+    let master_key = services().users.get_master_key(
+        Some(sender_user),
+        sender_user,
+        &|other| sender_user == other,
+    )?;
+    let self_signing_key = services().users.get_self_signing_key(
+        Some(sender_user),
+        sender_user,
+        &|other| sender_user == other,
+    )?;
+    let user_signing_key =
+        services().users.get_user_signing_key(sender_user)?;
+
+    let master_eq = deserialize_signing_key(&master_key)?
+        == deserialize_signing_key(&body.master_key)?;
+    let self_signing_eq = deserialize_signing_key(&self_signing_key)?
+        == deserialize_signing_key(&body.self_signing_key)?;
+    let user_signing_eq = deserialize_signing_key(&user_signing_key)?
+        == deserialize_signing_key(&body.user_signing_key)?;
+
+    Ok(master_key.is_none()
+        || (master_eq && self_signing_eq && user_signing_eq))
 }
