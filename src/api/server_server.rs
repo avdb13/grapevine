@@ -11,6 +11,7 @@ use std::{
 
 use axum::{response::IntoResponse, Json};
 use axum_extra::headers::{Authorization, HeaderMapExt};
+use base64::Engine as _;
 use get_profile_information::v1::ProfileField;
 use ruma::{
     api::{
@@ -55,6 +56,7 @@ use ruma::{
     },
     serde::{Base64, JsonObject, Raw},
     server_util::authorization::XMatrix,
+    state_res::Event,
     to_device::DeviceIdOrAllDevices,
     uint, user_id, CanonicalJsonObject, CanonicalJsonValue, EventId,
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
@@ -65,6 +67,7 @@ use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
 use tracing::{debug, error, field, warn};
 
+use super::appservice_server;
 use crate::{
     api::client_server::{self, claim_keys_helper, get_keys_helper},
     observability::{FoundIn, Lookup, METRICS},
@@ -1829,7 +1832,10 @@ pub(crate) async fn create_invite_route(
     invite_state.push(pdu.to_stripped_state_event());
 
     // If we are active in the room, the remote server will notify us about the
-    // join via /send
+    // invite via m.room.member through /send. If we are not in the room, we
+    // need to manually record the invited state for clients' /sync through
+    // update_membership(), and send the invite pseudo-PDU to the affected
+    // appservices.
     if !services()
         .rooms
         .state_cache
@@ -1843,6 +1849,24 @@ pub(crate) async fn create_invite_route(
             Some(invite_state),
             true,
         )?;
+
+        for appservice in services().appservice.read().await.values() {
+            if appservice.is_user_match(&invited_user) {
+                appservice_server::send_request(
+                    appservice.registration.clone(),
+                    ruma::api::appservice::event::push_events::v1::Request {
+                        events: vec![pdu.to_room_event()],
+                        txn_id:
+                            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                                .encode(utils::calculate_hash(&[pdu
+                                    .event_id()
+                                    .as_bytes()]))
+                                .into(),
+                    },
+                )
+                .await?;
+            }
+        }
     }
 
     Ok(Ra(create_invite::v2::Response {

@@ -158,6 +158,9 @@ This will be the first release of Grapevine since it was forked from Conduit
 12. Fix bug where unexpected keys were deleted from `m.direct` account data
     events when joining an upgraded room.
     ([!53](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/53))
+13. Fixed appservice users not receiving federated invites if the local server
+    isn't already resident in the room
+    ([!80](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/80))
 
 ### Added
 
