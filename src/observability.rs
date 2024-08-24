@@ -171,8 +171,11 @@ pub(crate) fn init(
             let tracer = opentelemetry_otlp::new_pipeline()
                 .tracing()
                 .with_trace_config(
-                    opentelemetry_sdk::trace::config()
-                        .with_resource(standard_resource()),
+                    opentelemetry_sdk::trace::config().with_resource(
+                        standard_resource(
+                            config.observability.traces.service_name.clone(),
+                        ),
+                    ),
                 )
                 .with_exporter(exporter)
                 .install_batch(opentelemetry_sdk::runtime::Tokio)?;
@@ -248,11 +251,9 @@ pub(crate) fn init(
 }
 
 /// Construct the standard [`Resource`] value to use for this service
-fn standard_resource() -> Resource {
-    Resource::default().merge(&Resource::new([KeyValue::new(
-        "service.name",
-        env!("CARGO_PKG_NAME"),
-    )]))
+fn standard_resource(service_name: String) -> Resource {
+    Resource::default()
+        .merge(&Resource::new([KeyValue::new("service.name", service_name)]))
 }
 
 /// Holds state relating to metrics
@@ -306,7 +307,7 @@ impl Metrics {
                 )
                 .expect("view should be valid"),
             )
-            .with_resource(standard_resource())
+            .with_resource(standard_resource(env!("CARGO_PKG_NAME").to_owned()))
             .build();
         let meter = provider.meter(env!("CARGO_PKG_NAME"));
 

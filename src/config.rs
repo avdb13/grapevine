@@ -178,6 +178,7 @@ pub(crate) struct OtelTraceConfig {
     pub(crate) enable: bool,
     pub(crate) filter: EnvFilterClone,
     pub(crate) endpoint: Option<String>,
+    pub(crate) service_name: String,
 }
 
 impl Default for OtelTraceConfig {
@@ -186,6 +187,7 @@ impl Default for OtelTraceConfig {
             enable: false,
             filter: default_tracing_filter(),
             endpoint: None,
+            service_name: env!("CARGO_PKG_NAME").to_owned(),
         }
     }
 }
