@@ -163,6 +163,8 @@ This will be the first release of Grapevine since it was forked from Conduit
     ([!80](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/80))
 14. Fix bug where, if a server has multiple public keys, only one would be fetched.
     ([!78](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/78))
+15. Fix bug where expired keys may not be re-fetched in some scenarios.
+    ([!78](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/78))
 
 ### Added
 
