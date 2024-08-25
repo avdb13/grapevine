@@ -212,3 +212,5 @@ This will be the first release of Grapevine since it was forked from Conduit
 14. Report local users getting banned in the server logs and admin room.
     ([!65](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/65),
     [!84](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/84))
+15. Added support for Authenticated Media ([MSC3916](https://github.com/matrix-org/matrix-spec-proposals/pull/3916)).
+    ([!58](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/58))
