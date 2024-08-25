@@ -161,6 +161,8 @@ This will be the first release of Grapevine since it was forked from Conduit
 13. Fixed appservice users not receiving federated invites if the local server
     isn't already resident in the room
     ([!80](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/80))
+14. Fix bug where, if a server has multiple public keys, only one would be fetched.
+    ([!78](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/78))
 
 ### Added
 
