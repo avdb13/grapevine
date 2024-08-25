@@ -363,23 +363,19 @@ async fn get_content_thumbnail_route_ruma(
     body: Ar<legacy_media::get_content_thumbnail::v3::Request>,
 ) -> Result<legacy_media::get_content_thumbnail::v3::Response> {
     let mxc = MxcData::new(&body.server_name, &body.media_id)?;
+    let width = body.width.try_into().map_err(|_| {
+        Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
+    })?;
+    let height = body.height.try_into().map_err(|_| {
+        Error::BadRequest(ErrorKind::InvalidParam, "Height is invalid.")
+    })?;
 
     if let Some(FileMeta {
         content_type,
         file,
         ..
-    }) = services()
-        .media
-        .get_thumbnail(
-            mxc.to_string(),
-            body.width.try_into().map_err(|_| {
-                Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
-            })?,
-            body.height.try_into().map_err(|_| {
-                Error::BadRequest(ErrorKind::InvalidParam, "Width is invalid.")
-            })?,
-        )
-        .await?
+    }) =
+        services().media.get_thumbnail(mxc.to_string(), width, height).await?
     {
         Ok(legacy_media::get_content_thumbnail::v3::Response {
             file,
@@ -413,8 +409,8 @@ async fn get_content_thumbnail_route_ruma(
                 mxc.to_string(),
                 None,
                 get_thumbnail_response.content_type.as_deref(),
-                body.width.try_into().expect("all UInts are valid u32s"),
-                body.height.try_into().expect("all UInts are valid u32s"),
+                width,
+                height,
                 &get_thumbnail_response.file,
             )
             .await?;
