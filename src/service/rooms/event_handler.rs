@@ -36,6 +36,7 @@ use ruma::{
     MilliSecondsSinceUnixEpoch, OwnedServerName, OwnedServerSigningKeyId,
     RoomId, RoomVersionId, ServerName,
 };
+use serde::Deserialize;
 use serde_json::value::RawValue as RawJsonValue;
 use tokio::sync::{RwLock, RwLockWriteGuard, Semaphore};
 use tracing::{debug, error, info, trace, warn};
@@ -47,6 +48,11 @@ use crate::{
     utils::debug_slice_truncated,
     Error, PduEvent, Result,
 };
+
+#[derive(Deserialize)]
+struct ExtractOriginServerTs {
+    origin_server_ts: MilliSecondsSinceUnixEpoch,
+}
 
 pub(crate) struct Service;
 
@@ -1630,6 +1636,15 @@ impl Service {
         let event_id = <&EventId>::try_from(event_id.as_str())
             .expect("ruma's reference hashes are valid event ids");
 
+        let ExtractOriginServerTs {
+            origin_server_ts,
+        } = ExtractOriginServerTs::deserialize(pdu).map_err(|_| {
+            Error::BadServerResponse(
+                "Invalid PDU in server response, origin_server_ts field is \
+                 missing or invalid",
+            )
+        })?;
+
         if let Some((time, tries)) =
             services().globals.bad_event_ratelimiter.read().await.get(event_id)
         {
@@ -1669,8 +1684,12 @@ impl Service {
 
             let contains_all_ids = |keys: &SigningKeys| {
                 signature_ids.iter().all(|id| {
-                    keys.verify_keys.contains_key(id)
-                        || keys.old_verify_keys.contains_key(id)
+                    keys.verify_keys.get(id).is_some_and(|_| {
+                        keys.valid_until_ts >= origin_server_ts
+                    }) || keys
+                        .old_verify_keys
+                        .get(id)
+                        .is_some_and(|v| v.expired_ts >= origin_server_ts)
                 })
             };
 
