@@ -1682,8 +1682,13 @@ impl Service {
                     )
                 })?;
 
+            // check that we have the server in our list already, or
+            // all `signature_ids` are in pub_key_map
+            // if yes, we don't have to do anything
             if servers.contains_key(origin)
-                || pub_key_map.contains_key(origin.as_str())
+                || pub_key_map
+                    .get(origin.as_str())
+                    .is_some_and(contains_all_ids)
             {
                 continue;
             }
