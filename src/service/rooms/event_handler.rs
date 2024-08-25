@@ -1669,15 +1669,8 @@ impl Service {
 
             let contains_all_ids = |keys: &SigningKeys| {
                 signature_ids.iter().all(|id| {
-                    keys.verify_keys
-                        .keys()
-                        .map(ToString::to_string)
-                        .any(|key_id| id == &key_id)
-                        || keys
-                            .old_verify_keys
-                            .keys()
-                            .map(ToString::to_string)
-                            .any(|key_id| id == &key_id)
+                    keys.verify_keys.contains_key(id)
+                        || keys.old_verify_keys.contains_key(id)
                 })
             };
 
