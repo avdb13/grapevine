@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use futures_util::{stream::FuturesUnordered, Future, StreamExt, TryStreamExt};
+use futures_util::{stream::FuturesUnordered, Future, StreamExt};
 use ruma::{
     api::{
         client::error::ErrorKind,
@@ -1557,54 +1557,49 @@ impl Service {
         event: &BTreeMap<String, CanonicalJsonValue>,
         pub_key_map: &RwLock<BTreeMap<String, SigningKeys>>,
     ) -> Result<()> {
-        let signatures_value = event.get("signatures").ok_or_else(|| {
-            Error::BadServerResponse("No signatures in server response pdu.")
-        })?;
-        let signatures_object =
-            signatures_value.as_object().ok_or_else(|| {
+        let CanonicalJsonValue::Object(signatures) =
+            event.get("signatures").ok_or_else(|| {
                 Error::BadServerResponse(
-                    "Invalid signatures object in server response pdu.",
+                    "No signatures in server response pdu.",
                 )
-            })?;
+            })?
+        else {
+            return Err(Error::BadServerResponse(
+                "Invalid signatures object in server response pdu.",
+            ));
+        };
 
         // We go through all the signatures we see on the value and fetch the
         // corresponding signing keys
-        let fetch_signing_keys: FuturesUnordered<_> = signatures_object
-            .iter()
-            .map(|(signature_server, signature)| async move {
-                let server_name =
-                    ServerName::parse(signature_server).map_err(|_| {
+        for (signature_server, signature) in signatures {
+            let signature_object =
+                signature.as_object().ok_or(Error::BadServerResponse(
+                    "Invalid signatures content object in server response pdu.",
+                ))?;
+
+            let signature_ids =
+                signature_object.keys().cloned().collect::<Vec<_>>();
+
+            let fetch_res = self
+                .fetch_signing_keys(
+                    signature_server.as_str().try_into().map_err(|_| {
                         Error::BadServerResponse(
-                            "invalid server_name in server response pdu",
-                        )
-                    })?;
-                let signature_ids: Vec<_> = signature
-                    .as_object()
-                    .map(|object| object.keys().cloned().collect())
-                    .ok_or_else(|| {
-                        Error::BadServerResponse(
-                            "Invalid signatures content object in server \
+                            "Invalid servername in signatures of server \
                              response pdu.",
                         )
-                    })?;
-
-                let signing_keys = self
-                    .fetch_signing_keys(&server_name, signature_ids, true)
-                    .await
-                    .inspect_err(|error| {
-                        warn!(%error, "Failed to fetch signing key");
-                    });
-
-                Ok::<_, Error>(
-                    Some(server_name.to_string()).zip(signing_keys.ok()),
+                    })?,
+                    signature_ids,
+                    true,
                 )
-            })
-            .collect();
+                .await;
 
-        let signing_keys: Vec<_> = fetch_signing_keys.try_collect().await?;
-        let mut pkm = pub_key_map.write().await;
+            let Ok(keys) = fetch_res else {
+                warn!("Failed to fetch signing key");
+                continue;
+            };
 
-        pkm.extend(signing_keys.into_iter().flatten());
+            pub_key_map.write().await.insert(signature_server.clone(), keys);
+        }
 
         Ok(())
     }
