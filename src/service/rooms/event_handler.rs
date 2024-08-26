@@ -1569,37 +1569,46 @@ impl Service {
             ));
         };
 
+        let fetch_signing_keys = FuturesUnordered::new();
+
         // We go through all the signatures we see on the value and fetch the
         // corresponding signing keys
         for (signature_server, signature) in signatures {
-            let signature_object =
-                signature.as_object().ok_or(Error::BadServerResponse(
+            let signature_server = ServerName::parse(signature_server)
+                .map_err(|_| {
+                    Error::BadServerResponse(
+                        "Invalid servername in signatures of server response \
+                         pdu.",
+                    )
+                })?;
+            let signature = signature.as_object().ok_or_else(|| {
+                Error::BadServerResponse(
                     "Invalid signatures content object in server response pdu.",
-                ))?;
-
-            let signature_ids =
-                signature_object.keys().cloned().collect::<Vec<_>>();
-
-            let fetch_res = self
-                .fetch_signing_keys(
-                    signature_server.as_str().try_into().map_err(|_| {
-                        Error::BadServerResponse(
-                            "Invalid servername in signatures of server \
-                             response pdu.",
-                        )
-                    })?,
-                    signature_ids,
-                    true,
                 )
-                .await;
+            })?;
+            let signature_ids = signature.keys().cloned().collect();
 
-            let Ok(keys) = fetch_res else {
-                warn!("Failed to fetch signing key");
-                continue;
-            };
+            fetch_signing_keys.push(async move {
+                let result = self
+                    .fetch_signing_keys(&signature_server, signature_ids, true)
+                    .await
+                    .inspect_err(|error| {
+                        warn!(
+                            %error,
+                            server = %signature_server,
+                            object = ?signature,
+                            "Failed to fetch signing key",
+                        );
+                    });
 
-            pub_key_map.write().await.insert(signature_server.clone(), keys);
+                result.map(|signing_keys| {
+                    (signature_server.to_string(), signing_keys)
+                })
+            });
         }
+
+        let v: Vec<_> = fetch_signing_keys.collect().await;
+        pub_key_map.write().await.extend(v.into_iter().filter_map(Result::ok));
 
         Ok(())
     }

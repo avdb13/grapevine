@@ -125,6 +125,8 @@ This will be the first release of Grapevine since it was forked from Conduit
 10. **BREAKING:** Reorganize config into sections.
     ([!49](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/49))
     * Details on how to migrate can be found in the merge request's description.
+11. Fetch signing keys required to validate event signatures concurrently.
+    ([!62](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/62))
 
 ### Fixed
 
