@@ -728,7 +728,7 @@ pub(crate) async fn send_transaction_message_route(
     for pdu in &body.pdus {
         let Ok((event_id, value, room_id)) = parse_incoming_pdu(pdu)
             .inspect_err(|error| {
-                warn!(%error, object = ?pdu, "Error parsing incoming event");
+                warn!(%error, object = ?pdu, "Error parsing incoming event, ignoring");
             })
         else {
             continue;
@@ -745,19 +745,22 @@ pub(crate) async fn send_transaction_message_route(
 
         let start_time = Instant::now();
 
-        resolved_map.insert(event_id.clone(), services()
-            .rooms
-            .event_handler
-            .handle_incoming_pdu(
-                sender_servername,
-                &event_id,
-                &room_id,
-                value,
-                true,
-                &pub_key_map,
-            )
-            .await
-            .map(|_| ()));
+        resolved_map.insert(
+            event_id.clone(),
+            services()
+                .rooms
+                .event_handler
+                .handle_incoming_pdu(
+                    sender_servername,
+                    &event_id,
+                    &room_id,
+                    value,
+                    true,
+                    &pub_key_map,
+                )
+                .await
+                .map(|_| ()),
+        );
 
         drop(federation_token);
 
@@ -770,7 +773,7 @@ pub(crate) async fn send_transaction_message_route(
 
     for (event_id, result) in &resolved_map {
         if let Err(error @ Error::BadRequest(ErrorKind::NotFound, _)) = result {
-            warn!(%error, %event_id, "Incoming PDU failed");
+            warn!(%error, %event_id, "Incoming PDU failed, ignoring");
         }
     }
 
@@ -820,13 +823,22 @@ pub(crate) async fn send_transaction_message_route(
                                 content: ReceiptEventContent(receipt_content),
                                 room_id: room_id.clone(),
                             };
-                            services()
+                            if let Err(error) = services()
                                 .rooms
                                 .edus
                                 .read_receipt
                                 .readreceipt_update(
-                                    &user_id, &room_id, event,
-                                )?;
+                                    &user_id,
+                                    &room_id,
+                                    event.clone(),
+                                )
+                            {
+                                warn!(
+                                    %error,
+                                    ?event,
+                                    "Failed to send read receipt update for event, ignoring",
+                                );
+                            }
                         } else {
                             // TODO fetch missing events
                             debug!(
@@ -846,13 +858,23 @@ pub(crate) async fn send_transaction_message_route(
                     );
                     continue;
                 }
-                if services()
+                let Ok(is_joined) = services()
                     .rooms
                     .state_cache
-                    .is_joined(&typing.user_id, &typing.room_id)?
-                {
+                    .is_joined(&typing.user_id, &typing.room_id)
+                    .inspect_err(|error| {
+                        warn!(
+                            %error,
+                            user_id = %typing.user_id,
+                            room_id = %typing.room_id,
+                            "Failed to determine membership of EDU sender, ignoring",
+                        );
+                    }) else {
+                        continue;
+                    };
+                if is_joined {
                     if typing.typing {
-                        services()
+                        if let Err(error) = services()
                             .rooms
                             .edus
                             .typing
@@ -861,14 +883,30 @@ pub(crate) async fn send_transaction_message_route(
                                 &typing.room_id,
                                 3000 + utils::millis_since_unix_epoch(),
                             )
-                            .await?;
+                            .await
+                        {
+                            warn!(
+                                %error,
+                                user_id = %typing.user_id,
+                                room_id = %typing.room_id,
+                                "Failed to set user as typing",
+                            );
+                        }
                     } else {
-                        services()
+                        if let Err(error) = services()
                             .rooms
                             .edus
                             .typing
                             .typing_remove(&typing.user_id, &typing.room_id)
-                            .await?;
+                            .await
+                        {
+                            warn!(
+                                %error,
+                                user_id = %typing.user_id,
+                                room_id = %typing.room_id,
+                                "Failed to remove user from typing",
+                            );
+                        }
                     }
                 }
             }
