@@ -675,31 +675,39 @@ pub(crate) async fn get_public_rooms_route(
 pub(crate) fn parse_incoming_pdu(
     pdu: &RawJsonValue,
 ) -> Result<(OwnedEventId, CanonicalJsonObject, OwnedRoomId)> {
+    // 1. convert PDU to CanonicalJsonObject
     let value: CanonicalJsonObject =
         serde_json::from_str(pdu.get()).map_err(|error| {
             warn!(%error, object = ?pdu, "Error parsing incoming event");
             Error::BadServerResponse("Invalid PDU in server response")
         })?;
 
-    let room_id: OwnedRoomId = value
-        .get("room_id")
-        .and_then(|id| RoomId::parse(id.as_str()?).ok())
-        .ok_or(Error::BadRequest(
-            ErrorKind::InvalidParam,
-            "Invalid room id in pdu",
-        ))?;
+    // 2. extract RoomId from PDU
+    let room_id = match value.get("room_id") {
+                Some(CanonicalJsonValue::String(room_id)) => {
+                    RoomId::parse(room_id).map_err(|error| {
+                            warn!(%error, %room_id, "Invalid RoomId for PDU in server response");
+                            Error::BadRequest(ErrorKind::InvalidParam, "Invalid RoomId in PDU")
+                        })?
+                },
+                _ => {
+                    return Err(Error::BadRequest(ErrorKind::InvalidParam, "Invalid RoomId in PDU"));
+                },
+            };
 
+    // 3. Confirm server presence in room
     let room_version_id = services().rooms.state.get_room_version(&room_id)?;
 
-    let Ok((event_id, value)) =
-        gen_event_id_canonical_json(pdu, &room_version_id)
-    else {
-        // Event could not be converted to canonical json
-        return Err(Error::BadRequest(
-            ErrorKind::InvalidParam,
-            "Could not convert event to canonical json.",
-        ));
-    };
+    // 4. Generate EventId for this RoomVersionId
+    let (event_id, value) = gen_event_id_canonical_json(pdu, &room_version_id)
+        .map_err(|error| {
+            warn!(%error, "Invalid canonical json for PDU in server response");
+            Error::BadRequest(
+                ErrorKind::InvalidParam,
+                "Could not convert event to canonical json.",
+            )
+        })?;
+
     Ok((event_id, value, room_id))
 }
 
@@ -718,32 +726,14 @@ pub(crate) async fn send_transaction_message_route(
     let pub_key_map = RwLock::new(BTreeMap::new());
 
     for pdu in &body.pdus {
-        let value: CanonicalJsonObject = serde_json::from_str(pdu.get())
-            .map_err(|error| {
+        let Ok((event_id, value, room_id)) = parse_incoming_pdu(pdu)
+            .inspect_err(|error| {
                 warn!(%error, object = ?pdu, "Error parsing incoming event");
-                Error::BadServerResponse("Invalid PDU in server response")
-            })?;
-        let room_id: OwnedRoomId = value
-            .get("room_id")
-            .and_then(|id| RoomId::parse(id.as_str()?).ok())
-            .ok_or(Error::BadRequest(
-                ErrorKind::InvalidParam,
-                "Invalid room id in pdu",
-            ))?;
-
-        if services().rooms.state.get_room_version(&room_id).is_err() {
-            debug!(%room_id, "This server is not in the room");
+            })
+        else {
             continue;
-        }
-
-        let r = parse_incoming_pdu(pdu);
-        let (event_id, value, room_id) = match r {
-            Ok(t) => t,
-            Err(error) => {
-                warn!(%error, object = ?pdu, "Error parsing incoming event");
-                continue;
-            }
         };
+
         // We do not add the event_id field to the pdu here because of signature
         // and hashes checks
 
@@ -752,23 +742,23 @@ pub(crate) async fn send_transaction_message_route(
             .roomid_mutex_federation
             .lock_key(room_id.clone())
             .await;
+
         let start_time = Instant::now();
-        resolved_map.insert(
-            event_id.clone(),
-            services()
-                .rooms
-                .event_handler
-                .handle_incoming_pdu(
-                    sender_servername,
-                    &event_id,
-                    &room_id,
-                    value,
-                    true,
-                    &pub_key_map,
-                )
-                .await
-                .map(|_| ()),
-        );
+
+        resolved_map.insert(event_id.clone(), services()
+            .rooms
+            .event_handler
+            .handle_incoming_pdu(
+                sender_servername,
+                &event_id,
+                &room_id,
+                value,
+                true,
+                &pub_key_map,
+            )
+            .await
+            .map(|_| ()));
+
         drop(federation_token);
 
         debug!(
@@ -778,19 +768,16 @@ pub(crate) async fn send_transaction_message_route(
         );
     }
 
-    for pdu in &resolved_map {
-        if let (event_id, Err(error)) = pdu {
-            if matches!(error, Error::BadRequest(ErrorKind::NotFound, _)) {
-                warn!(%error, %event_id, "Incoming PDU failed");
-            }
+    for (event_id, result) in &resolved_map {
+        if let Err(error @ Error::BadRequest(ErrorKind::NotFound, _)) = result {
+            warn!(%error, %event_id, "Incoming PDU failed");
         }
     }
 
-    for edu in body
-        .edus
-        .iter()
-        .filter_map(|edu| serde_json::from_str::<Edu>(edu.json().get()).ok())
-    {
+    let edus =
+        body.edus.iter().map(|edu| serde_json::from_str(edu.json().get()));
+
+    for edu in edus.filter_map(Result::ok) {
         match edu {
             Edu::Receipt(receipt) => {
                 for (room_id, room_updates) in receipt.receipts {
