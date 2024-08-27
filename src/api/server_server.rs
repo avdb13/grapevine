@@ -892,21 +892,19 @@ pub(crate) async fn send_transaction_message_route(
                                 "Failed to set user as typing",
                             );
                         }
-                    } else {
-                        if let Err(error) = services()
-                            .rooms
-                            .edus
-                            .typing
-                            .typing_remove(&typing.user_id, &typing.room_id)
-                            .await
-                        {
-                            warn!(
-                                %error,
-                                user_id = %typing.user_id,
-                                room_id = %typing.room_id,
-                                "Failed to remove user from typing",
-                            );
-                        }
+                    } else if let Err(error) = services()
+                        .rooms
+                        .edus
+                        .typing
+                        .typing_remove(&typing.user_id, &typing.room_id)
+                        .await
+                    {
+                        warn!(
+                            %error,
+                            user_id = %typing.user_id,
+                            room_id = %typing.room_id,
+                            "Failed to remove user from typing",
+                        );
                     }
                 }
             }
@@ -922,8 +920,15 @@ pub(crate) async fn send_transaction_message_route(
                         ignoring",
                     );
                     continue;
+                } else if let Err(error) =
+                    services().users.mark_device_key_update(&user_id)
+                {
+                    warn!(
+                        %error,
+                        user_id = %user_id,
+                        "Failed to update device list for user",
+                    );
                 }
-                services().users.mark_device_key_update(&user_id)?;
             }
             Edu::DirectToDevice(DirectDeviceContent {
                 sender,
