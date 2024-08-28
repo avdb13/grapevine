@@ -331,7 +331,9 @@ pub(crate) async fn get_remote_content(
             response
         }
         Err(Error::Federation(_, error))
-            if error.error_kind() == Some(&ErrorKind::Unrecognized) =>
+            if error.error_kind() == Some(&ErrorKind::Unrecognized)
+                // https://github.com/t2bot/matrix-media-repo/issues/609
+                || error.error_kind() == Some(&ErrorKind::Unauthorized) =>
         {
             info!(
                 "Remote server does not support authenticated media, falling \
@@ -795,7 +797,9 @@ pub(crate) async fn get_remote_thumbnail(
             response
         }
         Err(Error::Federation(_, error))
-            if error.error_kind() == Some(&ErrorKind::Unrecognized) =>
+            if error.error_kind() == Some(&ErrorKind::Unrecognized)
+                // https://github.com/t2bot/matrix-media-repo/issues/609
+                || error.error_kind() == Some(&ErrorKind::Unauthorized) =>
         {
             info!(
                 "Remote server does not support authenticated media, falling \
