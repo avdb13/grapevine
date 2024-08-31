@@ -477,24 +477,29 @@ impl Service {
                     if membership == MembershipState::Ban {
                         let (room, user) = (&pdu.room_id, &target_user_id);
 
-                        info!(
-                            %user,
-                            %room,
-                            reason,
-                            "User has been banned from room"
-                        );
+                        if user.server_name()
+                            == services().globals.server_name()
+                        {
+                            info!(
+                                %user,
+                                %room,
+                                reason,
+                                "User has been banned from room"
+                            );
 
-                        let reason = match reason.filter(|s| !s.is_empty()) {
-                            Some(s) => format!(": {s}"),
-                            None => String::new(),
-                        };
+                            let reason = match reason.filter(|s| !s.is_empty())
+                            {
+                                Some(s) => format!(": {s}"),
+                                None => String::new(),
+                            };
 
-                        services().admin.send_message(
-                            RoomMessageEventContent::notice_plain(format!(
-                                "User {user} has been banned from room \
-                                 {room}{reason}",
-                            )),
-                        );
+                            services().admin.send_message(
+                                RoomMessageEventContent::notice_plain(format!(
+                                    "User {user} has been banned from room \
+                                     {room}{reason}",
+                                )),
+                            );
+                        }
                     }
 
                     // Update our membership info, we do this here incase a user

@@ -203,4 +203,5 @@ This will be the first release of Grapevine since it was forked from Conduit
 13. Support building nix packages without IFD
     ([!73](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/73))
 14. Report local users getting banned in the server logs and admin room.
-    ([!65](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/65))
+    ([!65](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/65),
+    [!84](https://gitlab.computer.surgery/matrix/grapevine-fork/-/merge_requests/84))
