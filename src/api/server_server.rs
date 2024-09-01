@@ -945,58 +945,62 @@ pub(crate) async fn send_transaction_message_route(
                     );
                     continue;
                 }
+
                 // Check if this is a new transaction id
-                if services()
+                let Ok(None) = services()
                     .transaction_ids
-                    .existing_txnid(&sender, None, &message_id)?
-                    .is_none()
-                {
-                    for (target_user_id, map) in &messages {
-                        for (target_device_id_maybe, event) in map {
-                            match target_device_id_maybe {
-                                DeviceIdOrAllDevices::DeviceId(
-                                    target_device_id,
-                                ) => services().users.add_to_device_event(
+                    .existing_txnid(&sender, None, &message_id)
+                    .inspect_err(|error| {
+                        warn!(
+                            %error,
+                            "Failed to create transaction for sending direct-to-device EDU \
+                             , ignoring",
+                        );
+                    })
+                else {
+                    continue;
+                };
+
+                for (target_user_id, map) in &messages {
+                    for (target, event) in map {
+                        let Ok(content): Result<serde_json::Value, _> =
+                            event.deserialize_as().inspect_err(|error| {
+                                warn!(
+                                    %error,
+                                    object = ?event.json(),
+                                    "To-Device event is invalid, ignoring",
+                                );
+                            })
+                        else {
+                            continue;
+                        };
+
+                        let device_ids = match target {
+                            DeviceIdOrAllDevices::DeviceId(device_id) => {
+                                vec![device_id.to_owned()]
+                            }
+                            DeviceIdOrAllDevices::AllDevices => services()
+                                .users
+                                .all_device_ids(target_user_id)
+                                .filter_map(Result::ok)
+                                .collect(),
+                        };
+
+                        for target_device_id in &device_ids {
+                            if let Err(error) =
+                                services().users.add_to_device_event(
                                     &sender,
                                     target_user_id,
                                     target_device_id,
                                     &ev_type.to_string(),
-                                    event.deserialize_as().map_err(
-                                        |error| {
-                                            warn!(
-                                                %error,
-                                                object = ?event.json(),
-                                                "To-Device event is invalid",
-                                            );
-                                            Error::BadRequest(
-                                                ErrorKind::InvalidParam,
-                                                "Event is invalid",
-                                            )
-                                        },
-                                    )?,
-                                )?,
-
-                                DeviceIdOrAllDevices::AllDevices => {
-                                    for target_device_id in services()
-                                        .users
-                                        .all_device_ids(target_user_id)
-                                    {
-                                        services().users.add_to_device_event(
-                                            &sender,
-                                            target_user_id,
-                                            &target_device_id?,
-                                            &ev_type.to_string(),
-                                            event.deserialize_as().map_err(
-                                                |_| {
-                                                    Error::BadRequest(
-                                                        ErrorKind::InvalidParam,
-                                                        "Event is invalid",
-                                                    )
-                                                },
-                                            )?,
-                                        )?;
-                                    }
-                                }
+                                    content.clone(),
+                                )
+                            {
+                                warn!(
+                                    %error,
+                                    object = ?event.json(),
+                                    "Failed to send To-Device event, ignoring",
+                                );
                             }
                         }
                     }
