@@ -951,7 +951,7 @@ pub(crate) async fn send_transaction_message_route(
                         warn!(
                             %error,
                             user_id = %sender,
-                            %message_id,
+                            txn_id = %message_id,
                             "Failed to create transaction for sending direct-to-device EDU \
                              , ignoring",
                         );
@@ -1006,12 +1006,20 @@ pub(crate) async fn send_transaction_message_route(
                     }
 
                     // Save transaction id with empty data
-                    services().transaction_ids.add_txnid(
+                    if let Err(error) = services().transaction_ids.add_txnid(
                         &sender,
                         None,
                         &message_id,
                         &[],
-                    )?;
+                    ) {
+                        warn!(
+                            %error,
+                            user_id = %sender,
+                            txn_id = %message_id,
+                            "Failed to complete transaction for sending direct-to-device EDU \
+                             , ignoring",
+                        );
+                    }
                 }
             }
             Edu::SigningKeyUpdate(SigningKeyUpdateContent {
