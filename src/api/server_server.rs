@@ -866,7 +866,6 @@ pub(crate) async fn send_transaction_message_route(
                         warn!(
                             %error,
                             user_id = %typing.user_id,
-                            room_id = %typing.room_id,
                             "Failed to determine membership of EDU sender, ignoring",
                         );
                     }) else {
@@ -888,7 +887,6 @@ pub(crate) async fn send_transaction_message_route(
                             warn!(
                                 %error,
                                 user_id = %typing.user_id,
-                                room_id = %typing.room_id,
                                 "Failed to set user as typing",
                             );
                         }
@@ -902,7 +900,6 @@ pub(crate) async fn send_transaction_message_route(
                         warn!(
                             %error,
                             user_id = %typing.user_id,
-                            room_id = %typing.room_id,
                             "Failed to remove user from typing",
                         );
                     }
@@ -925,7 +922,7 @@ pub(crate) async fn send_transaction_message_route(
                 {
                     warn!(
                         %error,
-                        user_id = %user_id,
+                        %user_id,
                         "Failed to update device list for user",
                     );
                 }
@@ -953,6 +950,8 @@ pub(crate) async fn send_transaction_message_route(
                     .inspect_err(|error| {
                         warn!(
                             %error,
+                            user_id = %sender,
+                            %message_id,
                             "Failed to create transaction for sending direct-to-device EDU \
                              , ignoring",
                         );
@@ -998,7 +997,8 @@ pub(crate) async fn send_transaction_message_route(
                             {
                                 warn!(
                                     %error,
-                                    object = ?event.json(),
+                                    user_id = %target_user_id,
+                                    ?content,
                                     "Failed to send To-Device event, ignoring",
                                 );
                             }
@@ -1028,14 +1028,23 @@ pub(crate) async fn send_transaction_message_route(
                     );
                     continue;
                 }
-                if let Some(master_key) = master_key {
-                    services().users.add_cross_signing_keys(
-                        &user_id,
-                        &master_key,
-                        &self_signing_key,
-                        &None,
-                        true,
-                    )?;
+
+                let Some(master_key) = master_key else {
+                    continue;
+                };
+
+                if let Err(error) = services().users.add_cross_signing_keys(
+                    &user_id,
+                    &master_key,
+                    &self_signing_key,
+                    &None,
+                    true,
+                ) {
+                    warn!(
+                        %error,
+                        %user_id,
+                        "Failed to add new cross-signing keys for user, ignoring",
+                    );
                 }
             }
             Edu::_Custom(_) | Edu::Presence(_) => {}
