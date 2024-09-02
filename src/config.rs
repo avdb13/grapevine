@@ -1,12 +1,18 @@
 use std::{
     borrow::Cow,
+    collections::{HashMap, HashSet},
     fmt::{self, Display},
+    hash::Hash,
     net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
 };
 
+use mas_oidc_client::types::scope::Scope;
 use once_cell::sync::Lazy;
-use ruma::{OwnedServerName, RoomVersionId};
+use ruma::{
+    api::client::session::get_login_types::v3::IdentityProvider,
+    OwnedServerName, RoomVersionId,
+};
 use serde::Deserialize;
 
 use crate::error;
@@ -59,6 +65,8 @@ pub(crate) struct Config {
     pub(crate) observability: ObservabilityConfig,
     #[serde(default)]
     pub(crate) turn: TurnConfig,
+    #[serde(default)]
+    pub(crate) sso: SsoConfig,
 
     pub(crate) emergency_password: Option<String>,
 }
@@ -262,6 +270,72 @@ impl Default for FederationConfig {
             max_fetch_prev_events: 100,
             max_concurrent_requests: 100,
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct SsoConfig(pub(crate) HashSet<ProviderConfig>);
+
+impl<'de> Deserialize<'de> for SsoConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let map: HashMap<String, toml::Table> =
+            HashMap::deserialize(deserializer)
+                .map_err(serde::de::Error::custom)?;
+
+        let result: Result<_, _> = map
+            .into_iter()
+            .map(|(id, value)| {
+                let scopes = std::iter::once((
+                    "scopes".to_owned(),
+                    toml::Value::String({
+                        match value.get("scopes") {
+                            Some(toml::Value::Array(v)) => {
+                                v.iter().filter_map(|s| s.as_str()).collect()
+                            }
+                            _ => "openid".to_owned(),
+                        }
+                    }),
+                ));
+                let id =
+                    std::iter::once(("id".to_owned(), toml::Value::String(id)));
+
+                let table: toml::Table =
+                    value.into_iter().chain(id).chain(scopes).collect();
+
+                toml::from_str(&table.to_string())
+            })
+            .collect();
+
+        result.map(SsoConfig).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct ProviderConfig {
+    pub(crate) issuer: String,
+    #[serde(flatten)]
+    pub(crate) inner: IdentityProvider,
+    pub(crate) scopes: Scope,
+
+    pub(crate) client_id: String,
+    pub(crate) client_secret: String,
+    pub(crate) auth_method: String,
+}
+
+impl PartialEq for ProviderConfig {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.id == other.inner.id
+    }
+}
+
+impl Eq for ProviderConfig {}
+
+impl Hash for ProviderConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inner.id.hash(state);
     }
 }
 
