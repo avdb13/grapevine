@@ -6,6 +6,7 @@ mod media;
 mod pusher;
 mod rooms;
 mod sending;
+mod sso;
 mod transaction_ids;
 mod uiaa;
 mod users;

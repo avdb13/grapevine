@@ -18,6 +18,7 @@ pub(crate) mod pdu;
 pub(crate) mod pusher;
 pub(crate) mod rooms;
 pub(crate) mod sending;
+pub(crate) mod sso;
 pub(crate) mod transaction_ids;
 pub(crate) mod uiaa;
 pub(crate) mod users;
@@ -35,6 +36,7 @@ pub(crate) struct Services {
     pub(crate) key_backups: key_backups::Service,
     pub(crate) media: media::Service,
     pub(crate) sending: Arc<sending::Service>,
+    pub(crate) sso: Arc<sso::Service>,
 }
 
 impl Services {
@@ -50,6 +52,7 @@ impl Services {
             + key_backups::Data
             + media::Data
             + sending::Data
+            + sso::Data
             + 'static,
     >(
         db: &'static D,
@@ -149,6 +152,7 @@ impl Services {
                 db,
             },
             sending: sending::Service::build(db, &config),
+            sso: sso::Service::build(db),
 
             globals: globals::Service::load(db, config, reload_handles)?,
         })
