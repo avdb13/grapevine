@@ -1,11 +1,10 @@
 use std::{
-    collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
-    ops::Deref,
+    collections::{hash_map::Entry, BTreeMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use futures_util::{future, stream::FuturesUnordered, StreamExt, TryStreamExt};
+use futures_util::future;
 use ruma::{
     api::{
         client::{
@@ -22,22 +21,19 @@ use ruma::{
             membership::{create_invite, create_join_event},
         },
     },
-    canonical_json::to_canonical_value,
     events::{
         room::{
-            join_rules::{AllowRule, JoinRule, RoomJoinRulesEventContent},
+            join_rules::AllowRule,
             member::{MembershipState, RoomMemberEventContent},
         },
         StateEventType, TimelineEventType,
     },
-    state_res, CanonicalJsonObject, CanonicalJsonValue, EventId,
+    state_res::{self},
+    CanonicalJsonObject, CanonicalJsonValue, EventId,
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName,
-    OwnedUserId, RoomId, RoomVersionId, UserId,
+    RoomId, RoomVersionId, UserId,
 };
-use serde_json::{
-    value::{to_raw_value, RawValue as RawJsonValue},
-    Value,
-};
+use serde_json::value::{to_raw_value, RawValue as RawJsonValue};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -67,7 +63,9 @@ pub(crate) async fn join_room_by_id_route(
 
     // There is no body.server_name for /roomId/join
     let mut servers = Vec::new();
-    if let Some(v) = find_participating_servers(sender_user, &body.room_id)? {
+    if let Some(v) =
+        membership::find_participating_servers(sender_user, &body.room_id)?
+    {
         servers.extend(v);
     }
 
@@ -106,7 +104,8 @@ pub(crate) async fn join_room_by_id_or_alias_route(
         Ok(room_id) => {
             let mut servers = body.server_name.clone();
 
-            if let Some(v) = find_participating_servers(sender_user, &room_id)?
+            if let Some(v) =
+                membership::find_participating_servers(sender_user, &room_id)?
             {
                 servers.extend(v);
             }
@@ -524,7 +523,7 @@ async fn join_room_by_id_helper(
                     user.server_name() == services().globals.server_name()
                         && services().rooms.state_accessor.user_can_invite(
                             &room_token,
-                            &user,
+                            user,
                             sender_user,
                         )
                 })
@@ -550,7 +549,9 @@ async fn join_room_by_id_helper(
         join_conditions.as_ref().is_some_and(Vec::is_empty)
             && servers.iter().any(|s| *s != services().globals.server_name());
 
-    let error = server_in_room.then(|| {
+    let mut _error = None::<Error>;
+
+    if server_in_room {
         info!("We can join locally");
 
         // Try normal join first
@@ -571,14 +572,14 @@ async fn join_room_by_id_helper(
             )
             .await;
 
-        match result {
-            Err(error) if is_remote_and_restricted => error,
+        _error = match result {
+            Err(error) if is_remote_and_restricted => Some(error),
             result => {
                 return result.map(|_| {
                     join_room_by_id::v3::Response::new(room_id.to_owned())
                 });
             }
-        }
+        };
 
         // info!(
         //     "We couldn't do the join locally, maybe federation can help \
@@ -647,7 +648,7 @@ async fn join_room_by_id_helper(
         //         &pub_key_map,
         //     )
         //     .await?;
-    });
+    }
 
     if !server_in_room {
         info!("Joining over federation.");
@@ -682,7 +683,7 @@ async fn join_room_by_id_helper(
 
         info!(server = %remote_server, "Asking other server for send_join");
 
-        let mut send_join_request = create_join_event::v2::Request::new(
+        let send_join_request = create_join_event::v2::Request::new(
             room_id.to_owned(),
             event_id.clone(),
             PduEvent::convert_to_outgoing_federation_event(join_event.clone()),
@@ -698,8 +699,8 @@ async fn join_room_by_id_helper(
         if let Some(signed_membership_event) =
             send_join_response.room_state.event.as_deref()
         {
-            let mut signatures = join_event
-                .get("signatures")
+            let signatures = join_event
+                .get_mut("signatures")
                 .and_then(|value| value.as_object_mut());
 
             let signature = membership::validate_send_join_signature(
@@ -709,9 +710,8 @@ async fn join_room_by_id_helper(
                 &remote_server,
             )?;
 
-            if let Some((mut signatures, signature)) = signatures.zip(signature)
-            {
-                join_event.insert(remote_server.to_string(), signature);
+            if let Some((signatures, signature)) = signatures.zip(signature) {
+                signatures.insert(remote_server.to_string(), signature);
             };
         }
 
@@ -725,6 +725,7 @@ async fn join_room_by_id_helper(
         info!("Fetching join signing keys");
 
         let pub_key_map = RwLock::new(BTreeMap::new());
+
         services()
             .rooms
             .event_handler
@@ -735,139 +736,90 @@ async fn join_room_by_id_helper(
             )
             .await?;
 
-        // info!("Going through send_join response room_state");
+        info!("Going through send_join response room_state");
 
-        // let mut state = HashMap::new();
+        let state_pdus = future::join_all(
+            send_join_response.room_state.state.iter().map(|pdu| {
+                validate_and_add_event_id(pdu, &room_version_id, &pub_key_map)
+            }),
+        )
+        .await;
 
-        // let pdus = {
-        //     let state = future::join_all(
-        //         send_join_response.room_state.state.iter().map(|pdu| {
-        //             validate_and_add_event_id(
-        //                 pdu,
-        //                 &room_version_id,
-        //                 &pub_key_map,
-        //             )
-        //         }),
-        //     )
-        //     .await;
-        //     let auth_chain = future::join_all(
-        //         send_join_response.room_state.auth_chain.iter().map(|pdu| {
-        //             validate_and_add_event_id(
-        //                 pdu,
-        //                 &room_version_id,
-        //                 &pub_key_map,
-        //             )
-        //         }),
-        //     )
-        //     .await;
+        info!("Building state map for auth check");
 
-        //     state.into_iter().chain(auth_chain).filter_map(Result::ok)
-        // };
+        let state_snapshot = membership::build_state_snapshot(
+            state_pdus.iter().filter_map(|result| result.as_ref().ok()),
+        )?;
 
-        // for (idx, (event_id, value)) in pdus.enumerate() {
-        //     info!("Going through send_join response auth_chain");
+        info!("Going through send_join response auth_chain");
 
-        //     let pdu = (idx < state.len())
-        //         .then(|| PduEvent::from_id_val(&event_id, value.clone()))
-        //         .transpose()?;
+        let auth_chain_pdus = future::join_all(
+            send_join_response.room_state.auth_chain.iter().map(|pdu| {
+                validate_and_add_event_id(pdu, &room_version_id, &pub_key_map)
+            }),
+        )
+        .await;
 
-        //     services().rooms.outlier.add_pdu_outlier(&event_id, &value)?;
+        info!("Saving state/auth_chain outlier PDUs from send_join response");
 
-        //     if let Some((event_id, event_type, Some(state_key))) =
-        //         pdu.map(|pdu| {
-        //             (&*pdu.event_id, pdu.kind.to_string(), &*pdu.state_key)
-        //         })
-        //     {
-        //         let shortstatekey =
-        //             services().rooms.short.get_or_create_shortstatekey(
-        //                 &event_type.into(),
-        //                 state_key,
-        //             )?;
-
-        //         state.insert(shortstatekey, event_id);
-        //     }
-        // }
-
-        // let state = validated.into_iter().filter_map(Result::ok).try_fold(
-        //     HashMap::new(),
-        //     |state, (event_id, value)| {
-        //         let pdu = PduEvent::from_id_val(&event_id, value.clone())
-        //             .map_err(|error| {
-        //                 warn!(
-        //                     %error,
-        //                     object = ?value,
-        //                     "Invalid PDU in send_join response",
-        //                 );
-
-        //                 Error::BadServerResponse(
-        //                     "Invalid PDU in send_join response.",
-        //                 )
-        //             })?;
-
-        //         services().rooms.outlier.add_pdu_outlier(&event_id, &value)?;
-
-        //         let Some(state_key) = pdu.state_key.as_ref() else {
-        //             return Ok(state);
-        //         };
-
-        //         let result =
-        //             services().rooms.short.get_or_create_shortstatekey(
-        //                 &StateEventType::from(pdu.kind.to_string()),
-        //                 state_key,
-        //             );
-
-        //         result.map(|shortstatekey| {
-        //             let other = Some((shortstatekey, pdu.event_id.clone()));
-
-        //             state.into_iter().chain(other.into_iter()).collect()
-        //         })
-        //     },
-        // )?;
+        for (event_id, value) in
+            state_pdus.into_iter().chain(auth_chain_pdus).filter_map(Result::ok)
+        {
+            services().rooms.outlier.add_pdu_outlier(&event_id, &value)?;
+        }
 
         info!("Running send_join auth check");
-        let authenticated = state_res::event_auth::auth_check(
-            &state_res::RoomVersion::new(&room_version_id)
-                .expect("room version is supported"),
-            &parsed_join_pdu,
-            // TODO: third party invite
-            None::<PduEvent>,
-            |k, s| {
-                services()
-                    .rooms
-                    .timeline
-                    .get_pdu(
-                        state.get(
-                            &services()
-                                .rooms
-                                .short
-                                .get_or_create_shortstatekey(
-                                    &k.to_string().into(),
-                                    s,
-                                )
-                                .ok()?,
-                        )?,
-                    )
-                    .ok()?
-            },
-        )
-        .map_err(|error| {
-            warn!(%error, "Auth check failed");
-            Error::BadRequest(ErrorKind::InvalidParam, "Auth check failed")
-        })?;
 
-        if !authenticated {
+        let room_version = state_res::RoomVersion::new(&room_version_id)
+            .expect("room version is supported");
+        // TODO: third party invite
+        let third_party_invite: Option<PduEvent> = None;
+
+        let fetch_state = |event_type: &StateEventType, state_key: &str| {
+            let result =
+                services().rooms.short.get_shortstatekey(event_type, state_key);
+
+            match result {
+                Ok(Some(shortstatekey)) => {
+                    match state_snapshot.get(&shortstatekey) {
+                        Some(event_id) => {
+                            let result =
+                                services().rooms.timeline.get_pdu(event_id);
+
+                            result.transpose().and_then(Result::ok)
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        };
+
+        let auth_check = state_res::event_auth::auth_check(
+            &room_version,
+            &join_pdu,
+            third_party_invite,
+            fetch_state,
+        );
+
+        let Ok(true) = auth_check.inspect_err(|error| {
+            warn!(%error, "Auth check failed");
+        }) else {
             return Err(Error::BadRequest(
                 ErrorKind::InvalidParam,
                 "Auth check failed",
             ));
-        }
+        };
 
         info!("Saving state from send_join");
+
+        todo!();
+
         let (statehash_before_join, new, removed) =
             services().rooms.state_compressor.save_state(
                 room_id,
                 Arc::new(
-                    state
+                    state_snapshot
                         .into_iter()
                         .map(|(k, id)| {
                             services()
@@ -892,16 +844,16 @@ async fn join_room_by_id_helper(
         // moment in time with the pdu without it's state. This is okay
         // because append_pdu can't fail.
         let statehash_after_join =
-            services().rooms.state.append_to_state(&parsed_join_pdu)?;
+            services().rooms.state.append_to_state(&join_pdu)?;
 
         info!("Appending new room join event");
         services()
             .rooms
             .timeline
             .append_pdu(
-                &parsed_join_pdu,
+                &join_pdu,
                 join_event,
-                vec![(*parsed_join_pdu.event_id).to_owned()],
+                vec![(*join_pdu.event_id).to_owned()],
                 &room_token,
             )
             .await?;
@@ -1370,9 +1322,13 @@ async fn remote_leave_room(user_id: &UserId, room_id: &RoomId) -> Result<()> {
         "No server available to assist in leaving.",
     ));
 
-    let servers: HashSet<_> = find_participating_servers(user_id, room_id)?
-        .ok_or(Error::BadRequest(ErrorKind::BadState, "User is not invited."))
-        .map(Iterator::collect)?;
+    let servers: HashSet<_> =
+        membership::find_participating_servers(user_id, room_id)?
+            .ok_or(Error::BadRequest(
+                ErrorKind::BadState,
+                "User is not invited.",
+            ))
+            .map(Iterator::collect)?;
 
     for remote_server in servers {
         let make_leave_response = services()

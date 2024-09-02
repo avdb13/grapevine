@@ -1,3 +1,8 @@
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
+
 use ruma::{
     api::client::error::ErrorKind,
     canonical_json::to_canonical_value,
@@ -14,7 +19,7 @@ use ruma::{
 use serde_json::{value::RawValue as RawJsonValue, Value};
 use tracing::{info, warn};
 
-use crate::{service::pdu, services, utils, Error, Result};
+use crate::{service::pdu, services, utils, Error, PduEvent, Result};
 
 /// Tries to find servers already participating in this room by
 /// inspecting its stripped state events, if any.
@@ -92,7 +97,7 @@ pub(crate) fn prepare_make_join_stub(
             )
         })?;
 
-    let join_authorized_via_users_server =
+    let _join_authorized_via_users_server =
         stub.get("content").and_then(|content| {
             let auth_user =
                 content.as_object()?.get("join_authorised_via_users_server")?;
@@ -200,4 +205,47 @@ pub(crate) fn validate_send_join_signature(
     };
 
     Ok(Some(signature.to_owned()))
+}
+
+pub(crate) fn build_state_snapshot<'pdus, I>(
+    mut pdus: I,
+) -> Result<HashMap<u64, Arc<EventId>>>
+where
+    I: Iterator<
+        Item = &'pdus (OwnedEventId, BTreeMap<String, CanonicalJsonValue>),
+    >,
+{
+    pdus.try_fold(HashMap::new(), |snapshot, (event_id, value)| {
+        match PduEvent::from_id_val(event_id, value.clone()) {
+            Err(error) => {
+                warn!(
+                    %error,
+                    object = ?value,
+                    "Invalid PDU in send_join response",
+                );
+
+                Err(Error::BadServerResponse(
+                    "Invalid PDU in send_join response.",
+                ))
+            }
+            Ok(pdu) => {
+                let Some(state_key) = pdu.state_key.as_ref() else {
+                    return Ok(snapshot);
+                };
+
+                let result =
+                    services().rooms.short.get_or_create_shortstatekey(
+                        &StateEventType::from(pdu.kind.to_string()),
+                        state_key,
+                    );
+
+                result.map(|shortstatekey| {
+                    let tail =
+                        std::iter::once((shortstatekey, pdu.event_id.clone()));
+
+                    snapshot.into_iter().chain(tail).collect()
+                })
+            }
+        }
+    })
 }
